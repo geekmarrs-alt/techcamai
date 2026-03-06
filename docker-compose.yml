@@ -1,0 +1,18 @@
+services:
+  api:
+    build: ./api
+    env_file: .env
+    # Host networking so discovery + camera access see the real LAN
+    network_mode: host
+    volumes:
+      - techcamai-data:/data
+
+  worker:
+    build: ./worker
+    env_file: .env
+    network_mode: host
+    depends_on:
+      - api
+
+volumes:
+  techcamai-data:

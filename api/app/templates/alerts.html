@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Alerts · TECHCAMAI{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>Alerts</h2>
+      <div class="sub">Latest detections with thumbnails. Acknowledge to clear noise.</div>
+    </div>
+    <div class="row">
+      <a class="btn" href="/timeline">Timeline</a>
+      <a class="btn" href="/">Overview</a>
+      {% include "_poll_hint.html" %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="sub">Showing {{ alerts|length }} alerts</div>
+      <div class="row">
+        <a class="btn ghost" href="/alerts?show=all">All</a>
+        <a class="btn ghost" href="/alerts">Unacked</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="alertlist">
+    {% for a in alerts %}
+      <div class="alertrow">
+        <div class="alertthumb">
+          {% if a.snapshot_b64 %}
+            <img src="data:image/jpeg;base64,{{a.snapshot_b64}}" alt="thumb" />
+          {% else %}
+            <div class="sub">No thumb</div>
+          {% endif %}
+        </div>
+        <div class="alertmeta">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div class="tilename">{{ a.label|upper }} <span class="sub">· conf {{ '%.2f'|format(a.conf) }}</span></div>
+              <div class="sub">{{ a.created_at }} UTC · Cam: {{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · Rule: {{ rules.get(a.rule_id).name if rules.get(a.rule_id) else a.rule_id }}</div>
+            </div>
+            {% if a.acked %}
+              <span class="pill ok">ACKED</span>
+            {% else %}
+              <span class="pill bad">NEW</span>
+            {% endif %}
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            {% if not a.acked %}
+              <form method="post" action="/alerts/{{a.id}}/ack" style="margin:0">
+                <button class="btn primary" type="submit">Acknowledge</button>
+              </form>
+            {% endif %}
+            <a class="btn" href="/live">Live</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% if alerts|length == 0 %}
+      <div class="card" style="margin-top:12px">
+        <h3>Nothing yet</h3>
+        <div class="sub">If the worker is running, alerts will land here with thumbnails.</div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

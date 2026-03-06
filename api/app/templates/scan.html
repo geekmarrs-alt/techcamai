@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}TECHCAMAI — Scan{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>Scan results</h2>
+      <div class="sub">Found {{ devices|length }} device(s). Hikvision comes first.</div>
+    </div>
+    <a class="btn" href="/">Back</a>
+  </div>
+
+  <div class="card">
+    {% if not devices %}
+      <div class="sub">Nothing found. Try again, or check VLAN segmentation.</div>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Hints</th>
+            <th>Ports</th>
+            <th class="right"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for d in devices %}
+          <tr>
+            <td class="mono"><strong>{{ d.ip }}</strong></td>
+            <td>
+              {% if d.vendor_hint %}<span class="pill">{{ d.vendor_hint }}</span>{% endif %}
+              {% if d.hikvision_isapi %}<span class="pill">isapi</span>{% endif %}
+              {% if d.onvif_hint %}<span class="pill">rtsp</span>{% endif %}
+            </td>
+            <td class="mono sub">{{ d.ports|join(', ') }}</td>
+            <td class="right"><a class="btn" href="/ui/add?ip={{ d.ip }}">Add / Test</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Timeline · TECHCAMAI{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>Timeline</h2>
+      <div class="sub">Event stream view (MVP: alerts ordered by time).</div>
+    </div>
+    <div class="row">
+      <a class="btn" href="/alerts">Alerts</a>
+      <a class="btn" href="/">Overview</a>
+      {% include "_poll_hint.html" %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Latest events</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Camera</th>
+          <th>Label</th>
+          <th>Conf</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in alerts %}
+          <tr>
+            <td class="mono">{{ a.created_at }}</td>
+            <td>{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }}</td>
+            <td>{{ a.label }}</td>
+            <td class="mono">{{ '%.2f'|format(a.conf) }}</td>
+            <td>
+              {% if a.acked %}
+                <span class="pill ok">acked</span>
+              {% else %}
+                <span class="pill bad">new</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

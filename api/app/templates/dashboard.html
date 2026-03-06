@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Overview · TECHCAMAI{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2 style="margin-bottom:2px">Overview</h2>
+      <div class="sub">Operator console · fast actions · minimal clutter</div>
+    </div>
+    <div class="row">
+      <a class="btn primary" href="/ui/scan">Scan LAN</a>
+      <a class="btn" href="/live">Live</a>
+      <a class="btn" href="/alerts">Alerts</a>
+      {% include "_poll_hint.html" %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="tilename" style="font-size:18px">TECHCAMAI</div>
+        <div class="sub">Edge-first CCTV events · Frigate-inspired, TECHCAMAI twist</div>
+      </div>
+      <div class="row">
+        <span class="pill">MVP</span>
+        <span class="pill">snapshots</span>
+        <span class="pill">digest</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h3>Latest alerts</h3>
+        <a class="btn ghost" href="/alerts">Open inbox</a>
+      </div>
+
+      {% if alerts %}
+        <table>
+          <thead>
+            <tr>
+              <th>Time (UTC)</th>
+              <th>Camera</th>
+              <th>Label</th>
+              <th class="right">Conf</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for a in alerts %}
+            <tr>
+              <td class="mono">{{ a.created_at }}</td>
+              <td>{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }}</td>
+              <td>
+                <span class="pill">{{ a.label }}</span>
+                {% if a.acked %}<span class="pill ok">ACK</span>{% else %}<span class="pill bad">NEW</span>{% endif %}
+              </td>
+              <td class="right mono">{{ '%.2f'|format(a.conf) }}</td>
+              <td class="right">
+                {% if not a.acked %}
+                  <form method="post" action="/alerts/{{a.id}}/ack" style="margin:0">
+                    <button class="btn" type="submit">Ack</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="sub">No alerts yet. Once the worker is running, events will appear here with thumbnails.</div>
+      {% endif %}
+    </section>
+
+    <aside class="card">
+      <div class="row" style="justify-content:space-between">
+        <h3>Cameras</h3>
+        <a class="btn ghost" href="/cameras/manage">Manage</a>
+      </div>
+
+      {% if cameras %}
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for c in cameras %}
+            <tr>
+              <td><strong>{{ c.name }}</strong><div class="sub mono">{{ c.ip }}</div></td>
+              <td>{% if c.enabled %}<span class="pill ok">ON</span>{% else %}<span class="pill bad">OFF</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="sub">No saved cameras yet.</div>
+      {% endif %}
+
+      <div style="margin-top:12px" class="card">
+        <div class="sub">Quick actions</div>
+        <div class="row" style="margin-top:8px">
+          <a class="btn ghost" href="/ui/scan">Scan LAN</a>
+          <a class="btn ghost" href="/live">Live wall</a>
+          <a class="btn ghost" href="/docs">API docs</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+{% endblock %}

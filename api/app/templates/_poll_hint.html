@@ -1,0 +1,5 @@
+{% if poll|default(0) %}
+  <span class="pill ok">LIVE</span>
+{% else %}
+  <a class="btn ghost" href="?poll=1">Enable live refresh</a>
+{% endif %}

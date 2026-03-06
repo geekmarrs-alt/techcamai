@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}TECHCAMAI — Add camera{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>Add / Test camera</h2>
+      <div class="sub">Hikvision-friendly: HTTPS + Digest.</div>
+    </div>
+    <a class="btn" href="/">Back</a>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h3>Credentials</h3>
+      <form method="post" action="/ui/add">
+        <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
+          <div>
+            <div class="sub">IP</div>
+            <input name="ip" value="{{ ip }}" placeholder="192.168.0.84" />
+          </div>
+          <div>
+            <div class="sub">Channel</div>
+            <input name="channel" value="1" />
+          </div>
+          <div>
+            <div class="sub">Username</div>
+            <input name="username" value="admin" />
+          </div>
+          <div>
+            <div class="sub">Password</div>
+            <input name="password" type="password" value="" placeholder="(stored nowhere yet)" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" name="action" value="test" type="submit">Test snapshot</button>
+          <button class="btn" name="action" value="save" type="submit">Save camera (MVP)</button>
+          <span class="sub">Save currently stores URL only (no creds). Worker wiring comes next.</span>
+        </div>
+      </form>
+
+      {% if result %}
+        <div style="margin-top:12px" class="card">
+          {% if result.ok %}
+            <span class="pill ok">OK</span>
+            {% if result.url %}<div class="sub" style="margin-top:8px">URL: <span class="mono">{{ result.url }}</span></div>{% endif %}
+            {% if result.saved %}<div style="margin-top:8px">Saved.</div>{% endif %}
+          {% else %}
+            <span class="pill bad">FAILED</span>
+            <div class="sub" style="margin-top:8px">{{ result.error }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="card">
+      <h3>Preview</h3>
+      {% if result and result.ok and result.jpeg_b64 %}
+        <img class="preview" src="data:image/jpeg;base64,{{ result.jpeg_b64 }}" />
+      {% else %}
+        <div class="sub">Run <strong>Test snapshot</strong> to see the preview here.</div>
+      {% endif %}
+
+      <div style="margin-top:12px" class="card">
+        <div class="sub">Pro tip</div>
+        <div class="sub" style="margin-top:8px">If a cam 401s on HTTP, try HTTPS (we do that automatically now).</div>
+      </div>
+    </aside>
+  </div>
+{% endblock %}

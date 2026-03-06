@@ -1,0 +1,58 @@
+# TECHCAMAI Pi deployment (recommended)
+# - Pulls prebuilt images from a registry
+# - Uses host networking so cameras on LAN work reliably
+# - Watchtower automatically updates images on a schedule
+#
+# Usage on Pi:
+#   cp .env.example .env
+#   docker compose -f docker-compose.pi.yml up -d
+#
+# Update cadence:
+#   - Default: daily at 03:15 local time (configurable)
+#   - Prefer tags like :stable and :beta for staged rollout
+
+services:
+  api:
+    image: ghcr.io/yourorg/techcamai-api:stable
+    env_file: .env
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - techcamai-data:/data
+
+  worker:
+    image: ghcr.io/yourorg/techcamai-worker:stable
+    env_file: .env
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  # Auto-update containers by watching the running compose stack.
+  # IMPORTANT: only do this if images are signed/trusted and you control the registry.
+  watchtower:
+    image: containrrr/watchtower:latest
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Only update these services (avoid touching unrelated containers on the Pi)
+      - WATCHTOWER_SCOPE=techcamai
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      # Run scheduled checks (instead of constant polling)
+      - WATCHTOWER_SCHEDULE=0 15 3 * * *
+      # Optional: notifications (slack/email/etc)
+      # - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      # - WATCHTOWER_NOTIFICATION_URL=...
+
+volumes:
+  techcamai-data:
+
+# Labels used by watchtower scope/enable
+x-watchtower-labels: &watchtower-labels
+  labels:
+    - com.centurylinklabs.watchtower.enable=true
+    - com.centurylinklabs.watchtower.scope=techcamai

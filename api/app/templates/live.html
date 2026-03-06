@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Live · TECHCAMAI{% endblock %}
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>Live</h2>
+      <div class="sub">Fast refresh snapshot wall (MVP). Click a tile to open full-size.</div>
+    </div>
+    <div class="row">
+      <label class="sub" for="refresh">Refresh</label>
+      <select id="refresh" class="select" style="min-width:140px">
+        <option value="0">Manual</option>
+        <option value="2000">2s</option>
+        <option value="5000" selected>5s</option>
+        <option value="10000">10s</option>
+      </select>
+      <button class="btn" id="refreshNow">Refresh now</button>
+    </div>
+  </div>
+
+  {% if cameras|length == 0 %}
+    <div class="card">
+      <h3>No cameras enabled</h3>
+      <div class="sub">Add a camera first, then come back here.</div>
+      <div style="margin-top:12px">
+        <a class="btn primary" href="/ui/scan">Scan LAN</a>
+        <a class="btn" href="/cameras/manage">Manage cameras</a>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="tilegrid">
+    {% for c in cameras %}
+      <div class="tile" data-camid="{{c.id}}">
+        <div class="tilehdr">
+          <div>
+            <div class="tilename">{{ c.name }}</div>
+            <div class="sub mono">{{ c.scheme }}://{{ c.ip }} · ch {{ c.channel }}</div>
+          </div>
+          <div class="pill {% if c.enabled %}ok{% else %}bad{% endif %}">
+            {% if c.enabled %}ENABLED{% else %}DISABLED{% endif %}
+          </div>
+        </div>
+        <a class="tileimgwrap" href="/cameras/{{c.id}}/snapshot.jpg?full=1" target="_blank" rel="noreferrer">
+          <img class="tileimg" id="camimg-{{c.id}}" src="/cameras/{{c.id}}/snapshot.jpg?ts={{now_ts}}" alt="{{c.name}}" loading="lazy" />
+        </a>
+        <div class="tileft">
+          <button class="btn ghost" onclick="openSnap({{c.id}})">Open</button>
+          <a class="btn ghost" href="/cameras/manage#cam-{{c.id}}">Settings</a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+<script>
+  function refreshOne(id){
+    const img = document.getElementById('camimg-' + id);
+    if(!img) return;
+    const base = '/cameras/' + id + '/snapshot.jpg';
+    img.src = base + '?ts=' + Date.now();
+  }
+  function refreshAll(){
+    document.querySelectorAll('[data-camid]').forEach(el => refreshOne(el.getAttribute('data-camid')));
+  }
+  function openSnap(id){
+    window.open('/cameras/' + id + '/snapshot.jpg?full=1&ts=' + Date.now(), '_blank');
+  }
+
+  const sel = document.getElementById('refresh');
+  const btn = document.getElementById('refreshNow');
+  let timer = null;
+
+  function setTimer(){
+    if(timer) clearInterval(timer);
+    const ms = parseInt(sel.value || '0', 10);
+    if(ms > 0){
+      timer = setInterval(refreshAll, ms);
+    }
+  }
+
+  sel.addEventListener('change', setTimer);
+  btn.addEventListener('click', refreshAll);
+
+  setTimer();
+</script>
+{% endblock %}
