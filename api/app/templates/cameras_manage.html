@@ -67,7 +67,8 @@
             </div>
             <div style="flex:1">
               <div class="sub">Password</div>
-              <input name="password" value="{{c.password or ''}}" />
+              <input name="password" type="password" value="" placeholder="(unchanged)" autocomplete="new-password" />
+              <div class="sub" style="margin-top:6px">Leave blank to keep existing password.</div>
             </div>
           </div>
 

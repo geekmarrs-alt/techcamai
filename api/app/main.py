@@ -344,11 +344,14 @@ def ui_camera_delete(camera_id: int):
 @app.post("/ui/cameras/{camera_id}/update")
 async def ui_camera_update(camera_id: int, request: Request):
     form = await request.form()
+    raw_password = (form.get("password") or "").strip()
+
     patch = CameraUpdate(
         name=(form.get("name") or "").strip() or None,
         ip=(form.get("ip") or "").strip() or None,
         username=(form.get("username") or "").strip() or None,
-        password=(form.get("password") or "").strip() or None,
+        # SECURITY: do not echo stored passwords back into UI; only update if provided.
+        password=raw_password or None,
         channel=int(form.get("channel") or 1),
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
@@ -470,8 +473,14 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         if not c:
             raise HTTPException(status_code=404, detail="camera not found")
 
-        for k, v in patch.model_dump(exclude_unset=True).items():
+        data = patch.model_dump(exclude_unset=True)
+        # SECURITY: empty password means "keep existing".
+        if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
+            data.pop("password", None)
+
+        for k, v in data.items():
             setattr(c, k, v)
+
         s.add(c)
         s.commit()
         s.refresh(c)
