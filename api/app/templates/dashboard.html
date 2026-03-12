@@ -1,112 +1,92 @@
 {% extends "base.html" %}
 {% block title %}Overview · TECHCAMAI{% endblock %}
 {% block content %}
-  <div class="topbar">
-    <div>
-      <h2 style="margin-bottom:2px">Overview</h2>
-      <div class="sub">Operator console · fast actions · minimal clutter</div>
-    </div>
-    <div class="row">
-      <a class="btn primary" href="/ui/scan">Scan LAN</a>
-      <a class="btn" href="/live">Live</a>
-      <a class="btn" href="/alerts">Alerts</a>
-      {% include "_poll_hint.html" %}
-    </div>
-  </div>
+{% set total_alerts = alerts|length %}
+{% set total_cameras = cameras|length %}
+{% set enabled_cameras = cameras|selectattr('enabled')|list|length %}
+{% set unacked_alerts = alerts|rejectattr('acked')|list|length %}
 
-  <div class="card" style="margin-bottom:14px">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <div class="tilename" style="font-size:18px">TECHCAMAI</div>
-        <div class="sub">Edge-first CCTV events · Frigate-inspired, TECHCAMAI twist</div>
-      </div>
-      <div class="row">
-        <span class="pill">MVP</span>
-        <span class="pill">snapshots</span>
-        <span class="pill">digest</span>
-      </div>
-    </div>
-  </div>
+<div class="topbar">
+<div>
+<div class="eyebrow">Overview</div>
+<h2>Operator dashboard</h2>
+<div class="sub">Fast LAN scan, clean camera onboarding, live wall access, and alerts in one place.</div>
+</div>
+<div class="row" style="gap:8px">
+<a class="btn primary" href="/ui/scan">Scan LAN</a>
+<a class="btn" href="/live">Live wall</a>
+<a class="btn" href="/alerts">Alerts</a>
+{% include "_poll_hint.html" %}
+</div>
+</div>
 
-  <div class="grid">
-    <section class="card">
-      <div class="row" style="justify-content:space-between">
-        <h3>Latest alerts</h3>
-        <a class="btn ghost" href="/alerts">Open inbox</a>
-      </div>
+<section class="hero">
+<div class="hero-panel">
+<div class="hero-brand">
+<img src="/static/techcamai-icon.svg" alt="TECHCAMAI logo" style="width:64px;"/>
+<h1>TECHCAMAI</h1>
+<p>Edge-first surveillance, simple operator workflows. Scan, onboard, review—all streamlined.</p>
+</div>
+</div>
+<div class="stack" style="margin-top:16px">
+<div class="card">
+<div class="eyebrow">System status</div>
+<div class="row" style="gap:4px; margin-top:12px">
+<span class="pill ok">Pi-ready</span>
+<span class="pill">Digest auth</span>
+<span class="pill">Snapshot workflow</span>
+</div>
+<div class="sub" style="margin-top:12px">Current focus: refine operator UX, smooth navigation, dead-simple camera flow.</div>
+<div class="activity-strip" style="margin:8px 0 0 0"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</div>
+</div>
+</section>
 
-      {% if alerts %}
-        <table>
-          <thead>
-            <tr>
-              <th>Time (UTC)</th>
-              <th>Camera</th>
-              <th>Label</th>
-              <th class="right">Conf</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for a in alerts %}
-            <tr>
-              <td class="mono">{{ a.created_at }}</td>
-              <td>{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }}</td>
-              <td>
-                <span class="pill">{{ a.label }}</span>
-                {% if a.acked %}<span class="pill ok">ACK</span>{% else %}<span class="pill bad">NEW</span>{% endif %}
-              </td>
-              <td class="right mono">{{ '%.2f'|format(a.conf) }}</td>
-              <td class="right">
-                {% if not a.acked %}
-                  <form method="post" action="/alerts/{{a.id}}/ack" style="margin:0">
-                    <button class="btn" type="submit">Ack</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <div class="sub">No alerts yet. Once the worker is running, events will appear here with thumbnails.</div>
-      {% endif %}
-    </section>
+<section class="stats">
+<div class="stat">
+<div class="label">Saved cameras</div>
+<div class="value">{{ total_cameras }}</div>
+<div class="hint">{{ enabled_cameras }} enabled, ready for live wall/worker use</div>
+</div>
+<div class="stat">
+<div class="label">Open alerts</div>
+<div class="value">{{ unacked_alerts }}</div>
+<div class="hint">Unacknowledged items needing attention</div>
+</div>
+<div class="stat">
+<div class="label">Alert history</div>
+<div class="value">{{ total_alerts }}</div>
+<div class="hint">Recent detections in the inbox</div>
+</div>
+<div class="stat">
+<div class="label">Live mode</div>
+<div class="value">MVP</div>
+<div class="hint">Snapshot wall now, playback next</div>
+</div>
+</section>
 
-    <aside class="card">
-      <div class="row" style="justify-content:space-between">
-        <h3>Cameras</h3>
-        <a class="btn ghost" href="/cameras/manage">Manage</a>
-      </div>
-
-      {% if cameras %}
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for c in cameras %}
-            <tr>
-              <td><strong>{{ c.name }}</strong><div class="sub mono">{{ c.ip }}</div></td>
-              <td>{% if c.enabled %}<span class="pill ok">ON</span>{% else %}<span class="pill bad">OFF</span>{% endif %}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <div class="sub">No saved cameras yet.</div>
-      {% endif %}
-
-      <div style="margin-top:12px" class="card">
-        <div class="sub">Quick actions</div>
-        <div class="row" style="margin-top:8px">
-          <a class="btn ghost" href="/ui/scan">Scan LAN</a>
-          <a class="btn ghost" href="/live">Live wall</a>
-          <a class="btn ghost" href="/docs">API docs</a>
-        </div>
-      </div>
-    </aside>
-  </div>
-{% endblock %}
+<div class="grid" style="gap:16px">
+<section class="card" style="min-width:320px">
+<div class="row" style="justify-content:space-between">
+<div>
+<h3>Latest alerts</h3>
+<div class="sub">Recent detections, quick triage.</div>
+</div>
+<a class="btn ghost" href="/alerts">Inbox</a>
+</div>
+{% if alerts %}
+<div class="alertlist">
+{% for a in alerts[:4] %}
+<div class="alertrow">
+<div class="alertthumb">
+{% if a.snapshot_b64 %}
+<img src="data:image/jpeg;base64,{{a.snapshot_b64}}" alt="alert thumb" />
+{% else %}
+<div class="sub">No thumb</div>
+{% endif %}
+</div>
+<div class="alertmeta">
+<div class="row" style="justify-content:space-between">
+<div>
+<div class="tilename">{{ a.label|upper }}</div>
+<div class="sub">{{ cams.get(a.camera_id).name if
