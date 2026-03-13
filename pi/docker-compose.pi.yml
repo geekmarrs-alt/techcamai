@@ -13,7 +13,7 @@
 
 services:
   api:
-    image: ghcr.io/yourorg/techcamai-api:stable
+    image: ghcr.io/geekmarrs-alt/techcamai-api:stable
     env_file: .env
     network_mode: host
     restart: unless-stopped
@@ -21,7 +21,7 @@ services:
       - techcamai-data:/data
 
   worker:
-    image: ghcr.io/yourorg/techcamai-worker:stable
+    image: ghcr.io/geekmarrs-alt/techcamai-worker:stable
     env_file: .env
     network_mode: host
     restart: unless-stopped
