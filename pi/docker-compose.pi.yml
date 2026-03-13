@@ -13,6 +13,7 @@
 
 services:
   api:
+    <<: *watchtower-labels
     image: ghcr.io/geekmarrs-alt/techcamai-api:stable
     env_file: .env
     network_mode: host
@@ -21,6 +22,7 @@ services:
       - techcamai-data:/data
 
   worker:
+    <<: *watchtower-labels
     image: ghcr.io/geekmarrs-alt/techcamai-worker:stable
     env_file: .env
     network_mode: host
