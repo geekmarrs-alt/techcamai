@@ -1,0 +1,33 @@
+<section class="card v2-rail-panel">
+  <div>
+    <div class="eyebrow">Playback</div>
+    <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Recent review queue</h3>
+    <div class="sub">Put playable evidence near the alert feed so operators do not have to hunt for it.</div>
+  </div>
+
+  <div class="v2-playback-list">
+    {% for a in recent_playback_alerts %}
+    <article class="v2-playback-row">
+      <div>
+        <div class="tilename">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else ('Camera ' ~ a.camera_id) }}</div>
+        <div class="sub">{{ a.created_at }} UTC · {{ a.label|upper }}</div>
+      </div>
+      <div class="row">
+        {% if a.clip_status == 'ready' and a.clip_path %}
+        <a class="btn" href="/clips/{{ a.clip_path }}" target="_blank">Play clip</a>
+        {% elif a.clip_status == 'failed' %}
+        <span class="pill bad">Failed</span>
+        {% else %}
+        <span class="pill">Pending</span>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+    {% if not recent_playback_alerts %}
+    <div class="v2-empty-panel">
+      <div class="tilename">No playback items yet</div>
+      <div class="sub">Clip-ready alerts will stack here for fast incident review.</div>
+    </div>
+    {% endif %}
+  </div>
+</section>

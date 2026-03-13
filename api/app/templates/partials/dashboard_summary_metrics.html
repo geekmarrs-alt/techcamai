@@ -1,0 +1,22 @@
+<section class="v2-summary-grid">
+  <div class="stat">
+    <div class="label">Saved cameras</div>
+    <div class="value">{{ total_cameras }}</div>
+    <div class="hint">{{ enabled_cameras }} enabled</div>
+  </div>
+  <div class="stat">
+    <div class="label">Rule coverage</div>
+    <div class="value">{{ cameras_with_rules }}</div>
+    <div class="hint">Cameras with at least one enabled rule</div>
+  </div>
+  <div class="stat">
+    <div class="label">Open alerts</div>
+    <div class="value">{{ unacked_alerts }}</div>
+    <div class="hint">Needs operator attention</div>
+  </div>
+  <div class="stat">
+    <div class="label">Playback ready</div>
+    <div class="value">{{ clip_ready_count }}</div>
+    <div class="hint">{{ clip_failed_count }} failed clips</div>
+  </div>
+</section>

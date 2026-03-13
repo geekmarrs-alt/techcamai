@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Dashboard v2 Preview · TECHCAMAI{% endblock %}
+{% block content %}
+<style>
+  .v2-shell{ display:grid; gap:16px; }
+  .v2-command-bar{ display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; align-items:center; }
+  .v2-summary-grid{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; }
+  .v2-main-grid{ display:grid; grid-template-columns: minmax(0, 1.65fr) minmax(320px, .85fr); gap:16px; align-items:start; }
+  .v2-stage-grid{ display:grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap:14px; margin-top:16px; }
+  .v2-focus-card{ display:grid; gap:14px; }
+  .v2-focus-header{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .v2-focus-image, .v2-camera-mini-image, .v2-incident-thumb{ overflow:hidden; border-radius:18px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.25); }
+  .v2-focus-image img{ display:block; width:100%; height:430px; object-fit:cover; }
+  .v2-focus-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .v2-supporting-cameras, .v2-rail-stack, .v2-incident-list, .v2-playback-list{ display:grid; gap:12px; }
+  .v2-camera-mini, .v2-incident-card, .v2-playback-row, .v2-empty-panel{
+    padding:14px; border-radius:18px; border:1px solid var(--border); background:rgba(255,255,255,.04);
+  }
+  .v2-camera-mini-image img{ display:block; width:100%; height:132px; object-fit:cover; }
+  .v2-rail-panel{ display:grid; gap:14px; }
+  .v2-incident-card{ display:grid; grid-template-columns: 104px 1fr; gap:12px; }
+  .v2-incident-thumb img{ display:block; width:100%; height:100%; min-height:94px; object-fit:cover; }
+  .v2-incident-body{ display:grid; gap:8px; }
+  .v2-playback-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .v2-preview-note{ color:var(--muted); font-size:12px; }
+  @media (max-width: 1200px){
+    .v2-main-grid, .v2-command-bar, .v2-stage-grid{ grid-template-columns:1fr; }
+    .v2-summary-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width: 720px){
+    .v2-summary-grid{ grid-template-columns:1fr; }
+    .v2-incident-card{ grid-template-columns:1fr; }
+    .v2-playback-row{ align-items:flex-start; flex-direction:column; }
+    .v2-focus-image img{ height:280px; }
+  }
+</style>
+
+<div class="v2-shell">
+  {% include "partials/dashboard_command_bar.html" %}
+
+  <div class="v2-preview-note">Preview scaffold: this is the rebuild direction layer, not the final production dashboard.</div>
+
+  {% include "partials/dashboard_summary_metrics.html" %}
+
+  <section class="v2-main-grid">
+    <div>
+      {% include "partials/dashboard_camera_stage.html" %}
+    </div>
+    <div class="v2-rail-stack">
+      {% include "partials/dashboard_alert_feed.html" %}
+      {% include "partials/dashboard_playback_panel.html" %}
+    </div>
+  </section>
+</div>
+{% endblock %}

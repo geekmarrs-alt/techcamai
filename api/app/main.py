@@ -139,25 +139,59 @@ def startup() -> None:
             s.commit()
 
 
-@app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, poll: int = 0):
+def _dashboard_context(poll: int = 0) -> dict:
     with Session(engine) as s:
         alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
         cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
         cams = {c.id: c for c in cameras}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {
-            "active": "overview",
-            "alerts": alerts,
-            "cameras": cameras,
-            "cams": cams,
-            "rules": rules,
-            "poll": int(poll),
-        },
-    )
+
+    enabled_cameras = [c for c in cameras if c.enabled]
+    unacked_alerts = [a for a in alerts if not a.acked]
+    featured_alert = unacked_alerts[0] if unacked_alerts else (alerts[0] if alerts else None)
+    featured_camera = None
+    if featured_alert:
+        featured_camera = cams.get(featured_alert.camera_id)
+    if not featured_camera and enabled_cameras:
+        featured_camera = enabled_cameras[0]
+    if not featured_camera and cameras:
+        featured_camera = cameras[0]
+
+    supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
+    alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int(a.created_at.timestamp())))
+    recent_playback_alerts = [a for a in alerts if a.clip_status in {"ready", "pending", "failed"}][:5]
+
+    return {
+        "active": "overview",
+        "alerts": alerts,
+        "cameras": cameras,
+        "cams": cams,
+        "rules": rules,
+        "poll": int(poll),
+        "featured_camera": featured_camera,
+        "featured_alert": featured_alert,
+        "supporting_cameras": supporting_cameras,
+        "alert_feed_items": alert_feed_items,
+        "recent_playback_alerts": recent_playback_alerts,
+        "now_ts": int(datetime.now(timezone.utc).timestamp()),
+        "page_title": "Command dashboard",
+        "total_cameras": len(cameras),
+        "enabled_cameras": len(enabled_cameras),
+        "unacked_alerts": len(unacked_alerts),
+        "clip_ready_count": len([a for a in alerts if a.clip_status == "ready"]),
+        "clip_failed_count": len([a for a in alerts if a.clip_status == "failed"]),
+        "cameras_with_rules": len({r.camera_id for r in rules.values() if r.enabled}),
+    }
+
+
+@app.get("/", response_class=HTMLResponse)
+def dashboard(request: Request, poll: int = 0):
+    return templates.TemplateResponse(request, "dashboard.html", _dashboard_context(poll=poll))
+
+
+@app.get("/preview/dashboard-v2", response_class=HTMLResponse)
+def dashboard_v2_preview(request: Request, poll: int = 0):
+    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
 
 
 @app.get("/ui/scan", response_class=HTMLResponse)

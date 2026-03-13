@@ -1,0 +1,81 @@
+<section class="card v2-stage">
+  <div class="row" style="justify-content:space-between; align-items:flex-start">
+    <div>
+      <div class="eyebrow">Camera stage</div>
+      <h3 style="margin:6px 0 4px; font-size:20px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Central wall</h3>
+      <div class="sub">The main operating surface. Feature the camera with the freshest activity, then keep adjacent feeds within easy reach.</div>
+    </div>
+    <a class="btn ghost" href="/live">Expanded wall</a>
+  </div>
+
+  {% if featured_camera %}
+  <div class="v2-stage-grid">
+    <article class="v2-focus-card">
+      <div class="v2-focus-header">
+        <div>
+          <div class="tilename">{{ featured_camera.name }}</div>
+          <div class="sub mono">{{ featured_camera.scheme }}://{{ featured_camera.ip or 'no-ip' }} · ch {{ featured_camera.channel }}</div>
+        </div>
+        <div class="row">
+          <span class="pill {% if featured_camera.enabled %}ok{% else %}bad{% endif %}">{% if featured_camera.enabled %}LIVE{% else %}DISABLED{% endif %}</span>
+          {% if featured_alert %}
+          <span class="pill bad">Recent {{ featured_alert.label|upper }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="v2-focus-image">
+        {% if featured_camera.id %}
+        <img src="/cameras/{{ featured_camera.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ featured_camera.name }} snapshot" />
+        {% else %}
+        <div class="sub">No snapshot available</div>
+        {% endif %}
+      </div>
+      <div class="v2-focus-actions">
+        <a class="btn primary" href="/live">Open live wall</a>
+        {% if featured_alert and featured_alert.clip_status == 'ready' and featured_alert.clip_path %}
+        <a class="btn" href="/clips/{{ featured_alert.clip_path }}" target="_blank">Play last clip</a>
+        {% else %}
+        <a class="btn ghost" href="/alerts">Review alerts</a>
+        {% endif %}
+        <a class="btn ghost" href="/cameras/manage#cam-{{ featured_camera.id }}">Camera settings</a>
+      </div>
+    </article>
+
+    <aside class="v2-supporting-cameras">
+      {% for c in supporting_cameras %}
+      <article class="v2-camera-mini">
+        <div class="row" style="justify-content:space-between; align-items:flex-start">
+          <div>
+            <div class="tilename">{{ c.name }}</div>
+            <div class="sub mono">{{ c.ip or 'no-ip' }}</div>
+          </div>
+          <span class="pill {% if c.enabled %}ok{% endif %}">{% if c.enabled %}ON{% else %}OFF{% endif %}</span>
+        </div>
+        <div class="v2-camera-mini-image">
+          <img src="/cameras/{{ c.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ c.name }} snapshot" />
+        </div>
+        <div class="row" style="margin-top:10px">
+          <a class="btn ghost" href="/live">Live</a>
+          <a class="btn ghost" href="/cameras/manage#cam-{{ c.id }}">Settings</a>
+        </div>
+      </article>
+      {% endfor %}
+      {% if not supporting_cameras %}
+      <div class="v2-empty-panel">
+        <div class="tilename">No supporting cameras yet</div>
+        <div class="sub">Add more enabled cameras to build out the wall.</div>
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+  {% else %}
+  <div class="v2-empty-panel">
+    <div class="tilename">No live-ready cameras yet</div>
+    <div class="sub">Add a camera or enable one, then TECHCAMAI can turn this into the actual operating surface.</div>
+    <div class="row" style="margin-top:12px">
+      <a class="btn primary" href="/ui/scan">Scan LAN</a>
+      <a class="btn" href="/ui/add?ip=">Add camera</a>
+    </div>
+  </div>
+  {% endif %}
+</section>
