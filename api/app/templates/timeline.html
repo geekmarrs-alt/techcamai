@@ -3,8 +3,9 @@
 {% block content %}
   <div class="topbar">
     <div>
-      <h2>Timeline</h2>
-      <div class="sub">Event stream view (MVP: alerts ordered by time).</div>
+      <div class="eyebrow">Timeline</div>
+      <h2>Event flow</h2>
+      <div class="sub">Scroll recent events in order and spot the rhythm of the day without digging through raw tables.</div>
     </div>
     <div class="row">
       <a class="btn" href="/alerts">Alerts</a>
@@ -13,35 +14,42 @@
     </div>
   </div>
 
-  <div class="card">
-    <h3>Latest events</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Time (UTC)</th>
-          <th>Camera</th>
-          <th>Label</th>
-          <th>Conf</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for a in alerts %}
-          <tr>
-            <td class="mono">{{ a.created_at }}</td>
-            <td>{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }}</td>
-            <td>{{ a.label }}</td>
-            <td class="mono">{{ '%.2f'|format(a.conf) }}</td>
-            <td>
-              {% if a.acked %}
-                <span class="pill ok">acked</span>
-              {% else %}
-                <span class="pill bad">new</span>
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card" style="margin-bottom:16px">
+    <div class="eyebrow">Daily activity strip</div>
+    <div class="activity-strip">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="sub" style="margin-top:10px">MVP placeholder for the richer day bar you asked for — the page structure is now ready for that upgrade.</div>
+  </div>
+
+  <div class="timeline-list">
+    {% for a in alerts %}
+      <div class="timeline-row">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div class="tilename">{{ a.label|upper }}</div>
+            <div class="sub">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · {{ a.created_at }} UTC</div>
+          </div>
+          <div class="row">
+            <span class="pill">conf {{ '%.2f'|format(a.conf) }}</span>
+            {% if a.acked %}
+              <span class="pill ok">ACKED</span>
+            {% else %}
+              <span class="pill bad">NEW</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if rules.get(a.rule_id) %}
+          <div class="sub" style="margin-top:8px">Rule: {{ rules.get(a.rule_id).name }}</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if alerts|length == 0 %}
+      <div class="timeline-row">
+        <div class="tilename">Nothing in the timeline yet</div>
+        <div class="sub" style="margin-top:6px">As soon as detections start landing, this becomes the scrollable event view.</div>
+      </div>
+    {% endif %}
   </div>
 {% endblock %}

@@ -3,8 +3,9 @@
 {% block content %}
   <div class="topbar">
     <div>
-      <h2>Alerts</h2>
-      <div class="sub">Latest detections with thumbnails. Acknowledge to clear noise.</div>
+      <div class="eyebrow">Alerts</div>
+      <h2>Alert inbox</h2>
+      <div class="sub">Recent detections with thumbnails, operator context, and fast acknowledge flow.</div>
     </div>
     <div class="row">
       <a class="btn" href="/timeline">Timeline</a>
@@ -52,7 +53,7 @@
                 <button class="btn primary" type="submit">Acknowledge</button>
               </form>
             {% endif %}
-            <a class="btn" href="/live">Live</a>
+            <a class="btn" href="/live">Open live wall</a>
           </div>
         </div>
       </div>

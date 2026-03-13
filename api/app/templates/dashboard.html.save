@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Overview · TECHCAMAI{% endblock %}
+{% block content %}
+{% set total_alerts = alerts|length %}
+{% set total_cameras = cameras|length %}
+{% set enabled_cameras = cameras|selectattr('enabled')|list|length %}
+{% set unacked_alerts = alerts|rejectattr('acked')|list|length %}
+
+<div class="topbar">
+<div>
+<div class="eyebrow">Overview</div>
+<h2>Operator dashboard</h2>
+<div class="sub">Fast LAN scan, clean camera onboarding, live wall access, and alerts in one place.</div>
+</div>
+<div class="row" style="gap:8px">
+<a class="btn primary" href="/ui/scan">Scan LAN</a>
+<a class="btn" href="/live">Live wall</a>
+<a class="btn" href="/alerts">Alerts</a>
+{% include "_poll_hint.html" %}
+</div>
+</div>
+
+<section class="hero">
+<div class="hero-panel">
+<div class="hero-brand">
+<img src="/static/techcamai-icon.svg" alt="TECHCAMAI logo" style="width:64px;"/>
+<h1>TECHCAMAI</h1>
+<p>Edge-first surveillance, simple operator workflows. Scan, onboard, review—all streamlined.</p>
+</div>
+</div>
+<div class="stack" style="margin-top:16px">
+<div class="card">
+<div class="eyebrow">System status</div>
+<div class="row" style="gap:4px; margin-top:12px">
+<span class="pill ok">Pi-ready</span>
+<span class="pill">Digest auth</span>
+<span class="pill">Snapshot workflow</span>
+</div>
+<div class="sub" style="margin-top:12px">Current focus: refine operator UX, smooth navigation, dead-simple camera flow.</div>
+<div class="activity-strip" style="margin:8px 0 0 0"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</div>
+</div>
+</section>
+
+<section class="stats">
+<div class="stat">
+<div class="label">Saved cameras</div>
+<div class="value">{{ total_cameras }}</div>
+<div class="hint">{{ enabled_cameras }} enabled, ready for live wall/worker use</div>
+</div>
+<div class="stat">
+<div class="label">Open alerts</div>
+<div class="value">{{ unacked_alerts }}</div>
+<div class="hint">Unacknowledged items needing attention</div>
+</div>
+<div class="stat">
+<div class="label">Alert history</div>
+<div class="value">{{ total_alerts }}</div>
+<div class="hint">Recent detections in the inbox</div>
+</div>
+<div class="stat">
+<div class="label">Live mode</div>
+<div class="value">MVP</div>
+<div class="hint">Snapshot wall now, playback next</div>
+</div>
+</section>
+
+<div class="grid" style="gap:16px">
+<section class="card" style="min-width:320px">
+<div class="row" style="justify-content:space-between">
+<div>
+<h3>Latest alerts</h3>
+<div class="sub">Recent detections, quick triage.</div>
+</div>
+<a class="btn ghost" href="/alerts">Inbox</a>
+</div>
+{% if alerts %}
+<div class="alertlist">
+{% for a in alerts[:4] %}
+<div class="alertrow">
+<div class="alertthumb">
+{% if a.snapshot_b64 %}
+<img src="data:image/jpeg;base64,{{a.snapshot_b64}}" alt="alert thumb" />
+{% else %}
+<div class="sub">No thumb</div>
+{% endif %}
+</div>
+<div class="alertmeta">
+<div class="row" style="justify-content:space-between">
+<div>
+<div class="tilename">{{ a.label|upper }}</div>
+<div class="sub">{{ cams.get(a.camera_id).name if
