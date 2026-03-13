@@ -75,6 +75,10 @@ if [[ -n "$CAMERA_URLS" ]]; then
 fi
 
 echo "[+] Starting stack"
-docker compose up -d --build
+COMPOSE_ARGS=()
+if [[ -f docker-compose.pi.yml ]]; then
+  COMPOSE_ARGS=(-f docker-compose.pi.yml)
+fi
+docker compose "${COMPOSE_ARGS[@]}" up -d --build
 
 echo "[+] Done. Open: http://$(hostname -I | awk '{print $1}'):${API_PORT}/"
