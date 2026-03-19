@@ -1,70 +1,71 @@
 {% extends "base.html" %}
-{% block title %}TECHCAMAI — Add camera{% endblock %}
+{% block title %}Add camera · TECHCAMAI{% endblock %}
 {% block content %}
+<div class="page-header">
   <div class="topbar">
     <div>
-      <h2>Add / Test camera</h2>
-      <div class="sub">Hikvision-friendly: HTTPS + Digest.</div>
+      <div class="eyebrow">Onboarding</div>
+      <h1>Add / test camera</h1>
+      <div class="sub">Hikvision-friendly defaults: HTTPS plus Digest. Test first, then save once the feed actually responds.</div>
     </div>
-    <a class="btn" href="/">Back</a>
+    <div class="row">
+      <a class="btn" href="/ui/scan">Back to scan</a>
+      <a class="btn" href="/">Overview</a>
+    </div>
   </div>
+</div>
 
-  <div class="grid">
-    <section class="card">
-      <h3>Credentials</h3>
-      <form method="post" action="/ui/add">
-        <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
-          <div>
-            <div class="sub">IP</div>
-            <input name="ip" value="{{ ip }}" placeholder="192.168.0.84" />
-          </div>
-          <div>
-            <div class="sub">Channel</div>
-            <input name="channel" value="1" />
-          </div>
-          <div>
-            <div class="sub">Username</div>
-            <input name="username" value="admin" />
-          </div>
-          <div>
-            <div class="sub">Password</div>
-            <input name="password" type="password" value="" placeholder="(stored nowhere yet)" />
-          </div>
-        </div>
+<div class="grid">
+  <section class="card">
+    <h3>Credentials</h3>
+    <form method="post" action="/ui/add" class="stack">
+      <div class="camera-admin-form-grid">
+        <div><div class="sub">IP</div><input name="ip" value="{{ ip }}" placeholder="192.168.0.84" /></div>
+        <div><div class="sub">Channel</div><input name="channel" value="1" /></div>
+        <div><div class="sub">Username</div><input name="username" value="admin" /></div>
+        <div><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Camera password" /></div>
+      </div>
 
-        <div class="row" style="margin-top:12px">
+      <div class="camera-admin-actions">
+        <div class="sub">Save now stores the full camera entry, including creds, so the worker and live wall can actually use it.</div>
+        <div class="row">
           <button class="btn primary" name="action" value="test" type="submit">Test snapshot</button>
-          <button class="btn" name="action" value="save" type="submit">Save camera (MVP)</button>
-          <span class="sub">Save currently stores URL only (no creds). Worker wiring comes next.</span>
+          <button class="btn" name="action" value="save" type="submit">Save camera</button>
         </div>
-      </form>
+      </div>
+    </form>
 
-      {% if result %}
-        <div style="margin-top:12px" class="card">
-          {% if result.ok %}
-            <span class="pill ok">OK</span>
-            {% if result.url %}<div class="sub" style="margin-top:8px">URL: <span class="mono">{{ result.url }}</span></div>{% endif %}
-            {% if result.saved %}<div style="margin-top:8px">Saved.</div>{% endif %}
-          {% else %}
-            <span class="pill bad">FAILED</span>
-            <div class="sub" style="margin-top:8px">{{ result.error }}</div>
-          {% endif %}
-        </div>
-      {% endif %}
-    </section>
+    {% if result %}
+      <div class="surface" style="margin-top:14px;">
+        {% if result.ok %}
+          <span class="pill ok">OK</span>
+          {% if result.url %}<div class="sub" style="margin-top:8px">Resolved URL: <span class="mono">{{ result.url }}</span></div>{% endif %}
+          {% if result.saved %}<div class="sub" style="margin-top:8px">Camera saved. Next move: open the live wall or fine-tune the name in camera inventory.</div>{% endif %}
+        {% else %}
+          <span class="pill bad">FAILED</span>
+          <div class="sub" style="margin-top:8px">{{ result.error }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
 
-    <aside class="card">
+  <aside class="card stack">
+    <div>
       <h3>Preview</h3>
       {% if result and result.ok and result.jpeg_b64 %}
-        <img class="preview" src="data:image/jpeg;base64,{{ result.jpeg_b64 }}" />
+        <img class="preview" src="data:image/jpeg;base64,{{ result.jpeg_b64 }}" alt="Camera preview" />
       {% else %}
-        <div class="sub">Run <strong>Test snapshot</strong> to see the preview here.</div>
+        <div class="empty-state center">
+          <div class="tilename">No preview yet</div>
+          <div class="sub">Run <strong>Test snapshot</strong> and the frame lands here.</div>
+        </div>
       {% endif %}
+    </div>
 
-      <div style="margin-top:12px" class="card">
-        <div class="sub">Pro tip</div>
-        <div class="sub" style="margin-top:8px">If a cam 401s on HTTP, try HTTPS (we do that automatically now).</div>
-      </div>
-    </aside>
-  </div>
+    <div class="surface">
+      <div class="eyebrow">Operator note</div>
+      <div class="sub" style="margin-top:8px">If a camera refuses the first attempt, it is usually auth mode, transport, or just the device being a diva. Test before assuming the network is cursed.</div>
+    </div>
+  </aside>
+</div>
 {% endblock %}

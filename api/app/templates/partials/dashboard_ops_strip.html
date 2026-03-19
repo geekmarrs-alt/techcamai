@@ -1,0 +1,53 @@
+<section class="v2-ops-grid">
+  <article class="card v2-ops-card">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <div>
+        <div class="eyebrow">Coverage</div>
+        <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Rule and camera readiness</h3>
+      </div>
+      <a class="btn ghost" href="/cameras/manage">Manage cameras</a>
+    </div>
+    <div class="v2-pulse-list" style="margin-top:8px">
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Enabled cameras</span><strong>{{ enabled_cameras }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Cameras with rules</span><strong>{{ cameras_with_rules }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Cameras missing rules</span><strong>{{ cameras_without_rules }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Playback-ready clips</span><strong>{{ clip_ready_count }}</strong></div>
+    </div>
+  </article>
+
+  <article class="card v2-ops-card">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <div>
+        <div class="eyebrow">Focus camera</div>
+        <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Why this feed is on stage</h3>
+      </div>
+      {% if featured_camera %}
+      <a class="btn ghost" href="/cameras/manage#cam-{{ featured_camera.id }}">Settings</a>
+      {% endif %}
+    </div>
+    {% if featured_camera %}
+    <div class="v2-focus-meta-grid">
+      <div class="v2-focus-meta-card">
+        <span class="v2-pulse-label">Camera</span>
+        <strong>{{ featured_camera.name }}</strong>
+        <div class="sub">{{ featured_camera.scheme }}://{{ featured_camera.ip or 'no-ip' }}</div>
+      </div>
+      <div class="v2-focus-meta-card">
+        <span class="v2-pulse-label">Open incidents</span>
+        <strong>{{ featured_camera_alert_count }}</strong>
+        <div class="sub">Associated with the staged feed</div>
+      </div>
+      <div class="v2-focus-meta-card">
+        <span class="v2-pulse-label">Last event</span>
+        <strong>{% if featured_camera_last_alert %}{{ featured_camera_last_alert.label|upper }}{% else %}Quiet{% endif %}</strong>
+        <div class="sub">{% if featured_camera_last_alert %}{{ featured_camera_last_alert.created_at|relative_time }} · {{ featured_camera_last_alert.created_at|dt_compact }}{% else %}No incident yet{% endif %}</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="v2-empty-panel">
+      <div class="tilename">No featured camera yet</div>
+      <div class="sub">Add or enable a camera and the central stage will start doing real work.</div>
+    </div>
+    {% endif %}
+  </article>
+</section>

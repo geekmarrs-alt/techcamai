@@ -1,0 +1,52 @@
+{#
+  AI ASSIST RAIL — structural placeholder for the AI sidebar.
+  This is the reserved home for:
+    • Natural-language alert query
+    • Voice control entry point
+    • Per-camera scene summaries
+    • Smart triage / cluster view
+
+  No fake data or mock responses rendered here.
+  Real widgets connect once the inference pipeline is wired (post-MVP).
+  Operator-facing copy is honest: "planned", not "beta" or fake status.
+#}
+<section class="card v2-rail-panel v2-ai-rail" aria-label="AI assist — coming soon">
+  <div class="row" style="justify-content:space-between; align-items:flex-start">
+    <div>
+      <div class="eyebrow" style="color:var(--accent3)">AI assist · planned</div>
+      <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Smart command</h3>
+      <div class="sub">Voice queries, scene summaries, and smart triage land here. No placeholder data — wires up to the inference pipeline.</div>
+    </div>
+  </div>
+
+  {# Command input slot — future home for ⌘K palette / voice trigger #}
+  <div class="v2-ai-cmd-slot" title="Command entry — coming soon" aria-hidden="true">
+    <span class="v2-ai-cmd-placeholder">Ask about your cameras…</span>
+    <span class="v2-kbd">⌘K</span>
+  </div>
+
+  {# Feature slots — labelled real-estate for future widgets #}
+  <div class="v2-ai-slot-list">
+    <div class="v2-ai-slot">
+      <span class="v2-ai-slot-icon" aria-hidden="true">⬡</span>
+      <div>
+        <div class="v2-pulse-label">Scene summary</div>
+        <div class="sub">Per-camera description of the last detection window</div>
+      </div>
+    </div>
+    <div class="v2-ai-slot">
+      <span class="v2-ai-slot-icon" aria-hidden="true">◎</span>
+      <div>
+        <div class="v2-pulse-label">Voice query</div>
+        <div class="sub">"Show all person alerts in the last 4 h" → alert DB</div>
+      </div>
+    </div>
+    <div class="v2-ai-slot">
+      <span class="v2-ai-slot-icon" aria-hidden="true">◈</span>
+      <div>
+        <div class="v2-pulse-label">Smart triage</div>
+        <div class="sub">Auto-cluster incidents by proximity and confidence</div>
+      </div>
+    </div>
+  </div>
+</section>

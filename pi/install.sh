@@ -48,15 +48,26 @@ rm -rf "$INSTALL_DIR"/*
 curl -fsSL "$SRC_URL" | tar -xz -C "$INSTALL_DIR"
 
 # Support both bundle layouts:
-#  A) /opt/techcamai/techcamai/docker-compose.yml
-#  B) /opt/techcamai/docker-compose.yml
-if [[ -f "$INSTALL_DIR/techcamai/docker-compose.yml" ]]; then
+#  A) /opt/techcamai/techcamai/pi/docker-compose.pi.yml
+#  B) /opt/techcamai/pi/docker-compose.pi.yml
+#  C) /opt/techcamai/techcamai/docker-compose.yml
+#  D) /opt/techcamai/docker-compose.yml
+COMPOSE_FILE=""
+if [[ -f "$INSTALL_DIR/techcamai/pi/docker-compose.pi.yml" ]]; then
   APP_DIR="$INSTALL_DIR/techcamai"
+  COMPOSE_FILE="pi/docker-compose.pi.yml"
+elif [[ -f "$INSTALL_DIR/pi/docker-compose.pi.yml" ]]; then
+  APP_DIR="$INSTALL_DIR"
+  COMPOSE_FILE="pi/docker-compose.pi.yml"
+elif [[ -f "$INSTALL_DIR/techcamai/docker-compose.yml" ]]; then
+  APP_DIR="$INSTALL_DIR/techcamai"
+  COMPOSE_FILE="docker-compose.yml"
 elif [[ -f "$INSTALL_DIR/docker-compose.yml" ]]; then
   APP_DIR="$INSTALL_DIR"
+  COMPOSE_FILE="docker-compose.yml"
 else
-  echo "Bundle missing docker-compose.yml under $INSTALL_DIR" >&2
-  find "$INSTALL_DIR" -maxdepth 2 -type f -name docker-compose.yml -print || true
+  echo "Bundle missing docker compose file under $INSTALL_DIR" >&2
+  find "$INSTALL_DIR" -maxdepth 3 \( -name docker-compose.yml -o -name docker-compose.pi.yml \) -print || true
   exit 1
 fi
 
@@ -75,10 +86,6 @@ if [[ -n "$CAMERA_URLS" ]]; then
 fi
 
 echo "[+] Starting stack"
-COMPOSE_ARGS=()
-if [[ -f docker-compose.pi.yml ]]; then
-  COMPOSE_ARGS=(-f docker-compose.pi.yml)
-fi
-docker compose "${COMPOSE_ARGS[@]}" up -d --build
+docker compose -f "$COMPOSE_FILE" up -d
 
 echo "[+] Done. Open: http://$(hostname -I | awk '{print $1}'):${API_PORT}/"

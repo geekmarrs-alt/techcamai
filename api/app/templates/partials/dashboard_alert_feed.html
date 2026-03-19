@@ -3,7 +3,7 @@
     <div>
       <div class="eyebrow">Alert feed</div>
       <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Recent incidents</h3>
-      <div class="sub">Unacked first, newest first, quick actions visible.</div>
+      <div class="sub">Unacked first, newest first, and nothing buried behind a second click.</div>
     </div>
     <a class="btn ghost" href="/alerts">Full inbox</a>
   </div>
@@ -26,17 +26,16 @@
           </div>
           <div class="row">
             <span class="pill {% if a.acked %}ok{% else %}bad{% endif %}">{% if a.acked %}ACKED{% else %}NEW{% endif %}</span>
-            {% if a.clip_status == 'ready' and a.clip_path %}
-            <span class="pill ok">CLIP READY</span>
-            {% elif a.clip_status == 'failed' %}
-            <span class="pill bad">CLIP FAILED</span>
-            {% else %}
-            <span class="pill">CLIP {{ (a.clip_status or 'pending')|upper }}</span>
-            {% endif %}
+            <span class="pill {{ a.clip_status|clip_tone }}"{% if a.clip_status == 'failed' and a.clip_error %} title="{{ a.clip_error }}" style="cursor:help"{% endif %}>CLIP {{ (a.clip_status or 'pending')|upper }}{% if a.clip_status == 'failed' %} ⚠{% endif %}</span>
           </div>
         </div>
-        <div class="sub">{{ a.created_at }} UTC · conf {{ '%.2f'|format(a.conf) }}</div>
+        <div class="sub">{{ a.created_at|relative_time }} · {{ a.created_at|dt_compact }} · conf {{ '%.2f'|format(a.conf) }}</div>
         <div class="row" style="margin-top:10px">
+          {% if not a.acked %}
+          <form method="post" action="/alerts/{{ a.id }}/ack" style="margin:0">
+            <button class="btn primary" type="submit">Ack</button>
+          </form>
+          {% endif %}
           <a class="btn ghost" href="/alerts#alert-{{ a.id }}">Open</a>
           {% if a.clip_status == 'ready' and a.clip_path %}
           <a class="btn" href="/clips/{{ a.clip_path }}" target="_blank">Play</a>

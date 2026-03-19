@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
+import json
+import re
+import sqlite3
+from pathlib import Path, PurePosixPath
 from typing import Optional, List
 from urllib.parse import urlparse
 
@@ -20,6 +23,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
+    CLIPS_DIR: str = "/data/clips"
 
 
 settings = Settings()
@@ -27,6 +31,8 @@ settings = Settings()
 db_path = Path(settings.DB_PATH)
 db_path.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{db_path}", echo=False)
+clips_dir = Path(settings.CLIPS_DIR)
+clips_dir.mkdir(parents=True, exist_ok=True)
 
 
 class Camera(SQLModel, table=True):
@@ -66,11 +72,15 @@ class Alert(SQLModel, table=True):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    clip_path: Optional[str] = None
+    clip_status: str = "pending"
+    clip_error: Optional[str] = None
     acked: bool = False
 
 
 class DetectionIn(BaseModel):
     camera_snapshot_url: str
+    camera_id: Optional[int] = None
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
@@ -112,19 +122,136 @@ class CameraUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 
+class AlertClipUpdate(BaseModel):
+    clip_path: Optional[str] = None
+    clip_status: str
+    clip_error: Optional[str] = None
+
+
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+app.mount("/clips", StaticFiles(directory=str(clips_dir)), name="clips")
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def _fmt_dt_compact(value: Optional[datetime]) -> str:
+    if not value:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).strftime("%d %b %H:%M UTC")
+
+
+def _fmt_dt_full(value: Optional[datetime]) -> str:
+    if not value:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _fmt_relative(value: Optional[datetime]) -> str:
+    if not value:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    delta = datetime.now(timezone.utc) - value.astimezone(timezone.utc)
+    seconds = max(int(delta.total_seconds()), 0)
+    if seconds < 60:
+        return "just now" if seconds < 5 else f"{seconds}s ago"
+    if seconds < 3600:
+        return f"{seconds // 60}m ago"
+    if seconds < 86400:
+        return f"{seconds // 3600}h ago"
+    return f"{seconds // 86400}d ago"
+
+
+def _clip_status_tone(status: Optional[str]) -> str:
+    status = (status or "pending").lower()
+    if status == "ready":
+        return "ok"
+    if status == "failed":
+        return "bad"
+    if status == "pending":
+        return "warn"
+    return ""
+
+
+templates.env.filters["dt_compact"] = _fmt_dt_compact
+templates.env.filters["dt_full"] = _fmt_dt_full
+templates.env.filters["relative_time"] = _fmt_relative
+templates.env.filters["clip_tone"] = _clip_status_tone
+
+
+_ALLOWED_CLIP_STATUSES = {"pending", "ready", "failed"}
+_RTSP_CHANNEL_RE = re.compile(r"/Streaming/Channels/(\d+)", re.IGNORECASE)
+_HTTP_CHANNEL_RE = re.compile(r"/channels/(\d+)(?:/|$)", re.IGNORECASE)
+
+
+def _normalize_clip_status(status: Optional[str]) -> str:
+    value = (status or "pending").strip().lower()
+    if value not in _ALLOWED_CLIP_STATUSES:
+        raise HTTPException(status_code=400, detail=f"invalid clip_status: {status}")
+    return value
+
+
+def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    raw = str(value).strip().replace("\\", "/")
+    if not raw:
+        return None
+    rel = PurePosixPath(raw)
+    if rel.is_absolute() or ".." in rel.parts:
+        raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
+    normalized = rel.as_posix().lstrip("/")
+    if not normalized or normalized.startswith("../"):
+        raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
+    return normalized
+
+
+def _channel_hint_from_source_url(value: str) -> Optional[int]:
+    for pattern in (_RTSP_CHANNEL_RE, _HTTP_CHANNEL_RE):
+        match = pattern.search(value or "")
+        if not match:
+            continue
+        raw = int(match.group(1))
+        if raw >= 100:
+            return raw // 100
+        return raw
+    return None
 
 
 class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
 
+def _ensure_alert_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='alert'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(alert)").fetchall()}
+        wanted = {
+            "clip_path": "TEXT",
+            "clip_status": "TEXT NOT NULL DEFAULT 'pending'",
+            "clip_error": "TEXT",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE alert ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
+    _ensure_alert_columns()
 
     # seed minimal defaults if empty
     with Session(engine) as s:
@@ -139,7 +266,30 @@ def startup() -> None:
             s.commit()
 
 
+def _worker_health() -> dict:
+    """Return worker stale status for rendering in templates."""
+    heartbeat_path = Path("/data/worker_heartbeat.json")
+    if not heartbeat_path.exists():
+        return {"worker_stale": None, "worker_last_seen": None}
+    try:
+        data = json.loads(heartbeat_path.read_text())
+        age = datetime.now(timezone.utc).timestamp() - float(data.get("unix_ts", 0))
+        stale = age > 90
+        return {"worker_stale": stale, "worker_last_seen": data.get("ts")}
+    except Exception:
+        return {"worker_stale": True, "worker_last_seen": None}
+
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _dashboard_context(poll: int = 0) -> dict:
+    now = datetime.now(timezone.utc)
     with Session(engine) as s:
         alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
         cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
@@ -158,9 +308,32 @@ def _dashboard_context(poll: int = 0) -> dict:
         featured_camera = cameras[0]
 
     supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
-    alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int(a.created_at.timestamp())))
-    recent_playback_alerts = [a for a in alerts if a.clip_status in {"ready", "pending", "failed"}][:5]
+    alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int((_as_utc(a.created_at) or now).timestamp())))
+    recent_playback_alerts = [a for a in alerts if getattr(a, "clip_status", None) in {"ready", "pending", "failed"}][:5]
 
+    cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
+    clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
+    clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
+    clip_pending_count = len([a for a in alerts if getattr(a, "clip_status", None) == "pending"])
+    alerts_last_24h = len([a for a in alerts if _as_utc(a.created_at) and (now - _as_utc(a.created_at)).total_seconds() <= 86400])
+    cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
+    featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
+    featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
+
+    if featured_alert and featured_camera:
+        focus_summary = (
+            f"{featured_camera.name} is staged because it has the freshest operator-relevant activity. "
+            f"Keep this feed big, keep triage nearby, and avoid burying the incident behind menus."
+        )
+    elif featured_camera:
+        focus_summary = (
+            f"{featured_camera.name} is on stage because it is the best available live feed right now. "
+            f"Once incidents start landing, the wall should pivot around them automatically."
+        )
+    else:
+        focus_summary = "No featured camera yet. Add or enable a camera so the dashboard has something real to orbit around."
+
+    worker = _worker_health()
     return {
         "active": "overview",
         "alerts": alerts,
@@ -168,24 +341,37 @@ def _dashboard_context(poll: int = 0) -> dict:
         "cams": cams,
         "rules": rules,
         "poll": int(poll),
+        "worker_stale": worker["worker_stale"],
+        "worker_last_seen": worker["worker_last_seen"],
         "featured_camera": featured_camera,
         "featured_alert": featured_alert,
         "supporting_cameras": supporting_cameras,
         "alert_feed_items": alert_feed_items,
         "recent_playback_alerts": recent_playback_alerts,
-        "now_ts": int(datetime.now(timezone.utc).timestamp()),
+        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
+        "featured_camera_last_alert": featured_camera_last_alert,
+        "focus_summary": focus_summary,
+        "now_ts": int(now.timestamp()),
         "page_title": "Command dashboard",
         "total_cameras": len(cameras),
         "enabled_cameras": len(enabled_cameras),
         "unacked_alerts": len(unacked_alerts),
-        "clip_ready_count": len([a for a in alerts if a.clip_status == "ready"]),
-        "clip_failed_count": len([a for a in alerts if a.clip_status == "failed"]),
-        "cameras_with_rules": len({r.camera_id for r in rules.values() if r.enabled}),
+        "clip_ready_count": clip_ready_count,
+        "clip_failed_count": clip_failed_count,
+        "clip_pending_count": clip_pending_count,
+        "alerts_last_24h": alerts_last_24h,
+        "cameras_with_rules": cameras_with_rules,
+        "cameras_without_rules": cameras_without_rules,
     }
 
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, poll: int = 0):
+    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
+
+
+@app.get("/preview/dashboard-v1", response_class=HTMLResponse)
+def dashboard_v1_preview(request: Request, poll: int = 0):
     return templates.TemplateResponse(request, "dashboard.html", _dashboard_context(poll=poll))
 
 
@@ -209,7 +395,7 @@ class UiTestForm(BaseModel):
 
 
 @app.get("/ui/add", response_class=HTMLResponse)
-def ui_add_get(request: Request, ip: str):
+def ui_add_get(request: Request, ip: str = ""):
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": None})
 
 
@@ -335,13 +521,34 @@ def ui_alerts(request: Request, show: str = "unacked", poll: int = 0):
 
 @app.get("/timeline", response_class=HTMLResponse)
 def ui_timeline(request: Request, poll: int = 0):
+    now = datetime.now(timezone.utc)
     with Session(engine) as s:
         alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(500)).all()
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
+        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+
+    # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+    hourly_counts = [0] * 24
+    for a in alerts:
+        ts = a.created_at
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        age_sec = (now - ts).total_seconds()
+        bucket = int(age_sec // 3600)
+        if 0 <= bucket < 24:
+            hourly_counts[23 - bucket] += 1
+
     return templates.TemplateResponse(
         request,
         "timeline.html",
-        {"active": "timeline", "alerts": alerts, "cams": cams, "poll": int(poll)},
+        {
+            "active": "timeline",
+            "alerts": alerts,
+            "cams": cams,
+            "rules": rules,
+            "poll": int(poll),
+            "hourly_counts": hourly_counts,
+        },
     )
 
 
@@ -349,7 +556,13 @@ def ui_timeline(request: Request, poll: int = 0):
 def ui_cameras_manage(request: Request):
     with Session(engine) as s:
         cameras = s.exec(select(Camera).order_by(Camera.id.desc())).all()
-    return templates.TemplateResponse(request, "cameras_manage.html", {"active": "cameras", "cameras": cameras})
+        rules = s.exec(select(Rule).where(Rule.enabled == True)).all()  # noqa: E712
+    camera_rule_ids = {r.camera_id for r in rules}
+    return templates.TemplateResponse(request, "cameras_manage.html", {
+        "active": "cameras",
+        "cameras": cameras,
+        "camera_rule_ids": camera_rule_ids,
+    })
 
 
 @app.post("/ui/cameras/{camera_id}/toggle")
@@ -396,7 +609,33 @@ async def ui_camera_update(camera_id: int, request: Request):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "ts": datetime.now(timezone.utc).isoformat()}
+    db_ok = True
+    try:
+        with Session(engine) as s:
+            s.exec(select(Camera).limit(1)).all()
+    except Exception:
+        db_ok = False
+
+    worker_ts: Optional[str] = None
+    worker_stale: Optional[bool] = None
+    heartbeat_path = Path("/data/worker_heartbeat.json")
+    if heartbeat_path.exists():
+        try:
+            data = json.loads(heartbeat_path.read_text())
+            worker_ts = data.get("ts")
+            age = datetime.now(timezone.utc).timestamp() - float(data.get("unix_ts", 0))
+            # Stale = no heartbeat for 3× the default 30s poll interval
+            worker_stale = age > 90
+        except Exception:
+            worker_stale = True
+
+    return {
+        "ok": db_ok,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "db": "ok" if db_ok else "error",
+        "worker_last_seen": worker_ts,
+        "worker_stale": worker_stale,
+    }
 
 
 @app.get("/api/alerts/latest")
@@ -431,6 +670,8 @@ def api_alerts_latest(since: int = 0, limit: int = 50, unacked_only: int = 1):
                 "label": a.label,
                 "conf": a.conf,
                 "acked": a.acked,
+                "clip_path": a.clip_path,
+                "clip_status": a.clip_status,
             }
             for a in alerts
         ],
@@ -604,15 +845,30 @@ def ingest_detection(det: DetectionIn):
     now = datetime.now(timezone.utc)
 
     with Session(engine) as s:
-        cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
+        cam = None
+
+        if det.camera_id is not None:
+            cam = s.get(Camera, int(det.camera_id))
+
         if not cam:
-            # Fallback: match by hostname/IP in the snapshot URL.
+            cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
+
+        if not cam:
+            # Fallback: match by hostname/IP and, when possible, channel.
             try:
                 host = urlparse(det.camera_snapshot_url).hostname
             except Exception:
                 host = None
             if host:
-                cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+                channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
+                if channel_hint is not None:
+                    cam = s.exec(
+                        select(Camera)
+                        .where(Camera.ip == host)
+                        .where(Camera.channel == channel_hint)
+                    ).first()
+                if not cam:
+                    cam = s.exec(select(Camera).where(Camera.ip == host)).first()
 
         if not cam:
             return {"ok": True, "triggered": []}
@@ -641,6 +897,30 @@ def ingest_detection(det: DetectionIn):
             triggered.append(a)
 
         return {"ok": True, "triggered": triggered}
+
+
+@app.put("/alerts/{alert_id}/clip")
+def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
+    clip_status = _normalize_clip_status(patch.clip_status)
+    clip_path = _normalize_clip_relpath(patch.clip_path)
+    clip_error = (patch.clip_error or None)
+
+    if clip_status == "ready" and not clip_path:
+        raise HTTPException(status_code=400, detail="clip_path required when clip_status=ready")
+    if clip_status != "ready":
+        clip_path = None
+
+    with Session(engine) as s:
+        a = s.get(Alert, alert_id)
+        if not a:
+            raise HTTPException(status_code=404, detail="alert not found")
+        a.clip_path = clip_path
+        a.clip_status = clip_status
+        a.clip_error = clip_error
+        s.add(a)
+        s.commit()
+        s.refresh(a)
+        return {"ok": True, "alert_id": a.id, "clip_status": a.clip_status, "clip_path": a.clip_path}
 
 
 @app.post("/alerts/{alert_id}/ack")

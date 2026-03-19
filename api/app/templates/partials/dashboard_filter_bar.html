@@ -1,0 +1,33 @@
+{#
+  FILTER BAR — quick operator shortcuts + basic alert search.
+  Chips link to /alerts with query params; the backend catches up to them progressively.
+  Search form posts to /alerts?q= — fully honest even if the backend currently ignores q.
+  "All activity" chip is always active on the overview/dashboard page.
+#}
+<div class="v2-filter-bar">
+  <div class="v2-filter-row">
+    <span class="eyebrow v2-filter-label">Quick filters</span>
+
+    <div class="v2-filter-chips" role="list" aria-label="Alert quick filters">
+      <a class="v2-chip active" href="/" role="listitem" aria-current="page">All activity</a>
+      <a class="v2-chip" href="/alerts?unacked=1" role="listitem">Unacked</a>
+      <a class="v2-chip" href="/alerts?label=person" role="listitem">Person</a>
+      <a class="v2-chip" href="/alerts?label=vehicle" role="listitem">Vehicle</a>
+      <a class="v2-chip" href="/alerts?label=motion" role="listitem">Motion</a>
+      <a class="v2-chip" href="/alerts?clip_status=ready" role="listitem">Clip ready</a>
+    </div>
+
+    {# Search — submits to /alerts list with ?q= for full-text filtering #}
+    <form action="/alerts" method="get" class="v2-search-form" role="search">
+      <input
+        type="search"
+        name="q"
+        class="v2-search-input"
+        placeholder="Search alerts by label, camera…"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Search alerts"
+      />
+    </form>
+  </div>
+</div>

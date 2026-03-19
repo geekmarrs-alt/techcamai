@@ -1,95 +1,89 @@
 {% extends "base.html" %}
 {% block title %}Cameras · TECHCAMAI{% endblock %}
 {% block content %}
+{% set enabled_count = cameras|selectattr('enabled')|list|length %}
+<div class="page-header">
   <div class="topbar">
     <div>
-      <h2>Cameras</h2>
-      <div class="sub">Manage camera entries (enable/disable, creds, channel).</div>
+      <div class="eyebrow">Cameras</div>
+      <h1>Camera inventory</h1>
+      <div class="sub">Manage camera entries, clean up naming, and fix creds without falling into a wall of forms.</div>
     </div>
     <div class="row">
       <a class="btn" href="/ui/scan">Scan LAN</a>
-      <a class="btn" href="/live">Live</a>
+      <a class="btn" href="/live">Live wall</a>
     </div>
   </div>
 
+  <section class="stats">
+    <div class="stat"><div class="label">Saved cameras</div><div class="value">{{ cameras|length }}</div><div class="hint">Inventory count</div></div>
+    <div class="stat"><div class="label">Enabled</div><div class="value">{{ enabled_count }}</div><div class="hint">Shown on wall / worker</div></div>
+    <div class="stat"><div class="label">Disabled</div><div class="value">{{ cameras|length - enabled_count }}</div><div class="hint">Excluded from live use</div></div>
+    <div class="stat"><div class="label">Next move</div><div class="value">Tune</div><div class="hint">Name things properly and test snapshots</div></div>
+  </section>
+</div>
+
+{% set cams_no_rules = cameras|selectattr('enabled')|rejectattr('id', 'in', camera_rule_ids)|list %}
+{% if cams_no_rules %}
+<div style="margin-bottom:16px; padding:12px 16px; border-radius:16px; border:1px solid rgba(248,191,76,.28); background:rgba(248,191,76,.08); color:var(--warn); font-size:13px;">
+  <strong>{{ cams_no_rules|length }} enabled camera{% if cams_no_rules|length != 1 %}s{% endif %} have no rules:</strong>
+  {% for c in cams_no_rules %}<a href="#cam-{{ c.id }}" style="color:var(--warn); text-decoration:underline; text-underline-offset:2px; margin-left:8px;">{{ c.name }}</a>{% endfor %} — worker will poll but never fire alerts.
+</div>
+{% endif %}
+
+<div class="camera-admin-grid">
   {% for c in cameras %}
-    <div class="card" id="cam-{{c.id}}" style="margin-bottom:12px">
-      <div class="row" style="justify-content:space-between">
+    <article class="camera-admin-card" id="cam-{{c.id}}">
+      <div class="camera-admin-actions">
         <div>
-          <div class="tilename">{{c.name}} <span class="sub mono">(#{{c.id}})</span></div>
+          <div class="tilename">{{c.name}} <span class="sub mono">#{{c.id}}</span></div>
           <div class="sub mono">{{c.scheme}}://{{c.ip}} · auth {{c.auth}} · ch {{c.channel}}</div>
         </div>
         <div class="row">
           <span class="pill {% if c.enabled %}ok{% else %}bad{% endif %}">{% if c.enabled %}enabled{% else %}disabled{% endif %}</span>
-          <form method="post" action="/ui/cameras/{{c.id}}/toggle" style="margin:0">
-            <button class="btn" type="submit">Toggle</button>
-          </form>
-          <form method="post" action="/ui/cameras/{{c.id}}/delete" style="margin:0" onsubmit="return confirm('Delete camera #{{c.id}}?');">
-            <button class="btn" type="submit" style="border-color:rgba(255,77,109,.5)">Delete</button>
-          </form>
+          {% if c.enabled and c.id not in camera_rule_ids %}
+          <span class="pill warn" title="No enabled rules — worker will poll this camera but never fire alerts">no rules</span>
+          {% endif %}
+          <form method="post" action="/ui/cameras/{{c.id}}/toggle" style="margin:0"><button class="btn" type="submit">Toggle</button></form>
+          <form method="post" action="/ui/cameras/{{c.id}}/delete" style="margin:0" onsubmit="return confirm('Delete camera #{{c.id}}?');"><button class="btn danger" type="submit">Delete</button></form>
         </div>
       </div>
 
-      <div style="margin-top:12px" class="grid1">
-        <form method="post" action="/ui/cameras/{{c.id}}/update">
-          <div class="row">
-            <div style="flex:2">
-              <div class="sub">Name</div>
-              <input name="name" value="{{c.name}}" />
-            </div>
-            <div style="flex:1">
-              <div class="sub">IP</div>
-              <input name="ip" value="{{c.ip}}" />
-            </div>
-            <div style="flex:1">
-              <div class="sub">Channel</div>
-              <input name="channel" value="{{c.channel}}" />
-            </div>
-          </div>
-          <div class="row" style="margin-top:10px">
-            <div style="flex:1">
-              <div class="sub">Scheme</div>
-              <select class="select" name="scheme">
-                <option value="https" {% if c.scheme=='https' %}selected{% endif %}>https</option>
-                <option value="http" {% if c.scheme=='http' %}selected{% endif %}>http</option>
-              </select>
-            </div>
-            <div style="flex:1">
-              <div class="sub">Auth</div>
-              <select class="select" name="auth">
-                <option value="digest" {% if c.auth=='digest' %}selected{% endif %}>digest</option>
-                <option value="basic" {% if c.auth=='basic' %}selected{% endif %}>basic</option>
-              </select>
-            </div>
-            <div style="flex:1">
-              <div class="sub">Username</div>
-              <input name="username" value="{{c.username or ''}}" />
-            </div>
-            <div style="flex:1">
-              <div class="sub">Password</div>
-              <input name="password" type="password" value="" placeholder="(unchanged)" autocomplete="new-password" />
-              <div class="sub" style="margin-top:6px">Leave blank to keep existing password.</div>
-            </div>
-          </div>
-
-          <div class="row" style="margin-top:12px">
-            <button class="btn primary" type="submit">Save</button>
-            <a class="btn" href="/ui/add?ip={{c.ip}}">Test snapshot</a>
-            <a class="btn" href="/cameras/{{c.id}}/snapshot.jpg?full=1" target="_blank" rel="noreferrer">Open snapshot</a>
-          </div>
-        </form>
+      <div class="camera-admin-meta" style="margin-top:14px; margin-bottom:14px;">
+        <div class="meta-card"><div class="label">IP</div><strong>{{ c.ip or '—' }}</strong><div class="sub">Device address</div></div>
+        <div class="meta-card"><div class="label">Channel</div><strong>{{ c.channel }}</strong><div class="sub">Active stream slot</div></div>
+        <div class="meta-card"><div class="label">Auth</div><strong>{{ c.auth|upper }}</strong><div class="sub">{{ c.scheme|upper }} transport</div></div>
       </div>
-    </div>
+
+      <form method="post" action="/ui/cameras/{{c.id}}/update" class="stack">
+        <div class="camera-admin-form-grid">
+          <div><div class="sub">Name</div><input name="name" value="{{c.name}}" /></div>
+          <div><div class="sub">IP</div><input name="ip" value="{{c.ip}}" /></div>
+          <div><div class="sub">Channel</div><input name="channel" value="{{c.channel}}" /></div>
+          <div><div class="sub">Username</div><input name="username" value="{{c.username or ''}}" /></div>
+          <div><div class="sub">Scheme</div><select class="select" name="scheme"><option value="https" {% if c.scheme=='https' %}selected{% endif %}>https</option><option value="http" {% if c.scheme=='http' %}selected{% endif %}>http</option></select></div>
+          <div><div class="sub">Auth</div><select class="select" name="auth"><option value="digest" {% if c.auth=='digest' %}selected{% endif %}>digest</option><option value="basic" {% if c.auth=='basic' %}selected{% endif %}>basic</option></select></div>
+          <div style="grid-column: span 2;"><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Leave blank to keep existing password" autocomplete="new-password" /></div>
+        </div>
+
+        <div class="camera-admin-actions">
+          <div class="sub">Blank password means keep the stored one. Much safer than echoing secrets back into the form.</div>
+          <div class="row">
+            <button class="btn primary" type="submit">Save changes</button>
+            <a class="btn" href="/ui/add?ip={{c.ip}}">Test snapshot</a>
+            <a class="btn ghost" href="/cameras/{{c.id}}/snapshot.jpg?full=1" target="_blank" rel="noreferrer">Open snapshot</a>
+          </div>
+        </div>
+      </form>
+    </article>
   {% endfor %}
 
   {% if cameras|length == 0 %}
-    <div class="card">
-      <h3>No cameras in DB</h3>
-      <div class="sub">Start with a LAN scan.</div>
-      <div style="margin-top:12px">
-        <a class="btn primary" href="/ui/scan">Scan LAN</a>
-      </div>
+    <div class="empty-state center">
+      <div class="tilename">No cameras in the database</div>
+      <div class="sub">Start with a LAN scan. Right now this page is just waiting for something real.</div>
+      <div class="row"><a class="btn primary" href="/ui/scan">Scan LAN</a></div>
     </div>
   {% endif %}
-
+</div>
 {% endblock %}

@@ -1,0 +1,67 @@
+<aside class="v2-stage-sidebar">
+  {% if featured_alert %}
+  <section class="v2-side-panel v2-priority-panel">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <div>
+        <div class="eyebrow">Priority incident</div>
+        <div class="tilename" style="margin-top:6px">{{ featured_alert.label|upper }} · {{ featured_camera.name if featured_camera else ('Camera ' ~ featured_alert.camera_id) }}</div>
+      </div>
+      <span class="pill {% if featured_alert.acked %}ok{% else %}bad{% endif %}">{% if featured_alert.acked %}ACKED{% else %}NEEDS REVIEW{% endif %}</span>
+    </div>
+    <div class="sub">{{ featured_alert.created_at|relative_time }} · {{ featured_alert.created_at|dt_compact }} · conf {{ '%.2f'|format(featured_alert.conf) }}</div>
+    <div class="v2-side-copy">{{ focus_summary }}</div>
+    <div class="row">
+      <a class="btn primary" href="/alerts#alert-{{ featured_alert.id }}">Open incident</a>
+      {% if featured_alert.clip_status == 'ready' and featured_alert.clip_path %}
+      <a class="btn" href="/clips/{{ featured_alert.clip_path }}" target="_blank">Play clip</a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="v2-side-panel">
+    <div>
+      <div class="eyebrow">System pulse</div>
+      <div class="sub" style="margin-top:6px">Fast read on what needs work without leaving the wall.</div>
+    </div>
+    <div class="v2-pulse-list">
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Alerts last 24h</span><strong>{{ alerts_last_24h }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Pending clips</span><strong>{{ clip_pending_count }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Coverage gaps</span><strong>{{ cameras_without_rules }}</strong></div>
+      <div class="v2-pulse-row"><span class="v2-pulse-label">Focus camera alerts</span><strong>{{ featured_camera_alert_count if featured_camera else 0 }}</strong></div>
+    </div>
+  </section>
+
+  <section class="v2-side-panel">
+    <div>
+      <div class="eyebrow">Operator lane</div>
+      <div class="sub" style="margin-top:6px">Shortcuts for the stuff you actually do next.</div>
+    </div>
+    <div class="v2-action-stack">
+      <a class="v2-action-row" href="/live"><div><div class="tilename">Open full live wall</div><div class="sub">Jump to the wider camera grid.</div></div><span>→</span></a>
+      <a class="v2-action-row" href="/alerts"><div><div class="tilename">Triage alert inbox</div><div class="sub">Review, play back, then ack.</div></div><span>→</span></a>
+      <a class="v2-action-row" href="/cameras/manage"><div><div class="tilename">Tune camera coverage</div><div class="sub">Fix naming, creds, and camera health.</div></div><span>→</span></a>
+      <a class="v2-action-row" href="/ui/scan"><div><div class="tilename">Scan LAN for new cameras</div><div class="sub">Onboard missing devices fast.</div></div><span>→</span></a>
+    </div>
+  </section>
+
+  {#
+    AI VOICE CONTROL SLOT — reserved in-stage panel.
+    Displayed below operator shortcuts as a clear "next tier" affordance.
+    No fake responses. Becomes a real voice/NLP entry point once the
+    inference pipeline is wired.
+  #}
+  <section class="v2-side-panel" style="border-color:rgba(124,92,255,.22); background:linear-gradient(180deg, rgba(124,92,255,.07), rgba(255,255,255,.025));">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <div>
+        <div class="eyebrow" style="color:var(--accent3)">AI voice control · planned</div>
+        <div class="sub" style="margin-top:6px">Talk to the wall — ask about cameras, incidents, or coverage gaps by voice or typed command.</div>
+      </div>
+    </div>
+    <div style="padding:10px 12px; border-radius:12px; border:1px dashed rgba(124,92,255,.28); background:rgba(124,92,255,.05); display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:default;">
+      <span style="color:rgba(255,255,255,.28); font-size:12px;">Hold to speak or type a command…</span>
+      <span style="font-size:18px; opacity:.40; color:var(--accent3);">⏺</span>
+    </div>
+    <div class="sub" style="font-size:11px; color:var(--faint);">Connects to the inference pipeline — no mock data until wired.</div>
+  </section>
+</aside>

@@ -13,22 +13,35 @@
 
 services:
   api:
-    <<: *watchtower-labels
     image: ghcr.io/geekmarrs-alt/techcamai-api:stable
     env_file: .env
     network_mode: host
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 40s
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=techcamai
     volumes:
       - techcamai-data:/data
 
   worker:
-    <<: *watchtower-labels
     image: ghcr.io/geekmarrs-alt/techcamai-worker:stable
     env_file: .env
     network_mode: host
     restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=techcamai
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    volumes:
+      - techcamai-data:/data
 
   # Auto-update containers by watching the running compose stack.
   # IMPORTANT: only do this if images are signed/trusted and you control the registry.

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Timeline · TECHCAMAI{% endblock %}
 {% block content %}
+<div class="page-header">
   <div class="topbar">
     <div>
       <div class="eyebrow">Timeline</div>
-      <h2>Event flow</h2>
+      <h1>Event flow</h1>
       <div class="sub">Scroll recent events in order and spot the rhythm of the day without digging through raw tables.</div>
     </div>
     <div class="row">
@@ -14,42 +15,59 @@
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:16px">
+  <div class="card">
     <div class="eyebrow">Daily activity strip</div>
-    <div class="activity-strip">
-      <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    <div class="activity-strip" style="display:grid; grid-template-columns:repeat(24,1fr); gap:3px; align-items:end; height:52px;">
+      {% set max_count = hourly_counts|max if hourly_counts|max > 0 else 1 %}
+      {% for i in range(24) %}
+      {% set h = hourly_counts[i] %}
+      {% set pct = [((h / max_count) * 100)|round|int, 8]|max %}
+      <div title="{{ h }} alert{% if h != 1 %}s{% endif %} ({{ 23 - i }}h ago)"
+           style="width:100%; height:{{ pct }}%; background:{% if h == 0 %}rgba(255,255,255,.06){% elif h >= max_count %}var(--bad){% elif h >= max_count * 0.5 %}var(--warn){% else %}var(--accent){% endif %}; border-radius:3px 3px 0 0; min-height:4px; transition:.2s;"></div>
+      {% endfor %}
     </div>
-    <div class="sub" style="margin-top:10px">MVP placeholder for the richer day bar you asked for — the page structure is now ready for that upgrade.</div>
+    <div class="row" style="justify-content:space-between; margin-top:6px;">
+      <span class="sub" style="font-size:11px">24h ago</span>
+      <span class="sub" style="font-size:11px">now</span>
+    </div>
+    <div class="sub" style="margin-top:6px;">Bars show alert volume by hour. Taller = more detections. Hover for exact count.</div>
   </div>
+</div>
 
-  <div class="timeline-list">
-    {% for a in alerts %}
-      <div class="timeline-row">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <div class="tilename">{{ a.label|upper }}</div>
-            <div class="sub">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · {{ a.created_at }} UTC</div>
-          </div>
-          <div class="row">
-            <span class="pill">conf {{ '%.2f'|format(a.conf) }}</span>
-            {% if a.acked %}
-              <span class="pill ok">ACKED</span>
-            {% else %}
-              <span class="pill bad">NEW</span>
-            {% endif %}
-          </div>
+<div class="timeline-list">
+  {% for a in alerts %}
+    <article class="timeline-row">
+      <div class="row" style="justify-content:space-between; align-items:flex-start">
+        <div>
+          <div class="tilename">{{ a.label|upper }}</div>
+          <div class="sub">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · {{ a.created_at|relative_time }} · {{ a.created_at|dt_compact }}</div>
         </div>
-        {% if rules.get(a.rule_id) %}
-          <div class="sub" style="margin-top:8px">Rule: {{ rules.get(a.rule_id).name }}</div>
+        <div class="row">
+          <span class="pill">conf {{ '%.2f'|format(a.conf) }}</span>
+          <span class="pill {{ a.clip_status|clip_tone }}">CLIP {{ (a.clip_status or 'pending')|upper }}</span>
+          <span class="pill {% if a.acked %}ok{% else %}bad{% endif %}">{% if a.acked %}ACKED{% else %}NEW{% endif %}</span>
+        </div>
+      </div>
+      {% if rules.get(a.rule_id) %}
+        <div class="sub" style="margin-top:8px">Rule: {{ rules.get(a.rule_id).name }}</div>
+      {% endif %}
+      <div class="row" style="margin-top:10px">
+        {% if a.clip_status == "ready" and a.clip_path %}
+          <a class="btn ghost" href="/clips/{{ a.clip_path }}" target="_blank">Play clip</a>
+        {% elif a.clip_status == "failed" and a.clip_error %}
+          <span class="sub">Clip unavailable: {{ a.clip_error }}</span>
+        {% else %}
+          <span class="sub">No playback yet</span>
         {% endif %}
       </div>
-    {% endfor %}
+    </article>
+  {% endfor %}
 
-    {% if alerts|length == 0 %}
-      <div class="timeline-row">
-        <div class="tilename">Nothing in the timeline yet</div>
-        <div class="sub" style="margin-top:6px">As soon as detections start landing, this becomes the scrollable event view.</div>
-      </div>
-    {% endif %}
-  </div>
+  {% if alerts|length == 0 %}
+    <div class="empty-state center">
+      <div class="tilename">Nothing in the timeline yet</div>
+      <div class="sub">As soon as detections start landing, this becomes the scrollable event view.</div>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

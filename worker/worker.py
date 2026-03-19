@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import random
 import subprocess
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import List
+from urllib.parse import quote
 
 import httpx
 from pydantic_settings import BaseSettings
@@ -19,6 +23,9 @@ class Settings(BaseSettings):
 
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
+    CLIPS_DIR: str = "/data/clips"
+    CLIP_DURATION_SEC: int = 12
+    CLIP_CAPTURE_ENABLED: int = 1
 
 
 S = Settings()
@@ -108,9 +115,10 @@ def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str,
     return "motion", conf
 
 
-def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None):
+def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None, camera_id: int | None = None):
     payload = {
         "camera_snapshot_url": snapshot_url,
+        "camera_id": camera_id,
         "label": label,
         "conf": conf,
         "snapshot_b64": snapshot_b64,
@@ -119,6 +127,65 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
         r.raise_for_status()
         return r.json()
+
+
+def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = None, clip_error: str | None = None):
+    payload = {
+        "clip_path": clip_path,
+        "clip_status": clip_status,
+        "clip_error": clip_error,
+    }
+    with httpx.Client(timeout=10.0) as c:
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r.raise_for_status()
+        return r.json()
+
+
+def _alert_clip_relpath(cam: dict, alert_id: int, created_at: str | None = None) -> str:
+    cam_id = int(cam.get("id") or 0)
+    ts = datetime.now(timezone.utc)
+    if created_at:
+        try:
+            ts = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    stamp = ts.strftime("%Y%m%dT%H%M%SZ")
+    return f"{cam_id}/{stamp}-alert-{alert_id}.mp4"
+
+
+def capture_alert_clip(cam: dict, alert: dict):
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return
+
+    alert_id = alert.get("id")
+    if not alert_id:
+        return
+
+    rel_path = _alert_clip_relpath(cam, int(alert_id), alert.get("created_at"))
+    out_path = Path(S.CLIPS_DIR) / rel_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    rtsp_url = _camera_rtsp_url(cam)
+    try:
+        subprocess.run(
+            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            raise RuntimeError("clip file missing or empty")
+        update_alert_clip(int(alert_id), "ready", rel_path, None)
+        print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
+    except Exception as e:
+        try:
+            if out_path.exists():
+                out_path.unlink()
+        except Exception:
+            pass
+        err = str(e)[:300]
+        update_alert_clip(int(alert_id), "failed", None, err)
+        print(f"[worker] Clip failed for alert {alert_id}: {err}")
 
 
 def _camera_snapshot_url(cam: dict) -> str:
@@ -152,6 +219,15 @@ def _camera_auth(cam: dict) -> httpx.Auth | None:
     return httpx.DigestAuth(user, pw)
 
 
+def _write_heartbeat() -> None:
+    now = datetime.now(timezone.utc)
+    path = Path("/data/worker_heartbeat.json")
+    try:
+        path.write_text(json.dumps({"ts": now.isoformat(), "unix_ts": now.timestamp()}))
+    except Exception as e:
+        print(f"[worker] Could not write heartbeat: {e}")
+
+
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
@@ -161,21 +237,28 @@ def get_cameras() -> list[dict]:
 
 
 def main():
+    print(f"[worker] Starting — API={S.API_BASE_URL} poll={S.POLL_INTERVAL_SEC}s clip_capture={bool(S.CLIP_CAPTURE_ENABLED)} clip_dur={S.CLIP_DURATION_SEC}s prefer_rtsp={bool(S.PREFER_RTSP)}")
     prev_by_url: dict[str, bytes] = {}
+    _api_reachable = True
 
     while True:
         try:
             cams = get_cameras()
+            if not _api_reachable:
+                print(f"[worker] API reconnected at {S.API_BASE_URL}")
+                _api_reachable = True
         except Exception as e:
-            print(f"[worker] Could not fetch cameras: {e}")
+            if _api_reachable:
+                print(f"[worker] API unreachable ({S.API_BASE_URL}): {e} — will retry every {S.POLL_INTERVAL_SEC}s")
+                _api_reachable = False
             cams = []
 
         # legacy env fallback
         urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
         legacy = [{"ip": None, "snapshot_url": u} for u in urls]
 
-        if not cams and not legacy:
-            print("[worker] No cameras configured yet.")
+        if not cams and not legacy and _api_reachable:
+            print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
         for cam in cams:
             # Prefer RTSP for broad camera compatibility.
@@ -198,10 +281,12 @@ def main():
 
             snap_b64 = jpeg_b64(cur)
             try:
-                res = post_detection(key, label, conf, snap_b64)
+                res = post_detection(key, label, conf, snap_b64, cam.get("id"))
                 trig = res.get("triggered", [])
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
+                    for alert in trig:
+                        capture_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
@@ -226,6 +311,7 @@ def main():
             except Exception as e:
                 print(f"[worker] Error posting detection for {u}: {e}")
 
+        _write_heartbeat()
         time.sleep(max(1, int(S.POLL_INTERVAL_SEC)))
 
 

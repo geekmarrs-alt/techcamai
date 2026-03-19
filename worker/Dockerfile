@@ -9,6 +9,6 @@ RUN apt-get update \
 RUN pip install --no-cache-dir httpx pydantic-settings
 
 COPY . /app
-RUN chmod +x /app/rtsp_grab.sh
+RUN chmod +x /app/rtsp_grab.sh /app/rtsp_clip.sh
 
 CMD ["python", "-u", "worker.py"]

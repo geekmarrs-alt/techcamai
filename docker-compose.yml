@@ -1,18 +1,1 @@
-services:
-  api:
-    build: ./api
-    env_file: .env
-    # Host networking so discovery + camera access see the real LAN
-    network_mode: host
-    volumes:
-      - techcamai-data:/data
-
-  worker:
-    build: ./worker
-    env_file: .env
-    network_mode: host
-    depends_on:
-      - api
-
-volumes:
-  techcamai-data:
+{"services": {"api": {"build": "./api", "env_file": ".env", "network_mode": "host", "restart": "unless-stopped", "healthcheck": {"test": ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"], "interval": "15s", "timeout": "5s", "retries": 3, "start_period": "10s"}, "volumes": ["techcamai-data:/data"], "labels": ["traefik.enable=true", "traefik.http.routers.techcamai.rule=Host(\"techcamai.com\")", "traefik.http.routers.techcamai.entrypoints=websecure", "traefik.http.routers.techcamai.tls.certresolver=letsencrypt", "traefik.http.services.techcamai.loadbalancer.server.port=8000"]}, "worker": {"build": "./worker", "env_file": ".env", "network_mode": "host", "restart": "unless-stopped", "depends_on": {"api": {"condition": "service_healthy"}}, "volumes": ["techcamai-data:/data"]}}, "volumes": {"techcamai-data": {}}}

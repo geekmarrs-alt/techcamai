@@ -2,11 +2,19 @@
   <div>
     <div class="eyebrow">Operations</div>
     <h2>{{ page_title or 'Command dashboard' }}</h2>
-    <div class="sub">Desktop-first operator overview with the camera wall in charge, alerts close at hand, and playback one click away.</div>
+    <div class="sub">Desktop-first operator overview — camera wall in charge, alerts close at hand, playback one click away.</div>
   </div>
-  <div class="row" style="justify-content:flex-end">
+  <div class="row end">
     <span class="pill">{{ enabled_cameras }} live cameras</span>
-    <span class="pill {% if unacked_alerts %}bad{% endif %}">{{ unacked_alerts }} unacked alerts</span>
+    <span class="pill {% if unacked_alerts %}bad{% endif %}">{{ unacked_alerts }} unacked</span>
+    <span class="pill {% if clip_pending_count %}warn{% endif %}">{{ clip_pending_count }} clips pending</span>
+    {% if worker_stale == true %}
+    <span class="pill bad" title="No worker heartbeat in >90s — detections may have stopped. Check `docker compose logs worker`.">WORKER STALE</span>
+    {% elif worker_stale == false %}
+    <span class="pill ok" title="Worker is running and checking in normally">WORKER OK</span>
+    {% else %}
+    <span class="pill" style="opacity:.6" title="No heartbeat file found — worker may not have started yet">WORKER?</span>
+    {% endif %}
     <a class="btn primary" href="/live">Open live wall</a>
     <a class="btn" href="/alerts">Open alerts</a>
     <a class="btn ghost" href="/ui/scan">Scan LAN</a>

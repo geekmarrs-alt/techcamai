@@ -1,10 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Live · TECHCAMAI{% endblock %}
 {% block content %}
+<div class="page-header">
   <div class="topbar">
     <div>
-      <h2>Live</h2>
-      <div class="sub">Fast refresh snapshot wall (MVP). Click a tile to open full-size.</div>
+      <div class="eyebrow">Live</div>
+      <h1>Snapshot wall</h1>
+      <div class="sub">Fast refresh wall for beta operations. Keep it simple, keep it obvious, and make stale tiles easy to spot.</div>
+    </div>
+    <div class="row">
+      <a class="btn" href="/alerts">Alerts</a>
+      <a class="btn" href="/cameras/manage">Manage cameras</a>
+    </div>
+  </div>
+
+  <section class="stats">
+    <div class="stat"><div class="label">Enabled cameras</div><div class="value">{{ cameras|length }}</div><div class="hint">Feeds on this wall</div></div>
+    <div class="stat"><div class="label">Refresh mode</div><div class="value" id="refreshValue">5s</div><div class="hint">Auto refresh cadence</div></div>
+    <div class="stat"><div class="label">Wall mode</div><div class="value">MVP</div><div class="hint">Snapshot-first, low-friction</div></div>
+    <div class="stat"><div class="label">Action</div><div class="value">Open</div><div class="hint">Click a tile for full size</div></div>
+  </section>
+
+  <div class="page-actions">
+    <div>
+      <div class="eyebrow">Wall controls</div>
+      <div class="sub">Manual if the network is touchy. Faster if you are actively watching something.</div>
     </div>
     <div class="row">
       <label class="sub" for="refresh">Refresh</label>
@@ -14,49 +34,66 @@
         <option value="5000" selected>5s</option>
         <option value="10000">10s</option>
       </select>
-      <button class="btn" id="refreshNow">Refresh now</button>
+      <button class="btn primary" id="refreshNow">Refresh now</button>
     </div>
   </div>
+</div>
 
-  {% if cameras|length == 0 %}
-    <div class="card">
-      <h3>No cameras enabled</h3>
-      <div class="sub">Add a camera first, then come back here.</div>
-      <div style="margin-top:12px">
-        <a class="btn primary" href="/ui/scan">Scan LAN</a>
-        <a class="btn" href="/cameras/manage">Manage cameras</a>
-      </div>
+{% if cameras|length == 0 %}
+  <div class="empty-state center">
+    <div class="tilename">No cameras enabled</div>
+    <div class="sub">Add a camera first, then this wall becomes useful instead of decorative.</div>
+    <div class="row">
+      <a class="btn primary" href="/ui/scan">Scan LAN</a>
+      <a class="btn" href="/cameras/manage">Manage cameras</a>
     </div>
-  {% endif %}
-
+  </div>
+{% else %}
   <div class="tilegrid">
     {% for c in cameras %}
-      <div class="tile" data-camid="{{c.id}}">
+      <article class="tile" data-camid="{{c.id}}">
         <div class="tilehdr">
           <div>
             <div class="tilename">{{ c.name }}</div>
             <div class="sub mono">{{ c.scheme }}://{{ c.ip }} · ch {{ c.channel }}</div>
           </div>
-          <div class="pill {% if c.enabled %}ok{% else %}bad{% endif %}">
-            {% if c.enabled %}ENABLED{% else %}DISABLED{% endif %}
-          </div>
+          <div class="pill {% if c.enabled %}ok{% else %}bad{% endif %}">{% if c.enabled %}ENABLED{% else %}DISABLED{% endif %}</div>
         </div>
         <a class="tileimgwrap" href="/cameras/{{c.id}}/snapshot.jpg?full=1" target="_blank" rel="noreferrer">
           <img class="tileimg" id="camimg-{{c.id}}" src="/cameras/{{c.id}}/snapshot.jpg?ts={{now_ts}}" alt="{{c.name}}" loading="lazy" />
+          <span class="img-status" id="camstatus-{{c.id}}">Live</span>
         </a>
+        <div class="sub" style="font-size:11px; color:var(--faint); margin:2px 0;" id="camloaded-{{c.id}}">last refreshed: —</div>
         <div class="tileft">
           <button class="btn ghost" onclick="openSnap({{c.id}})">Open</button>
+          <button class="btn ghost" onclick="refreshOne({{c.id}})">Refresh tile</button>
           <a class="btn ghost" href="/cameras/manage#cam-{{c.id}}">Settings</a>
         </div>
-      </div>
+      </article>
     {% endfor %}
   </div>
-
+{% endif %}
+{% endblock %}
+{% block scripts %}
 <script>
+  function setTileStatus(id, text) {
+    const el = document.getElementById('camstatus-' + id);
+    if (el) el.textContent = text;
+  }
+  function setTileLoaded(id, ok) {
+    const el = document.getElementById('camloaded-' + id);
+    if (!el) return;
+    const t = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    el.textContent = ok ? 'last ok: ' + t : 'last fail: ' + t;
+    el.style.color = ok ? 'var(--faint)' : 'var(--bad)';
+  }
   function refreshOne(id){
     const img = document.getElementById('camimg-' + id);
     if(!img) return;
+    setTileStatus(id, 'Refreshing…');
     const base = '/cameras/' + id + '/snapshot.jpg';
+    img.onload = () => { setTileStatus(id, 'Live'); setTileLoaded(id, true); };
+    img.onerror = () => { setTileStatus(id, 'Fetch failed'); setTileLoaded(id, false); };
     img.src = base + '?ts=' + Date.now();
   }
   function refreshAll(){
@@ -68,19 +105,25 @@
 
   const sel = document.getElementById('refresh');
   const btn = document.getElementById('refreshNow');
+  const refreshValue = document.getElementById('refreshValue');
   let timer = null;
+
+  function syncRefreshLabel(){
+    const ms = parseInt(sel.value || '0', 10);
+    refreshValue.textContent = ms > 0 ? (ms / 1000) + 's' : 'Manual';
+  }
 
   function setTimer(){
     if(timer) clearInterval(timer);
     const ms = parseInt(sel.value || '0', 10);
+    syncRefreshLabel();
     if(ms > 0){
       timer = setInterval(refreshAll, ms);
     }
   }
 
-  sel.addEventListener('change', setTimer);
-  btn.addEventListener('click', refreshAll);
-
+  if (sel) sel.addEventListener('change', setTimer);
+  if (btn) btn.addEventListener('click', refreshAll);
   setTimer();
 </script>
 {% endblock %}

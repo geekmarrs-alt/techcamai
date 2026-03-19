@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Alerts · TECHCAMAI{% endblock %}
 {% block content %}
+{% set ready_count = alerts|selectattr('clip_status', 'equalto', 'ready')|list|length %}
+{% set failed_count = alerts|selectattr('clip_status', 'equalto', 'failed')|list|length %}
+{% set pending_count = alerts|selectattr('clip_status', 'equalto', 'pending')|list|length %}
+<div class="page-header">
   <div class="topbar">
     <div>
       <div class="eyebrow">Alerts</div>
-      <h2>Alert inbox</h2>
-      <div class="sub">Recent detections with thumbnails, operator context, and fast acknowledge flow.</div>
+      <h1>Alert inbox</h1>
+      <div class="sub">Recent detections with thumbnails, operator context, and playable clips when capture succeeds.</div>
     </div>
     <div class="row">
       <a class="btn" href="/timeline">Timeline</a>
@@ -14,56 +18,102 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div class="sub">Showing {{ alerts|length }} alerts</div>
-      <div class="row">
-        <a class="btn ghost" href="/alerts?show=all">All</a>
-        <a class="btn ghost" href="/alerts">Unacked</a>
-      </div>
+  <section class="stats">
+    <div class="stat"><div class="label">Visible alerts</div><div class="value">{{ alerts|length }}</div><div class="hint">Current filter output</div></div>
+    <div class="stat"><div class="label">Clips ready</div><div class="value">{{ ready_count }}</div><div class="hint">Playable now</div></div>
+    <div class="stat"><div class="label">Clips pending</div><div class="value">{{ pending_count }}</div><div class="hint">Still processing</div></div>
+    <div class="stat"><div class="label">Clip failures</div><div class="value">{{ failed_count }}</div><div class="hint">Needs backend follow-up</div></div>
+  </section>
+
+  <div class="page-actions">
+    <div>
+      <div class="eyebrow">Filter</div>
+      <div class="sub">Keep triage clean. Show only live work by default.</div>
+    </div>
+    <div class="segmented">
+      <a href="/alerts" class="{% if show != 'all' %}active{% endif %}">Unacked</a>
+      <a href="/alerts?show=all" class="{% if show == 'all' %}active{% endif %}">All alerts</a>
     </div>
   </div>
+</div>
 
-  <div class="alertlist">
-    {% for a in alerts %}
-      <div class="alertrow">
-        <div class="alertthumb">
-          {% if a.snapshot_b64 %}
-            <img src="data:image/jpeg;base64,{{a.snapshot_b64}}" alt="thumb" />
+<div class="alertlist">
+  {% for a in alerts %}
+    <article class="alertrow" id="alert-{{ a.id }}">
+      <div class="alertthumb">
+        {% if a.snapshot_b64 %}
+          <img src="data:image/jpeg;base64,{{ a.snapshot_b64 }}" alt="thumb" />
+        {% else %}
+          <div class="sub">No thumb</div>
+        {% endif %}
+      </div>
+      <div class="alertmeta">
+        <div class="row" style="justify-content:space-between; align-items:flex-start">
+          <div>
+            <div class="tilename">{{ a.label|upper }}</div>
+            <div class="sub">{{ a.created_at|relative_time }} · {{ a.created_at|dt_full }}</div>
+          </div>
+          <div class="row">
+            <span class="pill {{ a.clip_status|clip_tone }}">CLIP {{ (a.clip_status or 'pending')|upper }}</span>
+            <span class="pill {% if a.acked %}ok{% else %}bad{% endif %}">{% if a.acked %}ACKED{% else %}NEW{% endif %}</span>
+          </div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="meta-card">
+            <div class="label">Camera</div>
+            <strong>{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }}</strong>
+            <div class="sub">Source feed</div>
+          </div>
+          <div class="meta-card">
+            <div class="label">Rule</div>
+            <strong>{{ rules.get(a.rule_id).name if rules.get(a.rule_id) else a.rule_id }}</strong>
+            <div class="sub">Trigger profile</div>
+          </div>
+          <div class="meta-card">
+            <div class="label">Confidence</div>
+            <strong>{{ '%.2f'|format(a.conf) }}</strong>
+            <div class="sub">Model score</div>
+          </div>
+        </div>
+
+        <div class="media-panel">
+          {% if a.clip_status == "ready" and a.clip_path %}
+            <video controls preload="metadata">
+              <source src="/clips/{{ a.clip_path }}" type="video/mp4" />
+              Your browser cannot play this clip.
+            </video>
+            <div class="row" style="margin-top:10px">
+              <a class="btn ghost" href="/clips/{{ a.clip_path }}" target="_blank">Open clip</a>
+            </div>
+          {% elif a.clip_status == "failed" %}
+            <div class="sub">Clip unavailable{% if a.clip_error %}: {{ a.clip_error }}{% endif %}</div>
           {% else %}
-            <div class="sub">No thumb</div>
+            <div class="sub">Clip processing. Leave this card alone for a minute, it may promote itself.</div>
           {% endif %}
         </div>
-        <div class="alertmeta">
-          <div class="row" style="justify-content:space-between">
-            <div>
-              <div class="tilename">{{ a.label|upper }} <span class="sub">· conf {{ '%.2f'|format(a.conf) }}</span></div>
-              <div class="sub">{{ a.created_at }} UTC · Cam: {{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · Rule: {{ rules.get(a.rule_id).name if rules.get(a.rule_id) else a.rule_id }}</div>
-            </div>
-            {% if a.acked %}
-              <span class="pill ok">ACKED</span>
-            {% else %}
-              <span class="pill bad">NEW</span>
-            {% endif %}
-          </div>
 
-          <div class="row" style="margin-top:10px">
-            {% if not a.acked %}
-              <form method="post" action="/alerts/{{a.id}}/ack" style="margin:0">
-                <button class="btn primary" type="submit">Acknowledge</button>
-              </form>
-            {% endif %}
-            <a class="btn" href="/live">Open live wall</a>
-          </div>
+        <div class="row">
+          {% if not a.acked %}
+            <form method="post" action="/alerts/{{a.id}}/ack" style="margin:0">
+              <button class="btn primary" type="submit">Acknowledge</button>
+            </form>
+          {% endif %}
+          <a class="btn" href="/live">Open live wall</a>
         </div>
       </div>
-    {% endfor %}
+    </article>
+  {% endfor %}
 
-    {% if alerts|length == 0 %}
-      <div class="card" style="margin-top:12px">
-        <h3>Nothing yet</h3>
-        <div class="sub">If the worker is running, alerts will land here with thumbnails.</div>
+  {% if alerts|length == 0 %}
+    <div class="empty-state center">
+      <div class="tilename">Nothing in the inbox</div>
+      <div class="sub">If the worker is running, new detections land here with playback state close by.</div>
+      <div class="row">
+        <a class="btn primary" href="/live">Open live wall</a>
+        <a class="btn" href="/ui/scan">Scan LAN</a>
       </div>
-    {% endif %}
-  </div>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

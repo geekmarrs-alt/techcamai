@@ -24,11 +24,51 @@
         </div>
       </div>
       <div class="v2-focus-image">
-        {% if featured_camera.id %}
-        <img src="/cameras/{{ featured_camera.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ featured_camera.name }} snapshot" />
+        {% if featured_camera.id and featured_camera.ip %}
+        <img src="/cameras/{{ featured_camera.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ featured_camera.name }} snapshot"
+          onerror="this.onerror=null; this.style.display='none'; document.getElementById('snap-err-{{ featured_camera.id }}').style.display='flex';" />
+        <div id="snap-err-{{ featured_camera.id }}" style="display:none; align-items:center; justify-content:center; height:260px; color:var(--faint); font-size:13px; flex-direction:column; gap:6px;">
+          <span>No snapshot</span>
+          <span class="sub" style="font-size:11px;">Check camera IP, credentials, and network</span>
+        </div>
         {% else %}
-        <div class="sub">No snapshot available</div>
+        <div style="display:flex; align-items:center; justify-content:center; height:260px; color:var(--faint); font-size:13px; flex-direction:column; gap:6px;">
+          <span>No snapshot</span>
+          <span class="sub" style="font-size:11px;"><a href="/cameras/manage#cam-{{ featured_camera.id }}" style="color:var(--faint)">Add camera IP to enable snapshot →</a></span>
+        </div>
         {% endif %}
+        <div class="v2-focus-overlay">
+          <div>
+            <div class="eyebrow">Live priority feed</div>
+            <div class="v2-focus-overlay-title">{{ featured_camera.name }}</div>
+            {% if featured_camera_last_alert %}
+            <div class="sub">Last event {{ featured_camera_last_alert.created_at|relative_time }}</div>
+            {% endif %}
+          </div>
+          <div class="row">
+            <span class="pill {% if featured_camera.enabled %}ok{% else %}bad{% endif %}">{% if featured_camera.enabled %}online{% else %}offline{% endif %}</span>
+            {% if featured_alert %}
+            <span class="pill {{ featured_alert.clip_status|clip_tone }}">clip {{ (featured_alert.clip_status or 'pending')|upper }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="v2-focus-detail-grid">
+        <div class="v2-focus-detail-card">
+          <span class="v2-pulse-label">Attention</span>
+          <strong>{{ featured_camera_alert_count }}</strong>
+          <div class="sub">Open incidents tied to this feed</div>
+        </div>
+        <div class="v2-focus-detail-card">
+          <span class="v2-pulse-label">Playback</span>
+          <strong>{% if featured_alert and featured_alert.clip_status %}{{ featured_alert.clip_status|upper }}{% else %}IDLE{% endif %}</strong>
+          <div class="sub">{% if featured_alert and featured_alert.clip_path %}Clip attached to latest incident{% else %}No playable clip on the latest item yet{% endif %}</div>
+        </div>
+        <div class="v2-focus-detail-card">
+          <span class="v2-pulse-label">Channel</span>
+          <strong>{{ featured_camera.channel }}</strong>
+          <div class="sub">{{ featured_camera.auth|upper }} auth · {{ featured_camera.scheme|upper }}</div>
+        </div>
       </div>
       <div class="v2-focus-actions">
         <a class="btn primary" href="/live">Open live wall</a>
@@ -41,7 +81,8 @@
       </div>
     </article>
 
-    <aside class="v2-supporting-cameras">
+    <div class="v2-stage-side-stack">
+      <aside class="v2-supporting-cameras">
       {% for c in supporting_cameras %}
       <article class="v2-camera-mini">
         <div class="row" style="justify-content:space-between; align-items:flex-start">
@@ -52,7 +93,9 @@
           <span class="pill {% if c.enabled %}ok{% endif %}">{% if c.enabled %}ON{% else %}OFF{% endif %}</span>
         </div>
         <div class="v2-camera-mini-image">
-          <img src="/cameras/{{ c.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ c.name }} snapshot" />
+          <img src="/cameras/{{ c.id }}/snapshot.jpg?ts={{ now_ts }}" alt="{{ c.name }} snapshot"
+            onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div style="display:none; align-items:center; justify-content:center; height:132px; color:var(--faint); font-size:11px;">No snapshot</div>
         </div>
         <div class="row" style="margin-top:10px">
           <a class="btn ghost" href="/live">Live</a>
@@ -66,7 +109,10 @@
         <div class="sub">Add more enabled cameras to build out the wall.</div>
       </div>
       {% endif %}
-    </aside>
+      </aside>
+
+      {% include "partials/dashboard_stage_sidebar.html" %}
+    </div>
   </div>
   {% else %}
   <div class="v2-empty-panel">
