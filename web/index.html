@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TECHCAMAI — Edge-first AI camera monitoring</title>
   <meta name="description" content="Run AI-powered CCTV monitoring on a Raspberry Pi. LAN discovery, motion alerts, clip capture, and a clean operator console — no cloud required." />
+  <meta name="theme-color" content="#07111f" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="TECHCAMAI — Edge-first AI camera monitoring" />
+  <meta property="og:description" content="Run AI-powered CCTV monitoring on a Raspberry Pi. LAN discovery, motion alerts, clip capture — no cloud required." />
   <link rel="icon" href="assets/brand/techcamai-icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -771,16 +775,14 @@
 
           <div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Install one-liner</div>
-            <div class="code-block">
-<span class="comment"># Replace HOST:PORT with your dev machine or file server</span>
+            <div class="code-block"><span class="comment"># Replace HOST:PORT with your dev machine or file server</span>
 curl -fsSL http://HOST:PORT/install.sh | sudo bash -s -- \
   --src http://HOST:PORT/techcamai.tgz \
   --camera-urls \
     "http://user:pass@192.168.0.30/ISAPI/Streaming/channels/1/picture"
 
 <span class="comment"># Then open the console at:</span>
-http://&lt;pi-ip&gt;:8000/
-            </div>
+http://&lt;pi-ip&gt;:8000/</div>
             <p style="margin-top:12px;font-size:12px;color:var(--faint)">
               Docker is installed automatically if missing. Stack runs under <code style="color:var(--accent2);font-size:11px">/opt/techcamai</code>.
             </p>
