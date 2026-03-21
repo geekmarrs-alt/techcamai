@@ -5,74 +5,84 @@
 {% set total_cameras = cameras|length %}
 {% set enabled_cameras = cameras|selectattr('enabled')|list|length %}
 {% set unacked_alerts = alerts|rejectattr('acked')|list|length %}
+{% set ready_clips = alerts|selectattr('clip_status', 'equalto', 'ready')|list|length %}
 
 <div class="topbar">
   <div>
     <div class="eyebrow">Overview</div>
     <h2>Operator dashboard</h2>
-    <div class="sub">Fast LAN scan, clean camera onboarding, live wall access, and alerts with playback.</div>
+    <div class="sub">LAN scan · alert inbox · live wall · clip playback — one click each.</div>
   </div>
   <div class="row" style="gap:8px">
     <a class="btn primary" href="/ui/scan">Scan LAN</a>
     <a class="btn" href="/live">Live wall</a>
-    <a class="btn" href="/alerts">Alerts</a>
+    <a class="btn" href="/alerts">
+      Alerts
+      {% if unacked_alerts > 0 %}
+        <span style="background:var(--danger);color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px">{{ unacked_alerts }}</span>
+      {% endif %}
+    </a>
     {% include "_poll_hint.html" %}
   </div>
 </div>
 
-<section class="hero">
-  <div class="hero-panel">
-    <div class="hero-brand">
-      <img src="/static/techcamai-icon.svg" alt="TECHCAMAI logo" style="width:64px;"/>
-      <h1>TECHCAMAI</h1>
-      <p>Edge-first surveillance, simple operator workflows. Scan, onboard, review, and now play back alerts.</p>
-    </div>
-  </div>
-  <div class="stack" style="margin-top:16px">
-    <div class="card">
-      <div class="eyebrow">System status</div>
-      <div class="row" style="gap:4px; margin-top:12px">
-        <span class="pill ok">Pi-ready</span>
-        <span class="pill">Digest auth</span>
-        <span class="pill">Playback MVP</span>
-      </div>
-      <div class="sub" style="margin-top:12px">Current focus: motion alert to playable clip, without overcomplicating it.</div>
-      <div class="activity-strip" style="margin:8px 0 0 0"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-    </div>
-  </div>
-</section>
-
+<!-- Stats row -->
 <section class="stats">
   <div class="stat">
-    <div class="label">Saved cameras</div>
+    <div class="label">Cameras saved</div>
     <div class="value">{{ total_cameras }}</div>
-    <div class="hint">{{ enabled_cameras }} enabled, ready for live wall/worker use</div>
+    <div class="hint">{{ enabled_cameras }} enabled · {{ total_cameras - enabled_cameras }} disabled</div>
   </div>
   <div class="stat">
     <div class="label">Open alerts</div>
-    <div class="value">{{ unacked_alerts }}</div>
-    <div class="hint">Unacknowledged items needing attention</div>
+    <div class="value" style="{% if unacked_alerts > 0 %}color:var(--danger){% endif %}">{{ unacked_alerts }}</div>
+    <div class="hint">{% if unacked_alerts > 0 %}Needs attention{% else %}Inbox clear{% endif %}</div>
   </div>
   <div class="stat">
     <div class="label">Alert history</div>
     <div class="value">{{ total_alerts }}</div>
-    <div class="hint">Recent detections in the inbox</div>
+    <div class="hint">Total detections logged</div>
   </div>
   <div class="stat">
-    <div class="label">Playback</div>
-    <div class="value">MVP</div>
-    <div class="hint">Post-trigger MP4 capture</div>
+    <div class="label">Clips ready</div>
+    <div class="value" style="{% if ready_clips > 0 %}color:var(--ok){% endif %}">{{ ready_clips }}</div>
+    <div class="hint">Playable MP4 clips captured</div>
   </div>
 </section>
 
-<div class="grid" style="gap:16px">
+<!-- System status bar -->
+<div class="card" style="padding:14px 18px">
+  <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div class="row" style="gap:8px">
+      <span class="pill ok">Pi-ready</span>
+      <span class="pill">Digest auth</span>
+      <span class="pill">Clip capture MVP</span>
+      <span class="pill" style="opacity:.6">No auth (preview)</span>
+    </div>
+    <div class="row" style="gap:14px">
+      <span class="sub" style="font-size:12px">LAN scan</span>
+      <div class="activity-strip" style="margin:0;grid-template-columns:repeat(6,1fr);gap:4px">
+        <span style="height:28px"></span>
+        <span style="height:28px;opacity:.5"></span>
+        <span style="height:28px"></span>
+        <span style="height:28px;opacity:.7"></span>
+        <span style="height:28px;opacity:.4"></span>
+        <span style="height:28px"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main content grid -->
+<div class="grid">
+  <!-- Latest alerts -->
   <section class="card" style="min-width:320px">
-    <div class="row" style="justify-content:space-between">
+    <div class="row" style="justify-content:space-between;margin-bottom:14px">
       <div>
         <h3>Latest alerts</h3>
-        <div class="sub">Recent detections, quick triage.</div>
+        <div class="sub" style="margin-top:4px">Recent detections — quick triage.</div>
       </div>
-      <a class="btn ghost" href="/alerts">Inbox</a>
+      <a class="btn ghost" href="/alerts">Full inbox →</a>
     </div>
 
     {% if alerts %}
@@ -81,18 +91,20 @@
           <div class="alertrow">
             <div class="alertthumb">
               {% if a.snapshot_b64 %}
-                <img src="data:image/jpeg;base64,{{ a.snapshot_b64 }}" alt="alert thumb" />
+                <img src="data:image/jpeg;base64,{{ a.snapshot_b64 }}" alt="alert thumbnail" />
               {% else %}
-                <div class="sub">No thumb</div>
+                <div class="sub" style="padding:16px;font-size:12px">No snapshot</div>
               {% endif %}
             </div>
             <div class="alertmeta">
-              <div class="row" style="justify-content:space-between">
+              <div class="row" style="justify-content:space-between;align-items:flex-start">
                 <div>
                   <div class="tilename">{{ a.label|upper }}</div>
-                  <div class="sub">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · {{ a.created_at }} UTC</div>
+                  <div class="sub" style="font-size:12px;margin-top:3px">
+                    {{ cams.get(a.camera_id).name if cams.get(a.camera_id) else a.camera_id }} · {{ a.created_at }} UTC
+                  </div>
                 </div>
-                <div class="row">
+                <div class="row" style="gap:6px;flex-shrink:0">
                   {% if a.clip_status == "ready" and a.clip_path %}
                     <span class="pill ok">CLIP READY</span>
                   {% elif a.clip_status == "failed" %}
@@ -100,57 +112,101 @@
                   {% else %}
                     <span class="pill">CLIP {{ (a.clip_status or 'pending')|upper }}</span>
                   {% endif %}
-                  {% if a.acked %}
-                    <span class="pill ok">ACKED</span>
-                  {% else %}
-                    <span class="pill bad">NEW</span>
-                  {% endif %}
+                  <span class="pill {% if a.acked %}ok{% else %}bad{% endif %}">
+                    {% if a.acked %}ACKED{% else %}NEW{% endif %}
+                  </span>
                 </div>
               </div>
-              <div class="row" style="margin-top:10px">
-                <a class="btn" href="/alerts#alert-{{ a.id }}">Open alert</a>
+              <div class="row" style="margin-top:10px;gap:8px">
+                <a class="btn small" href="/alerts#alert-{{ a.id }}">Open alert</a>
                 {% if a.clip_status == "ready" and a.clip_path %}
-                  <a class="btn ghost" href="/clips/{{ a.clip_path }}" target="_blank">Play clip</a>
+                  <a class="btn small ghost" href="/clips/{{ a.clip_path }}" target="_blank">Play clip</a>
                 {% endif %}
               </div>
             </div>
           </div>
         {% endfor %}
+        {% if total_alerts > 4 %}
+          <div style="text-align:center;padding:8px 0">
+            <a class="btn ghost small" href="/alerts">View all {{ total_alerts }} alerts →</a>
+          </div>
+        {% endif %}
       </div>
     {% else %}
-      <div class="card" style="margin-top:12px">
-        <h3>Nothing yet</h3>
-        <div class="sub">As soon as the worker sees motion, alerts land here.</div>
+      <div class="empty-state center" style="margin-top:8px">
+        <div style="font-size:32px;opacity:.4">📭</div>
+        <div style="font-weight:700;font-size:15px">No alerts yet</div>
+        <div class="sub" style="font-size:13px">The worker fires alerts here as soon as motion is detected.</div>
+        <a class="btn small primary" href="/cameras/manage" style="margin-top:4px">Check camera setup</a>
       </div>
     {% endif %}
   </section>
 
-  <section class="card" style="min-width:280px">
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <h3>Cameras</h3>
-        <div class="sub">Current camera inventory.</div>
-      </div>
-      <a class="btn ghost" href="/cameras/manage">Manage</a>
-    </div>
-    <div class="stack" style="margin-top:12px">
-      {% for c in cameras[:6] %}
-        <div class="camera-item">
-          <div>
-            <div class="tilename">{{ c.name }}</div>
-            <div class="sub">{{ c.ip or 'No IP set' }} · channel {{ c.channel }}</div>
+  <!-- Right column -->
+  <div class="stack">
+    <!-- Cameras -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:14px">
+        <div>
+          <h3>Cameras</h3>
+          <div class="sub" style="margin-top:4px">
+            {% if total_cameras > 0 %}{{ enabled_cameras }} of {{ total_cameras }} active{% else %}No cameras saved{% endif %}
           </div>
-          {% if c.enabled %}
-            <span class="pill ok">ENABLED</span>
-          {% else %}
-            <span class="pill">DISABLED</span>
-          {% endif %}
         </div>
-      {% endfor %}
-      {% if not cameras %}
-        <div class="sub">No cameras saved yet. Start with Scan LAN.</div>
-      {% endif %}
-    </div>
-  </section>
+        <a class="btn ghost" href="/cameras/manage">Manage →</a>
+      </div>
+      <div class="stack">
+        {% for c in cameras[:6] %}
+          <div class="camera-item">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div>
+                <div class="tilename">{{ c.name }}</div>
+                <div class="sub" style="font-size:12px;margin-top:2px">{{ c.ip or 'No IP set' }} · ch {{ c.channel }}</div>
+              </div>
+              {% if c.enabled %}
+                <span class="pill ok">ON</span>
+              {% else %}
+                <span class="pill">OFF</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+        {% if not cameras %}
+          <div class="empty-state">
+            <div class="sub" style="font-size:13px">No cameras saved. Start with <strong>Scan LAN</strong> to discover cameras on your network.</div>
+            <a class="btn small primary" href="/ui/scan">Scan LAN now</a>
+          </div>
+        {% endif %}
+        {% if total_cameras > 6 %}
+          <div style="text-align:center;padding:4px 0">
+            <a class="btn ghost small" href="/cameras/manage">+{{ total_cameras - 6 }} more cameras →</a>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Quick actions -->
+    <section class="card">
+      <h3 style="margin-bottom:14px">Quick actions</h3>
+      <div class="quick-grid">
+        <a class="quick-card" href="/live">
+          <strong>Live wall</strong>
+          <div class="sub" style="font-size:12px">Snapshot grid, auto-refresh</div>
+        </a>
+        <a class="quick-card" href="/timeline">
+          <strong>Timeline</strong>
+          <div class="sub" style="font-size:12px">24h event strip</div>
+        </a>
+        <a class="quick-card" href="/ui/scan">
+          <strong>Scan LAN</strong>
+          <div class="sub" style="font-size:12px">Discover cameras</div>
+        </a>
+        <a class="quick-card" href="/ui/add">
+          <strong>Add camera</strong>
+          <div class="sub" style="font-size:12px">Test & onboard</div>
+        </a>
+      </div>
+    </section>
+  </div>
 </div>
 {% endblock %}
