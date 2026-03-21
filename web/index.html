@@ -257,6 +257,83 @@
       pointer-events: none;
     }
 
+    /* ── 3D hero screen ────────────────────────────────── */
+    .hero-visual {
+      perspective: 1400px;
+      perspective-origin: 50% 20%;
+    }
+
+    .hero-screen {
+      will-change: transform;
+      transform-style: preserve-3d;
+    }
+
+    /* CRT scanline overlay on the mockup */
+    .hero-screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,.028) 2px,
+        rgba(0,0,0,.028) 4px
+      );
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* REC indicator */
+    @keyframes rec-blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff5b76;
+      flex-shrink: 0;
+      animation: rec-blink 1.4s step-start infinite;
+    }
+
+    .rec-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      color: rgba(255,91,118,.75);
+    }
+
+    /* Pulsing live stat value */
+    @keyframes danger-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .55; }
+    }
+
+    .live-val { animation: danger-pulse 1.8s ease-in-out infinite; }
+
+    /* Animated scan sweep on thumbnails */
+    @keyframes scan-sweep {
+      0%   { transform: translateY(-120%); }
+      100% { transform: translateY(220%); }
+    }
+
+    .screen-thumb {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .screen-thumb-scan {
+      position: absolute;
+      left: 0; right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, transparent, rgba(83,182,255,.28), transparent);
+      animation: scan-sweep 2.6s ease-in-out infinite;
+    }
+
     /* ── FEATURES STRIP ─────────────────────────────────── */
     .features-strip {
       padding: 0 0 80px;
@@ -273,12 +350,13 @@
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 24px 20px;
-      transition: border-color .2s, transform .2s;
+      transition: border-color .22s, transform .26s, box-shadow .26s;
     }
 
     .strip-card:hover {
-      border-color: var(--border-md);
-      transform: translateY(-2px);
+      border-color: rgba(83,182,255,.3);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px rgba(83,182,255,.09), 0 2px 10px rgba(0,0,0,.35);
     }
 
     .strip-icon {
@@ -298,16 +376,16 @@
     .strip-icon.amber  { background: rgba(248,191,76,.12); }
 
     .strip-title {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
       margin-bottom: 8px;
-      letter-spacing: -.01em;
+      letter-spacing: -.015em;
     }
 
     .strip-desc {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
-      line-height: 1.55;
+      line-height: 1.6;
     }
 
     /* ── HOW IT WORKS ────────────────────────────────────── */
@@ -354,16 +432,16 @@
     }
 
     .step-title {
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 700;
       margin-bottom: 10px;
-      letter-spacing: -.02em;
+      letter-spacing: -.025em;
     }
 
     .step-desc {
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* ── PI INSTALL ──────────────────────────────────────── */
@@ -474,9 +552,9 @@
     }
 
     .pricing-desc {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
-      line-height: 1.55;
+      line-height: 1.6;
       margin-bottom: 24px;
       flex: 1;
     }
@@ -491,7 +569,7 @@
     }
 
     .pricing-features li {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
       display: flex;
       gap: 8px;
@@ -598,6 +676,9 @@
     </div>
   </div>
 
+  <!-- AI surveillance canvas background -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
   <div class="page-wrap">
 
     <!-- ═══ HERO ══════════════════════════════════════════ -->
@@ -632,6 +713,8 @@
               <span class="screen-dot y"></span>
               <span class="screen-dot g"></span>
               <span class="screen-url">http://192.168.1.42:8000 — TECHCAMAI Operator Console</span>
+              <span class="rec-dot"></span>
+              <span class="rec-label">REC</span>
             </div>
             <div class="screen-body">
               <div class="screen-sidebar">
@@ -654,7 +737,7 @@
                   </div>
                   <div class="screen-stat">
                     <div class="screen-stat-label">Open alerts</div>
-                    <div class="screen-stat-value" style="color:var(--danger)">3</div>
+                    <div class="screen-stat-value live-val" style="color:var(--danger)">3</div>
                   </div>
                   <div class="screen-stat">
                     <div class="screen-stat-label">History</div>
@@ -668,7 +751,7 @@
                 <div class="screen-alerts">
                   <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:4px 0">Latest alerts</div>
                   <div class="screen-alert">
-                    <div class="screen-thumb"></div>
+                    <div class="screen-thumb"><div class="screen-thumb-scan"></div></div>
                     <div>
                       <div class="screen-alert-label">PERSON DETECTED</div>
                       <div class="screen-alert-meta">Front door · 2 mins ago</div>
@@ -676,7 +759,7 @@
                     <span class="screen-badge">NEW</span>
                   </div>
                   <div class="screen-alert">
-                    <div class="screen-thumb" style="background:linear-gradient(135deg,rgba(55,211,154,.12),rgba(53,224,184,.08))"></div>
+                    <div class="screen-thumb" style="background:linear-gradient(135deg,rgba(55,211,154,.12),rgba(53,224,184,.08))"><div class="screen-thumb-scan" style="animation-delay:1.3s;background:linear-gradient(180deg,transparent,rgba(55,211,154,.28),transparent)"></div></div>
                     <div>
                       <div class="screen-alert-label">VEHICLE DETECTED</div>
                       <div class="screen-alert-meta">Car park · 18 mins ago</div>
@@ -925,6 +1008,235 @@ http://&lt;pi-ip&gt;:8000/</div>
       const isOpen = drawer.classList.toggle('open');
       btn.setAttribute('aria-expanded', isOpen);
     }
+
+    /* ── Canvas: AI surveillance background ─────────────── */
+    ;(function () {
+      const canvas = document.getElementById('bg-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H;
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      /* Particles */
+      const isMobile = window.innerWidth < 700;
+      const N = isMobile ? 38 : 70;
+      const pts = [];
+      for (let i = 0; i < N; i++) {
+        pts.push({
+          x:  Math.random() * window.innerWidth,
+          y:  Math.random() * window.innerHeight,
+          vx: (Math.random() - .5) * .32,
+          vy: (Math.random() - .5) * .32,
+          r:  Math.random() * 1.4 + .4,
+          a:  Math.random() * .32 + .08,
+        });
+      }
+
+      /* Detection boxes */
+      const CLRS = {
+        alert: [255, 91, 118],
+        scan:  [83, 182, 255],
+        ok:    [55, 211, 154],
+        warn:  [248, 191, 76],
+      };
+      const LBLS = ['PERSON', 'MOTION', 'VEHICLE', 'SCANNING', 'OBJECT', 'TRACK'];
+
+      function makeBox() {
+        const keys = Object.keys(CLRS);
+        const [r, g, b] = CLRS[keys[Math.floor(Math.random() * keys.length)]];
+        return {
+          x: Math.random() * (W - 220) + 60,
+          y: Math.random() * (H - 180) + 40,
+          w: Math.random() * 130 + 50,
+          h: Math.random() * 90 + 38,
+          alpha: 0,
+          phase: 'in',
+          phaseAt: performance.now() - Math.random() * 2000,
+          holdMs: Math.random() * 2500 + 900,
+          r, g, b,
+          lbl: LBLS[Math.floor(Math.random() * LBLS.length)],
+          conf: Math.floor(Math.random() * 28 + 72),
+          cs: 10,
+        };
+      }
+
+      const NBOXES = isMobile ? 2 : 4;
+      const boxes = Array.from({ length: NBOXES }, makeBox);
+
+      function drawBox(b) {
+        const { x, y, w, h, r, g, b: bl, alpha, lbl, conf, cs } = b;
+        if (alpha <= 0) return;
+        const col = `rgba(${r},${g},${bl},${alpha})`;
+        ctx.save();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x,         y + cs); ctx.lineTo(x,         y);     ctx.lineTo(x + cs,     y);
+        ctx.moveTo(x + w - cs,y);      ctx.lineTo(x + w,     y);     ctx.lineTo(x + w,      y + cs);
+        ctx.moveTo(x + w,     y+h-cs); ctx.lineTo(x + w,     y + h); ctx.lineTo(x + w - cs, y + h);
+        ctx.moveTo(x + cs,    y + h);  ctx.lineTo(x,         y + h); ctx.lineTo(x,          y + h - cs);
+        ctx.stroke();
+        ctx.font = 'bold 8px ui-monospace,monospace';
+        ctx.fillStyle = `rgba(${r},${g},${bl},${Math.min(alpha * 1.3, 1)})`;
+        ctx.fillText(`${lbl}  ${conf}%`, x + 2, y - 5);
+        ctx.restore();
+      }
+
+      /* Scanline */
+      const scan = { state: 'idle', y: 0, stateAt: performance.now() };
+
+      /* Grid */
+      function drawGrid() {
+        ctx.strokeStyle = 'rgba(83,182,255,.022)';
+        ctx.lineWidth = 1;
+        const step = 72;
+        for (let x = 0; x <= W; x += step) {
+          ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += step) {
+          ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke();
+        }
+      }
+
+      /* Corner crosshairs */
+      function drawXhair(cx, cy, size, a) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(83,182,255,${a})`;
+        ctx.lineWidth = 1;
+        const g = size * .36;
+        ctx.beginPath();
+        ctx.moveTo(cx - size, cy); ctx.lineTo(cx - g, cy);
+        ctx.moveTo(cx + g,    cy); ctx.lineTo(cx + size, cy);
+        ctx.moveTo(cx, cy - size); ctx.lineTo(cx, cy - g);
+        ctx.moveTo(cx, cy + g);    ctx.lineTo(cx, cy + size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * .18, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(83,182,255,${a * 1.6})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* Main loop */
+      let last = performance.now();
+
+      function frame(now) {
+        const dt = Math.min(now - last, 50);
+        last = now;
+        ctx.clearRect(0, 0, W, H);
+
+        drawGrid();
+
+        /* Move particles, wrap */
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -30) p.x = W + 30;
+          if (p.x > W+30) p.x = -30;
+          if (p.y < -30) p.y = H + 30;
+          if (p.y > H+30) p.y = -30;
+        });
+
+        /* Connections */
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            const d  = Math.sqrt(dx * dx + dy * dy);
+            if (d < 145) {
+              ctx.strokeStyle = `rgba(83,182,255,${(1 - d / 145) * .1})`;
+              ctx.lineWidth = .6;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        /* Nodes */
+        pts.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(83,182,255,${p.a})`;
+          ctx.fill();
+        });
+
+        /* Detection boxes */
+        boxes.forEach(b => {
+          const elapsed = now - b.phaseAt;
+          if (b.phase === 'in') {
+            b.alpha = Math.min(.58, b.alpha + dt * .0014);
+            if (b.alpha >= .58) { b.phase = 'hold'; b.phaseAt = now; }
+          } else if (b.phase === 'hold') {
+            if (elapsed > b.holdMs) { b.phase = 'out'; b.phaseAt = now; }
+          } else {
+            b.alpha = Math.max(0, b.alpha - dt * .0008);
+            if (b.alpha <= 0) Object.assign(b, makeBox(), { alpha: 0, phase: 'in', phaseAt: now });
+          }
+          drawBox(b);
+        });
+
+        /* Scanline sweep */
+        if (scan.state === 'idle' && now - scan.stateAt > 5200) {
+          scan.state = 'scan'; scan.y = 0; scan.stateAt = now;
+        } else if (scan.state === 'scan') {
+          scan.y += dt * .24;
+          const g = ctx.createLinearGradient(0, scan.y - 55, 0, scan.y + 8);
+          g.addColorStop(0, 'rgba(83,182,255,0)');
+          g.addColorStop(1, 'rgba(83,182,255,.05)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, scan.y - 55, W, 63);
+          if (scan.y > H) { scan.state = 'idle'; scan.stateAt = now; }
+        }
+
+        /* Corner crosshairs — subtle breathing */
+        const t = now * .001;
+        const a1 = .07 + Math.sin(t * .65) * .022;
+        const a2 = .06 + Math.sin(t * .48 + 1.9) * .018;
+        drawXhair(32, 32, 16, a1);
+        drawXhair(W - 32, 32, 16, a2);
+        drawXhair(32, H - 32, 16, a2);
+        drawXhair(W - 32, H - 32, 16, a1);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    }());
+
+    /* ── Hero screen 3D mouse tilt ───────────────────────── */
+    ;(function () {
+      const screen = document.querySelector('.hero-screen');
+      if (!screen || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      let mx = 0, my = 0, cx = 0, cy = 0;
+      let rafId;
+
+      document.addEventListener('mousemove', e => {
+        const rect = screen.getBoundingClientRect();
+        mx = ((e.clientX - (rect.left + rect.width  * .5)) / (rect.width  * .5));
+        my = ((e.clientY - (rect.top  + rect.height * .5)) / (rect.height * .5));
+      });
+
+      document.addEventListener('mouseleave', () => { mx = 0; my = 0; });
+
+      function tilt() {
+        cx += (mx - cx) * .07;
+        cy += (my - cy) * .07;
+        screen.style.transform =
+          `perspective(1400px) rotateX(${-cy * 5}deg) rotateY(${cx * 7}deg) scale3d(1.01,1.01,1)`;
+        rafId = requestAnimationFrame(tilt);
+      }
+      tilt();
+    }());
   </script>
 </body>
 </html>
