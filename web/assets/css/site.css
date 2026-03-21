@@ -30,6 +30,18 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Anchor offset so sticky nav doesn't cover section targets */
+[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
+
+/* Subtle text selection */
+::selection { background: rgba(83,182,255,.28); color: var(--text); }
+
+/* Thin scrollbar on Webkit (code blocks, sidebar) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(130,164,220,.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(130,164,220,.36); }
+
 body {
   margin: 0;
   color: var(--text);
@@ -277,6 +289,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.15; letter-spacing: -.03em; }
 .page-wrap {
   padding-top: var(--nav-h);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .container {
@@ -383,6 +396,7 @@ section {
 }
 
 .footer-brand img {
+  display: block;
   width: 32px;
   height: 32px;
   margin-bottom: 12px;
