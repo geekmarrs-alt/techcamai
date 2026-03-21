@@ -1220,6 +1220,9 @@ http://&lt;pi-ip&gt;:8000/</div>
       let mx = 0, my = 0, cx = 0, cy = 0;
       let rafId;
 
+      const cleanup = () => { if (rafId) cancelAnimationFrame(rafId); };
+      window.addEventListener('beforeunload', cleanup);
+
       document.addEventListener('mousemove', e => {
         const rect = screen.getBoundingClientRect();
         mx = ((e.clientX - (rect.left + rect.width  * .5)) / (rect.width  * .5));

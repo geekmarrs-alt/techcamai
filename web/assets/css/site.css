@@ -22,6 +22,25 @@
   --shadow:       0 22px 60px rgba(0, 0, 0, .38);
   --radius:       20px;
   --nav-h:        64px;
+  /* Color overlays for animations & UI */
+  --blue-faint:   rgba(83, 182, 255, .08);
+  --blue-light:   rgba(83, 182, 255, .12);
+  --blue-mid:     rgba(83, 182, 255, .22);
+  --blue-high:    rgba(83, 182, 255, .3);
+  --purple-light: rgba(124, 92, 255, .05);
+  --purple-mid:   rgba(124, 92, 255, .14);
+  --teal-light:   rgba(53, 224, 184, .08);
+  --teal-mid:     rgba(53, 224, 184, .12);
+  --danger-light: rgba(255, 91, 118, .12);
+  --danger-mid:   rgba(255, 91, 118, .22);
+  --ok-light:     rgba(55, 211, 154, .14);
+  --ok-mid:       rgba(55, 211, 154, .24);
+  --white-vfaint: rgba(255, 255, 255, .03);
+  --white-faint:  rgba(255, 255, 255, .04);
+  --white-light:  rgba(255, 255, 255, .05);
+  --white-mid:    rgba(255, 255, 255, .06);
+  --black-light:  rgba(0, 0, 0, .15);
+  --black-mid:    rgba(0, 0, 0, .4);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
