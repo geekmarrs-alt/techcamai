@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Features · TECHCAMAI</title>
+  <meta name="description" content="What TECHCAMAI can do right now — and what's on the roadmap. Honest feature breakdown for the Developer Preview." />
+  <meta name="theme-color" content="#07111f" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Features · TECHCAMAI" />
+  <meta property="og:description" content="What TECHCAMAI can do right now — and what's on the roadmap. Honest feature breakdown for the Developer Preview." />
+  <link rel="icon" href="assets/brand/techcamai-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/site.css" />
+  <style>
+    /* ── PAGE HEADER ─────────────────────────────────────── */
+    .page-hero {
+      padding: 80px 0 64px;
+      text-align: center;
+    }
+
+    .page-hero .eyebrow { margin-bottom: 14px; }
+    .page-hero h1 { margin-bottom: 20px; }
+    .page-hero .sub { max-width: 540px; margin: 0 auto; }
+
+    /* ── STATUS LEGEND ───────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 28px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── FEATURE BLOCKS ──────────────────────────────────── */
+    .features-main {
+      padding: 0 0 80px;
+    }
+
+    .feature-group {
+      margin-bottom: 64px;
+    }
+
+    .feature-group-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .feature-group-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .fgi-blue   { background: rgba(83,182,255,.14); }
+    .fgi-teal   { background: rgba(53,224,184,.12); }
+    .fgi-purple { background: rgba(124,92,255,.14); }
+    .fgi-amber  { background: rgba(248,191,76,.12); }
+    .fgi-red    { background: rgba(255,91,118,.12); }
+
+    .feature-group-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 4px;
+    }
+
+    .feature-group-sub {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .feature-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color .2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-md);
+    }
+
+    .feature-card.built {
+      border-left: 2px solid rgba(55,211,154,.4);
+    }
+
+    .feature-card.beta {
+      border-left: 2px solid rgba(83,182,255,.4);
+    }
+
+    .feature-card.coming {
+      border-left: 2px solid rgba(248,191,76,.3);
+      opacity: .8;
+    }
+
+    .feature-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .feature-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      color: var(--text);
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .feature-technical {
+      font-size: 11px;
+      color: var(--faint);
+      font-family: ui-monospace, monospace;
+      background: rgba(0,0,0,.2);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.06);
+      line-height: 1.4;
+    }
+
+    /* ── HONEST BOX ──────────────────────────────────────── */
+    .honest-box {
+      background: rgba(248,191,76,.06);
+      border: 1px solid rgba(248,191,76,.2);
+      border-radius: 18px;
+      padding: 24px 28px;
+      margin-bottom: 48px;
+    }
+
+    .honest-box-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .honest-box-icon {
+      font-size: 20px;
+    }
+
+    .honest-box-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--warn);
+    }
+
+    .honest-box ul {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .honest-box ul li {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── TECH STACK ──────────────────────────────────────── */
+    .tech-section {
+      padding: 64px 0;
+      background: rgba(255,255,255,.015);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .tech-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .tech-layer {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 10px;
+    }
+
+    .tech-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tech-item {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tech-item::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* ── CTA BANNER ──────────────────────────────────────── */
+    .cta-banner {
+      padding: 80px 0;
+      text-align: center;
+    }
+
+    .cta-banner h2 { margin-bottom: 16px; }
+    .cta-banner .sub { max-width: 480px; margin: 0 auto 28px; }
+    .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .tech-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 420px) {
+      .tech-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── ANIMATIONS & CANVAS BACKGROUND ────────────────── */
+    @keyframes rec-blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    @keyframes danger-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .55; }
+    }
+
+    @keyframes scan-sweep {
+      0%   { transform: translateY(-120%); }
+      100% { transform: translateY(220%); }
+    }
+
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff5b76;
+      flex-shrink: 0;
+      animation: rec-blink 1.4s step-start infinite;
+    }
+
+    .rec-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      color: rgba(255,91,118,.75);
+    }
+
+    .live-val { animation: danger-pulse 1.8s ease-in-out infinite; }
+
+    .screen-thumb {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .screen-thumb-scan {
+      position: absolute;
+      left: 0; right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, transparent, rgba(83,182,255,.28), transparent);
+      animation: scan-sweep 2.6s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAV ══════════════════════════════════════════════ -->
+  <nav class="site-nav" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a class="nav-brand" href="index.html" aria-label="TECHCAMAI home">
+        <img src="assets/brand/techcamai-icon.svg" alt="" aria-hidden="true" />
+        <span class="nav-brand-name">TECHCAMAI</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="features.html" class="active">Features</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+
+      <div class="nav-cta">
+        <a class="btn ghost sm" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn primary sm" href="index.html#install">Self-host free</a>
+      </div>
+
+      <button class="nav-hamburger" aria-label="Open menu" aria-expanded="false" onclick="toggleNav(this)">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="nav-drawer" id="nav-drawer">
+    <ul class="nav-links">
+      <li><a href="features.html" class="active">Features</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn ghost" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">View on GitHub</a>
+      <a class="btn primary" href="index.html#install">Self-host free</a>
+    </div>
+  </div>
+
+  <!-- AI surveillance canvas background -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <div class="page-wrap">
+
+    <!-- ═══ PAGE HEADER ═══════════════════════════════════ -->
+    <div class="page-hero">
+      <div class="container">
+        <span class="eyebrow">Developer Preview · Honest breakdown</span>
+        <h1 class="headline" style="margin-bottom:20px">What works. What doesn't.</h1>
+        <p class="sub">
+          This is a pre-production Developer Preview. Features listed as <span class="pill ok" style="font-size:11px">Built</span> are working in the repo today.
+          <span class="pill soon" style="font-size:11px">Planned</span> items are on the roadmap, not shipped.
+        </p>
+
+        <div class="legend">
+          <span class="legend-item">
+            <span class="pill ok">Built</span> Working in the repo now
+          </span>
+          <span class="legend-item">
+            <span class="pill beta">Beta</span> Works but rough edges
+          </span>
+          <span class="legend-item">
+            <span class="pill soon">Planned</span> Not yet built
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ HONEST BOX ════════════════════════════════════ -->
+    <div class="container">
+      <div class="honest-box">
+        <div class="honest-box-header">
+          <span class="honest-box-icon">⚠️</span>
+          <span class="honest-box-title">Developer Preview — not production-ready</span>
+        </div>
+        <ul>
+          <li>No authentication: the operator console has no login. Anyone on the same network can access it.</li>
+          <li>Credentials are stored in plaintext in the SQLite database on the Pi. This is an MVP trade-off, not a final design.</li>
+          <li>No multi-tenancy. No cloud hosting. No billing infrastructure built yet.</li>
+          <li>Clip capture can fail on cameras with slow RTSP response times — status tracked in the alert inbox.</li>
+          <li>The detection model is configurable but the default integration is the internal worker — no external AI provider support yet.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══ FEATURES ══════════════════════════════════════ -->
+    <section class="features-main">
+      <div class="container">
+
+        <!-- ── Camera management ── -->
+        <div class="feature-group">
+          <div class="feature-group-header">
+            <div class="feature-group-icon fgi-blue">📡</div>
+            <div>
+              <div class="feature-group-title">Camera management</div>
+              <div class="feature-group-sub">Discover, add, and manage cameras on your LAN</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">LAN scanning</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Scans your local network, tries common snapshot endpoints, and shows vendor hints to help identify cameras quickly.</p>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Digest auth support</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Works with cameras requiring HTTP Digest authentication (common on Hikvision, Dahua, Reolink). Stores credentials per-camera.</p>
+              <div class="feature-technical">httpx async · per-camera credential store</div>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Snapshot preview on add</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">When adding a camera, fetch a live snapshot immediately to confirm credentials and URL are correct before saving.</p>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Per-camera enable/disable</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Toggle individual cameras in or out of the monitoring loop without deleting their configuration.</p>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Inline editing</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Edit camera name, IP, channel, and credentials directly in the Cameras management page without leaving the console.</p>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">ONVIF auto-discovery</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Proper ONVIF device discovery and stream URI resolution. Currently uses heuristic URL probing.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Live monitoring ── -->
+        <div class="feature-group">
+          <div class="feature-group-header">
+            <div class="feature-group-icon fgi-teal">🔴</div>
+            <div>
+              <div class="feature-group-title">Live monitoring</div>
+              <div class="feature-group-sub">Real-time snapshot wall and alert polling</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Live snapshot wall</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Multi-camera grid that auto-refreshes snapshots on a configurable interval (2–10 seconds). One-click access from the sidebar.</p>
+              <div class="feature-technical">Server-side snapshot proxy · 2–10s refresh</div>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Alert polling</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Console polls for new alerts every 2.5 seconds. Page reloads automatically when new detections arrive so the inbox stays current.</p>
+              <div class="feature-technical">Vanilla JS IIFE · /api/alerts/latest endpoint</div>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Live RTSP stream</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Full RTSP video stream in-browser via HLS or WebRTC transcoding. Currently snapshot-only (JPEG polling).</p>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">WebSocket push</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Replace the polling approach with WebSocket push for true real-time alert delivery without page reloads.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Alerts & triage ── -->
+        <div class="feature-group">
+          <div class="feature-group-header">
+            <div class="feature-group-icon fgi-purple">🔔</div>
+            <div>
+              <div class="feature-group-title">Alerts &amp; triage</div>
+              <div class="feature-group-sub">Detection events, thumbnails, and operator workflow</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Alert inbox</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Full detection history with snapshot thumbnail, camera name, rule name, confidence score, and timestamp. Filter by unacknowledged.</p>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">One-click acknowledge</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Mark alerts as reviewed to clear the inbox. Acked state persisted in the database.</p>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Event timeline</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">24-hour hourly activity strip plus a scrollable chronological event list. Useful for post-incident review without trawling the full inbox.</p>
+            </div>
+            <div class="feature-card beta">
+              <div class="feature-card-header">
+                <span class="feature-name">Confidence threshold rules</span>
+                <span class="pill beta">Beta</span>
+              </div>
+              <p class="feature-desc">Per-camera rules with configurable label, confidence threshold, and cooldown period. Reduces false positives from high-sensitivity cameras.</p>
+              <div class="feature-technical">label · conf_threshold · cooldown_seconds</div>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Email / webhook notifications</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Push alerts to email or an external webhook URL (Slack, Teams, custom integrations). Not yet built.</p>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Alert search &amp; export</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Search by camera, label, or date range. Export to CSV for reporting or evidence packs.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Clip capture ── -->
+        <div class="feature-group">
+          <div class="feature-group-header">
+            <div class="feature-group-icon fgi-amber">🎬</div>
+            <div>
+              <div class="feature-group-title">Clip capture &amp; playback</div>
+              <div class="feature-group-sub">Post-trigger video recording via RTSP</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card beta">
+              <div class="feature-card-header">
+                <span class="feature-name">Post-trigger clip capture</span>
+                <span class="pill beta">Beta</span>
+              </div>
+              <p class="feature-desc">On detection, the worker captures a ~12-second MP4 clip from the RTSP stream. Clip status tracked: pending → ready | failed.</p>
+              <div class="feature-technical">ffmpeg · RTSP · MP4 · ~12s duration</div>
+            </div>
+            <div class="feature-card beta">
+              <div class="feature-card-header">
+                <span class="feature-name">In-console playback</span>
+                <span class="pill beta">Beta</span>
+              </div>
+              <p class="feature-desc">Clip plays directly in the alert inbox when ready. No separate player or download required. Video served via /clips/ endpoint.</p>
+              <div class="feature-technical">HTML5 video · /clips/{path} stream</div>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Pre-trigger buffer</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Ring buffer to capture footage before the detection event, not just after. Requires persistent RTSP stream ingestion.</p>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Retention management</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Auto-delete old clips based on age or disk usage threshold. Disk health shown in the console.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Deployment ── -->
+        <div class="feature-group">
+          <div class="feature-group-header">
+            <div class="feature-group-icon fgi-red">🥧</div>
+            <div>
+              <div class="feature-group-title">Deployment &amp; infrastructure</div>
+              <div class="feature-group-sub">Edge-first, Pi-native, Docker-based</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Raspberry Pi install</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">One-liner install script. Docker installed automatically if missing. Compose stack starts API, worker, and Watchtower.</p>
+              <div class="feature-technical">Pi OS Lite/Desktop · arm64/amd64 · Docker Compose</div>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Watchtower auto-updates</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">Watchtower watches the GHCR image registry and applies updates automatically. Push to master, Pi pulls the new :stable image.</p>
+              <div class="feature-technical">GHCR · :stable tag · Watchtower</div>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">Multi-arch images</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">GitHub Actions builds and pushes arm64 + amd64 images to GHCR on every master commit.</p>
+              <div class="feature-technical">GitHub Actions · GHCR · arm64 + amd64</div>
+            </div>
+            <div class="feature-card built">
+              <div class="feature-card-header">
+                <span class="feature-name">SQLite local DB</span>
+                <span class="pill ok">Built</span>
+              </div>
+              <p class="feature-desc">No external database required. SQLite on a shared Docker volume. Works offline. Simple to back up.</p>
+              <div class="feature-technical">SQLite3 · SQLModel · /data volume</div>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Authentication</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Login screen for the operator console. Currently open — anyone on the local network can access it.</p>
+            </div>
+            <div class="feature-card coming">
+              <div class="feature-card-header">
+                <span class="feature-name">Multi-site dashboard</span>
+                <span class="pill soon">Planned</span>
+              </div>
+              <p class="feature-desc">Aggregate alerts and camera status across multiple Pi deployments in a single hosted view.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══ TECH STACK ═════════════════════════════════════ -->
+    <section class="tech-section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">Under the hood</div>
+          <h2 class="headline">Technology stack</h2>
+          <p class="sub">No JavaScript frameworks. No proprietary cloud dependencies. Boring stack by design.</p>
+        </div>
+
+        <div class="tech-grid">
+          <div class="tech-card">
+            <div class="tech-layer">Backend</div>
+            <div class="tech-items">
+              <span class="tech-item">FastAPI (Python 3.12)</span>
+              <span class="tech-item">SQLModel + SQLite3</span>
+              <span class="tech-item">httpx (async camera fetch)</span>
+              <span class="tech-item">Jinja2 templates</span>
+              <span class="tech-item">Uvicorn ASGI</span>
+            </div>
+          </div>
+          <div class="tech-card">
+            <div class="tech-layer">Frontend</div>
+            <div class="tech-items">
+              <span class="tech-item">Vanilla HTML / CSS / JS</span>
+              <span class="tech-item">Zero build step</span>
+              <span class="tech-item">Server-rendered (SSR)</span>
+              <span class="tech-item">Polling via poll.js</span>
+              <span class="tech-item">Inter font (Google Fonts)</span>
+            </div>
+          </div>
+          <div class="tech-card">
+            <div class="tech-layer">Worker</div>
+            <div class="tech-items">
+              <span class="tech-item">Background task runner</span>
+              <span class="tech-item">Snapshot polling loop</span>
+              <span class="tech-item">Motion / object detection</span>
+              <span class="tech-item">ffmpeg clip capture</span>
+              <span class="tech-item">POST /ingest/detection</span>
+            </div>
+          </div>
+          <div class="tech-card">
+            <div class="tech-layer">Infrastructure</div>
+            <div class="tech-items">
+              <span class="tech-item">Docker + Compose</span>
+              <span class="tech-item">GHCR (arm64 + amd64)</span>
+              <span class="tech-item">GitHub Actions CI/CD</span>
+              <span class="tech-item">Watchtower auto-update</span>
+              <span class="tech-item">Raspberry Pi 4/5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ CTA ════════════════════════════════════════════ -->
+    <section class="cta-banner">
+      <div class="container">
+        <span class="eyebrow" style="margin-bottom:14px;display:block">Ready to try it?</span>
+        <h2 class="headline">Self-host for free</h2>
+        <p class="sub">No credit card. No sign-up. Runs on your Raspberry Pi in minutes.</p>
+        <div class="cta-actions">
+          <a class="btn primary lg" href="index.html#install">Get started</a>
+          <a class="btn lg" href="pricing.html">See pricing</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ FOOTER ════════════════════════════════════════ -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI" />
+            <div class="footer-brand-name">TECHCAMAI</div>
+            <p class="footer-tagline">Edge-first AI camera monitoring. Runs on your hardware.</p>
+          </div>
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="features.html">Features</a></li>
+              <li><a href="pricing.html">Pricing</a></li>
+              <li><a href="index.html#install">Install</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Open source</h4>
+            <ul>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai/issues" target="_blank" rel="noopener">Issues</a></li>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai/releases" target="_blank" rel="noopener">Releases</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Status</h4>
+            <ul>
+              <li><a href="#">Developer Preview</a></li>
+              <li><a href="pricing.html#enterprise">Enterprise enquiry</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>© 2026 TECHCAMAI. Developer Preview — not production-ready.</p>
+          <p>Built for Raspberry Pi · Edge-first · No cloud dependency</p>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function toggleNav(btn) {
+      const drawer = document.getElementById('nav-drawer');
+      const isOpen = drawer.classList.toggle('open');
+      btn.setAttribute('aria-expanded', isOpen);
+    }
+
+    /* ── Canvas: AI surveillance background ─────────────── */
+    ;(function () {
+      const canvas = document.getElementById('bg-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H;
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      const isMobile = window.innerWidth < 700;
+      const N = isMobile ? 38 : 70;
+      const pts = [];
+      for (let i = 0; i < N; i++) {
+        pts.push({
+          x:  Math.random() * window.innerWidth,
+          y:  Math.random() * window.innerHeight,
+          vx: (Math.random() - .5) * .32,
+          vy: (Math.random() - .5) * .32,
+          r:  Math.random() * 1.4 + .4,
+          a:  Math.random() * .32 + .08,
+        });
+      }
+
+      const CLRS = {
+        alert: [255, 91, 118],
+        scan:  [83, 182, 255],
+        ok:    [55, 211, 154],
+        warn:  [248, 191, 76],
+      };
+      const LBLS = ['PERSON', 'MOTION', 'VEHICLE', 'SCANNING', 'OBJECT', 'TRACK'];
+
+      function makeBox() {
+        const keys = Object.keys(CLRS);
+        const [r, g, b] = CLRS[keys[Math.floor(Math.random() * keys.length)]];
+        return {
+          x: Math.random() * (W - 220) + 60,
+          y: Math.random() * (H - 180) + 40,
+          w: Math.random() * 130 + 50,
+          h: Math.random() * 90 + 38,
+          alpha: 0,
+          phase: 'in',
+          phaseAt: performance.now() - Math.random() * 2000,
+          holdMs: Math.random() * 2500 + 900,
+          r, g, b,
+          lbl: LBLS[Math.floor(Math.random() * LBLS.length)],
+          conf: Math.floor(Math.random() * 28 + 72),
+          cs: 10,
+        };
+      }
+
+      const NBOXES = isMobile ? 2 : 4;
+      const boxes = Array.from({ length: NBOXES }, makeBox);
+
+      function drawBox(b) {
+        const { x, y, w, h, r, g, b: bl, alpha, lbl, conf, cs } = b;
+        if (alpha <= 0) return;
+        const col = `rgba(${r},${g},${bl},${alpha})`;
+        ctx.save();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x,         y + cs); ctx.lineTo(x,         y);     ctx.lineTo(x + cs,     y);
+        ctx.moveTo(x + w - cs,y);      ctx.lineTo(x + w,     y);     ctx.lineTo(x + w,      y + cs);
+        ctx.moveTo(x + w,     y+h-cs); ctx.lineTo(x + w,     y + h); ctx.lineTo(x + w - cs, y + h);
+        ctx.moveTo(x + cs,    y + h);  ctx.lineTo(x,         y + h); ctx.lineTo(x,          y + h - cs);
+        ctx.stroke();
+        ctx.font = 'bold 8px ui-monospace,monospace';
+        ctx.fillStyle = `rgba(${r},${g},${bl},${Math.min(alpha * 1.3, 1)})`;
+        ctx.fillText(`${lbl}  ${conf}%`, x + 2, y - 5);
+        ctx.restore();
+      }
+
+      const scan = { state: 'idle', y: 0, stateAt: performance.now() };
+
+      function drawGrid() {
+        ctx.strokeStyle = 'rgba(83,182,255,.022)';
+        ctx.lineWidth = 1;
+        const step = 72;
+        for (let x = 0; x <= W; x += step) {
+          ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += step) {
+          ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke();
+        }
+      }
+
+      function drawXhair(cx, cy, size, a) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(83,182,255,${a})`;
+        ctx.lineWidth = 1;
+        const g = size * .36;
+        ctx.beginPath();
+        ctx.moveTo(cx - size, cy); ctx.lineTo(cx - g, cy);
+        ctx.moveTo(cx + g,    cy); ctx.lineTo(cx + size, cy);
+        ctx.moveTo(cx, cy - size); ctx.lineTo(cx, cy - g);
+        ctx.moveTo(cx, cy + g);    ctx.lineTo(cx, cy + size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * .18, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(83,182,255,${a * 1.6})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      let last = performance.now();
+
+      function frame(now) {
+        const dt = Math.min(now - last, 50);
+        last = now;
+        ctx.clearRect(0, 0, W, H);
+
+        drawGrid();
+
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -30) p.x = W + 30;
+          if (p.x > W+30) p.x = -30;
+          if (p.y < -30) p.y = H + 30;
+          if (p.y > H+30) p.y = -30;
+        });
+
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            const d  = Math.sqrt(dx * dx + dy * dy);
+            if (d < 145) {
+              ctx.strokeStyle = `rgba(83,182,255,${(1 - d / 145) * .1})`;
+              ctx.lineWidth = .6;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        pts.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(83,182,255,${p.a})`;
+          ctx.fill();
+        });
+
+        boxes.forEach(b => {
+          const elapsed = now - b.phaseAt;
+          if (b.phase === 'in') {
+            b.alpha = Math.min(.58, b.alpha + dt * .0014);
+            if (b.alpha >= .58) { b.phase = 'hold'; b.phaseAt = now; }
+          } else if (b.phase === 'hold') {
+            if (elapsed > b.holdMs) { b.phase = 'out'; b.phaseAt = now; }
+          } else {
+            b.alpha = Math.max(0, b.alpha - dt * .0008);
+            if (b.alpha <= 0) Object.assign(b, makeBox(), { alpha: 0, phase: 'in', phaseAt: now });
+          }
+          drawBox(b);
+        });
+
+        if (scan.state === 'idle' && now - scan.stateAt > 5200) {
+          scan.state = 'scan'; scan.y = 0; scan.stateAt = now;
+        } else if (scan.state === 'scan') {
+          scan.y += dt * .24;
+          const g = ctx.createLinearGradient(0, scan.y - 55, 0, scan.y + 8);
+          g.addColorStop(0, 'rgba(83,182,255,0)');
+          g.addColorStop(1, 'rgba(83,182,255,.05)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, scan.y - 55, W, 63);
+          if (scan.y > H) { scan.state = 'idle'; scan.stateAt = now; }
+        }
+
+        const t = now * .001;
+        const a1 = .07 + Math.sin(t * .65) * .022;
+        const a2 = .06 + Math.sin(t * .48 + 1.9) * .018;
+        drawXhair(32, 32, 16, a1);
+        drawXhair(W - 32, 32, 16, a2);
+        drawXhair(32, H - 32, 16, a2);
+        drawXhair(W - 32, H - 32, 16, a1);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    }());
+  </script>
+</body>
+</html>

@@ -45,6 +45,7 @@
         position:sticky;
         top:0;
         height:100vh;
+        overflow-y:auto;
         border-right:1px solid var(--border);
         padding:22px 18px;
         background: linear-gradient(180deg, rgba(8,17,33,.94), rgba(10,19,37,.86));
@@ -361,9 +362,77 @@
         .stats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
         .hero, .grid{ grid-template-columns:1fr; }
       }
+      /* ── Mobile nav toggle ─────────────────────────────── */
+      .nav-toggle{
+        display:none;
+        align-items:center;
+        justify-content:space-between;
+        padding:14px 18px;
+        cursor:pointer;
+        border-bottom:1px solid var(--border);
+        background: linear-gradient(180deg, rgba(8,17,33,.96), rgba(10,19,37,.90));
+        backdrop-filter:blur(18px);
+        position:sticky;
+        top:0;
+        z-index:10;
+      }
+      .nav-toggle-brand{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        font-size:15px;
+        font-weight:800;
+        letter-spacing:.1em;
+      }
+      .nav-toggle-brand img{
+        width:26px;
+        height:26px;
+        object-fit:contain;
+        border-radius:8px;
+      }
+      .hamburger{
+        display:flex;
+        flex-direction:column;
+        gap:5px;
+        width:32px;
+        height:32px;
+        justify-content:center;
+        padding:4px;
+        background:none;
+        border:none;
+        cursor:pointer;
+      }
+      .hamburger span{
+        display:block;
+        height:2px;
+        width:100%;
+        background:var(--text);
+        border-radius:2px;
+        transition:.2s ease;
+      }
+      .side.collapsed .nav-body{ display:none; }
+      .nav-body{ display:contents; }
+
       @media (max-width: 980px){
         .app{ grid-template-columns: 1fr; }
-        .side{ position:static; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+        .side{
+          position:sticky;
+          top:0;
+          height:auto;
+          border-right:none;
+          border-bottom:1px solid var(--border);
+          z-index:20;
+          padding:0;
+        }
+        .brand{ display:none; }
+        .nav-toggle{ display:flex; }
+        .nav-body{
+          display:none;
+          padding:16px 18px 20px;
+        }
+        .side:not(.collapsed) .nav-body{ display:block; }
+        .nav-section{ margin-top:8px; }
+        .side-card{ display:none; }
       }
       @media (max-width: 900px){
         .alertrow, .tilegrid{ grid-template-columns: 1fr; }
@@ -383,52 +452,68 @@
   <body>
     <!-- [SHELL] auth-bar: insert authenticated-user header bar here when auth is built -->
     <div class="app">
-      <aside class="side">
-        <div class="brand">
-          <div class="brand-logo" aria-label="TECHCAMAI logo">
-            <img src="/static/techcamai-dashboard-logo.jpg" alt="TECHCAMAI AI CCTV Intelligence" />
+      <aside class="side collapsed" id="app-side">
+        <!-- Mobile header strip (≤980px) -->
+        <div class="nav-toggle" onclick="toggleSideNav()" aria-label="Toggle navigation">
+          <div class="nav-toggle-brand">
+            <img src="/static/techcamai-icon.svg" alt="TECHCAMAI" />
+            TECHCAMAI
           </div>
-          <div class="brand-text">
-            <div class="brand-title">TECHCAMAI</div>
-            <div class="brand-sub">Operator console</div>
-            <!-- [SHELL] edition-badge: replace inner text with server-rendered edition label -->
-            <div style="margin-top:6px;display:flex;justify-content:center">
-              <span class="pill" style="font-size:10px;padding:3px 9px;opacity:.65">Developer Preview</span>
+          <button class="hamburger" aria-label="Menu">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+
+        <!-- Desktop sidebar content / Mobile drawer -->
+        <div class="nav-body">
+          <!-- Desktop brand block -->
+          <div class="brand">
+            <div class="brand-logo" aria-label="TECHCAMAI logo">
+              <img src="/static/techcamai-dashboard-logo.jpg" alt="TECHCAMAI AI CCTV Intelligence" />
+            </div>
+            <div class="brand-text">
+              <div class="brand-title">TECHCAMAI</div>
+              <div class="brand-sub">Operator console</div>
+              <div style="margin-top:6px;display:flex;justify-content:center">
+                <span class="pill" style="font-size:10px;padding:3px 9px;opacity:.65">Developer Preview</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="nav-section">Workspace</div>
+          <nav class="nav">
+            <a href="/" class="{% if active=='overview' %}active{% endif %}"><span>Overview</span><small>home</small></a>
+            <a href="/live" class="{% if active=='live' %}active{% endif %}"><span>Live</span><small>wall</small></a>
+            <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><span>Alerts</span><small>inbox</small></a>
+            <a href="/timeline" class="{% if active=='timeline' %}active{% endif %}"><span>Timeline</span><small>events</small></a>
+            <a href="/cameras/manage" class="{% if active=='cameras' %}active{% endif %}"><span>Cameras</span><small>manage</small></a>
+            <a href="/ui/scan" class="{% if active=='scan' %}active{% endif %}"><span>LAN scan</span><small>discover</small></a>
+            <a href="/ui/add" class="{% if active=='add' %}active{% endif %}"><span>Add / test</span><small>camera</small></a>
+          </nav>
+
+          <div class="side-card">
+            <div class="eyebrow">Capabilities</div>
+            <div class="chiprow">
+              <span class="pill">LAN scan</span>
+              <span class="pill">Digest auth</span>
+              <span class="pill">Snapshot wall</span>
+              <span class="pill">Alert inbox</span>
+              <span class="pill">Clip playback</span>
             </div>
           </div>
         </div>
-
-        <div class="nav-section">Workspace</div>
-        <nav class="nav">
-          <a href="/" class="{% if active=='overview' %}active{% endif %}"><span>Overview</span><small>home</small></a>
-          <a href="/live" class="{% if active=='live' %}active{% endif %}"><span>Live</span><small>wall</small></a>
-          <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><span>Alerts</span><small>inbox</small></a>
-          <a href="/timeline" class="{% if active=='timeline' %}active{% endif %}"><span>Timeline</span><small>events</small></a>
-          <a href="/cameras/manage" class="{% if active=='cameras' %}active{% endif %}"><span>Cameras</span><small>manage</small></a>
-          <a href="/ui/scan" class="{% if active=='scan' %}active{% endif %}"><span>LAN scan</span><small>discover</small></a>
-          <a href="/ui/add" class="{% if active=='add' %}active{% endif %}"><span>Add / test</span><small>camera</small></a>
-        </nav>
-
-        <div class="side-card">
-          <div class="eyebrow">MVP capability</div>
-          <div class="chiprow">
-            <span class="pill">LAN scan</span>
-            <span class="pill">Digest auth</span>
-            <span class="pill">Snapshot wall</span>
-            <span class="pill">Alert inbox</span>
-          </div>
-        </div>
-
-        <div class="side-card">
-          <div class="eyebrow">Operator notes</div>
-          <div class="sub" style="margin-top:8px">Keep the live wall and the alert inbox one click apart. If the UI makes you hunt, it is failing.</div>
-          <div class="side-stats">
-            <div class="side-stat"><span class="sub">Direction</span><strong>Dark beta</strong></div>
-            <div class="side-stat"><span class="sub">Priority</span><strong>Fast triage</strong></div>
-            <div class="side-stat"><span class="sub">Playback</span><strong>Close by</strong></div>
-          </div>
-        </div>
       </aside>
+
+      <script>
+        /* Sidebar starts collapsed on mobile; open on desktop */
+        (function() {
+          var side = document.getElementById('app-side');
+          if (window.innerWidth > 980) side.classList.remove('collapsed');
+        })();
+        function toggleSideNav() {
+          document.getElementById('app-side').classList.toggle('collapsed');
+        }
+      </script>
 
       <main class="main">
         <div class="page-shell">

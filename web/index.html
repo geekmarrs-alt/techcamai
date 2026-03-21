@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TECHCAMAI — Edge-first AI camera monitoring</title>
+  <meta name="description" content="Run AI-powered CCTV monitoring on a Raspberry Pi. LAN discovery, motion alerts, clip capture, and a clean operator console — no cloud required." />
+  <meta name="theme-color" content="#07111f" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="TECHCAMAI — Edge-first AI camera monitoring" />
+  <meta property="og:description" content="Run AI-powered CCTV monitoring on a Raspberry Pi. LAN discovery, motion alerts, clip capture — no cloud required." />
+  <link rel="icon" href="assets/brand/techcamai-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/site.css" />
+  <style>
+    /* ── HERO ─────────────────────────────────────────────── */
+    .hero-section {
+      padding: 100px 0 80px;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      margin-bottom: 20px;
+    }
+
+    .hero-headline {
+      font-size: clamp(40px, 7vw, 76px);
+      font-weight: 800;
+      letter-spacing: -.05em;
+      line-height: 1.04;
+      margin-bottom: 24px;
+    }
+
+    .hero-headline .grad {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 55%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .hero-note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--faint);
+    }
+
+    /* Dashboard mockup */
+    .hero-visual {
+      margin-top: 64px;
+      position: relative;
+    }
+
+    .hero-screen {
+      max-width: 960px;
+      margin: 0 auto;
+      border-radius: 24px;
+      border: 1px solid var(--border-md);
+      background: var(--panel);
+      box-shadow:
+        0 40px 100px rgba(0,0,0,.55),
+        0 0 0 1px rgba(255,255,255,.04),
+        0 0 60px rgba(83,182,255,.08);
+      overflow: hidden;
+    }
+
+    .screen-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+    }
+
+    .screen-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .screen-dot.r { background: rgba(255,91,118,.6); }
+    .screen-dot.y { background: rgba(248,191,76,.6); }
+    .screen-dot.g { background: rgba(55,211,154,.6); }
+
+    .screen-url {
+      flex: 1;
+      background: rgba(255,255,255,.05);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--faint);
+    }
+
+    .screen-body {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      min-height: 360px;
+    }
+
+    .screen-sidebar {
+      border-right: 1px solid var(--border);
+      padding: 16px 12px;
+      background: rgba(0,0,0,.15);
+    }
+
+    .screen-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding: 8px;
+    }
+
+    .screen-logo-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+    }
+
+    .screen-logo-text {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: var(--text);
+    }
+
+    .screen-nav-item {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .screen-nav-item.active {
+      background: rgba(83,182,255,.12);
+      color: var(--text);
+    }
+
+    .screen-main {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .screen-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .screen-stat {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .screen-stat-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--faint);
+      font-weight: 700;
+    }
+
+    .screen-stat-value {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      margin-top: 6px;
+      color: var(--accent);
+    }
+
+    .screen-alerts {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .screen-alert {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .screen-thumb {
+      width: 48px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(83,182,255,.15), rgba(124,92,255,.10));
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+
+    .screen-alert-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .screen-alert-meta {
+      font-size: 10px;
+      color: var(--faint);
+      margin-top: 2px;
+    }
+
+    .screen-badge {
+      margin-left: auto;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255,91,118,.18);
+      color: var(--danger);
+      border: 1px solid rgba(255,91,118,.22);
+    }
+
+    .screen-badge.ok {
+      background: rgba(55,211,154,.14);
+      color: var(--ok);
+      border-color: rgba(55,211,154,.24);
+    }
+
+    /* Glow below hero visual */
+    .hero-glow {
+      position: absolute;
+      bottom: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 70%;
+      height: 200px;
+      background: radial-gradient(ellipse, rgba(83,182,255,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── 3D hero screen ────────────────────────────────── */
+    .hero-visual {
+      perspective: 1400px;
+      perspective-origin: 50% 20%;
+    }
+
+    .hero-screen {
+      will-change: transform;
+      transform-style: preserve-3d;
+    }
+
+    /* CRT scanline overlay on the mockup */
+    .hero-screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,.028) 2px,
+        rgba(0,0,0,.028) 4px
+      );
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* REC indicator */
+    @keyframes rec-blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff5b76;
+      flex-shrink: 0;
+      animation: rec-blink 1.4s step-start infinite;
+    }
+
+    .rec-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      color: rgba(255,91,118,.75);
+    }
+
+    /* Pulsing live stat value */
+    @keyframes danger-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .55; }
+    }
+
+    .live-val { animation: danger-pulse 1.8s ease-in-out infinite; }
+
+    /* Animated scan sweep on thumbnails */
+    @keyframes scan-sweep {
+      0%   { transform: translateY(-120%); }
+      100% { transform: translateY(220%); }
+    }
+
+    .screen-thumb {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .screen-thumb-scan {
+      position: absolute;
+      left: 0; right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, transparent, rgba(83,182,255,.28), transparent);
+      animation: scan-sweep 2.6s ease-in-out infinite;
+    }
+
+    /* ── FEATURES STRIP ─────────────────────────────────── */
+    .features-strip {
+      padding: 0 0 80px;
+    }
+
+    .strip-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .strip-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px 20px;
+      transition: border-color .22s, transform .26s, box-shadow .26s;
+    }
+
+    .strip-card:hover {
+      border-color: rgba(83,182,255,.3);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px rgba(83,182,255,.09), 0 2px 10px rgba(0,0,0,.35);
+    }
+
+    .strip-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .strip-icon.blue   { background: rgba(83,182,255,.14); }
+    .strip-icon.teal   { background: rgba(53,224,184,.12); }
+    .strip-icon.purple { background: rgba(124,92,255,.14); }
+    .strip-icon.amber  { background: rgba(248,191,76,.12); }
+
+    .strip-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -.015em;
+    }
+
+    .strip-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── HOW IT WORKS ────────────────────────────────────── */
+    .hiw-section {
+      padding: 80px 0;
+      background: rgba(255,255,255,.015);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hiw-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 56px;
+    }
+
+    .hiw-step {
+      position: relative;
+    }
+
+    .hiw-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 16px;
+      right: -20px;
+      color: var(--border-md);
+      font-size: 20px;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(83,182,255,.18), rgba(124,92,255,.14));
+      border: 1px solid rgba(83,182,255,.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -.025em;
+    }
+
+    .step-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── PI INSTALL ──────────────────────────────────────── */
+    .install-section {
+      padding: 80px 0;
+    }
+
+    .install-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .install-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .install-ctas {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .install-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--faint);
+    }
+
+    /* ── PRICING PREVIEW ─────────────────────────────────── */
+    .pricing-preview {
+      padding: 80px 0;
+      background: rgba(255,255,255,.015);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      border-radius: 22px;
+      padding: 28px 24px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pricing-card.featured {
+      border-color: rgba(83,182,255,.3);
+      background: linear-gradient(180deg, rgba(83,182,255,.08), rgba(124,92,255,.05), var(--panel));
+      position: relative;
+    }
+
+    .featured-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      padding: 4px 14px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .pricing-tier {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 12px;
+    }
+
+    .pricing-price {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -.04em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .pricing-price sub {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .pricing-cadence {
+      font-size: 13px;
+      color: var(--faint);
+      margin-bottom: 20px;
+    }
+
+    .pricing-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      flex: 1;
+    }
+
+    .pricing-features {
+      list-style: none;
+      margin: 0 0 24px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .pricing-features li {
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .pricing-features li::before {
+      content: "✓";
+      color: var(--ok);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .pricing-features li.soon {
+      color: var(--faint);
+    }
+
+    .pricing-features li.soon::before {
+      content: "○";
+      color: var(--warn);
+    }
+
+    .pricing-cta {
+      margin-top: auto;
+    }
+
+    .pricing-cta .btn {
+      width: 100%;
+    }
+
+    .pricing-view-all {
+      text-align: center;
+      margin-top: 32px;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 1000px) {
+      .strip-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 800px) {
+      .screen-stats { grid-template-columns: repeat(2, 1fr); }
+      .hiw-steps { grid-template-columns: 1fr; gap: 24px; }
+      .hiw-step::after { display: none !important; }
+      .install-grid { grid-template-columns: 1fr; gap: 36px; }
+      .pricing-cards { grid-template-columns: 1fr; max-width: 440px; }
+    }
+
+    @media (max-width: 600px) {
+      .strip-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .screen-body {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-sidebar { display: none; }
+      .screen-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAV ══════════════════════════════════════════════ -->
+  <nav class="site-nav" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a class="nav-brand" href="index.html" aria-label="TECHCAMAI home">
+        <img src="assets/brand/techcamai-icon.svg" alt="" aria-hidden="true" />
+        <span class="nav-brand-name">TECHCAMAI</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="features.html">Features</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+
+      <div class="nav-cta">
+        <a class="btn ghost sm" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn primary sm" href="#install">Self-host free</a>
+      </div>
+
+      <button class="nav-hamburger" aria-label="Open menu" aria-expanded="false" onclick="toggleNav(this)">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile drawer -->
+  <div class="nav-drawer" id="nav-drawer">
+    <ul class="nav-links">
+      <li><a href="features.html">Features</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="btn ghost" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">View on GitHub</a>
+      <a class="btn primary" href="#install">Self-host free</a>
+    </div>
+  </div>
+
+  <!-- AI surveillance canvas background -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <div class="page-wrap">
+
+    <!-- ═══ HERO ══════════════════════════════════════════ -->
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="eyebrow">Developer Preview · Edge AI</span>
+        </div>
+
+        <h1 class="hero-headline">
+          AI camera monitoring<br/>
+          <span class="grad">on your own hardware</span>
+        </h1>
+
+        <p class="hero-sub">
+          Run motion detection, alerts, and clip capture on a Raspberry Pi
+          — no cloud, no subscription, no data leaving your network.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn primary lg" href="#install">Self-host free</a>
+          <a class="btn lg" href="features.html">See features</a>
+        </div>
+
+        <p class="hero-note">No credit card · Runs on Pi 4 or newer · Open source</p>
+
+        <!-- Dashboard preview mockup -->
+        <div class="hero-visual">
+          <div class="hero-screen">
+            <div class="screen-bar">
+              <span class="screen-dot r"></span>
+              <span class="screen-dot y"></span>
+              <span class="screen-dot g"></span>
+              <span class="screen-url">http://192.168.1.42:8000 — TECHCAMAI Operator Console</span>
+              <span class="rec-dot"></span>
+              <span class="rec-label">REC</span>
+            </div>
+            <div class="screen-body">
+              <div class="screen-sidebar">
+                <div class="screen-logo">
+                  <div class="screen-logo-icon"></div>
+                  <span class="screen-logo-text">TECHCAMAI</span>
+                </div>
+                <div class="screen-nav-item active">Overview</div>
+                <div class="screen-nav-item">Live wall</div>
+                <div class="screen-nav-item">Alerts</div>
+                <div class="screen-nav-item">Timeline</div>
+                <div class="screen-nav-item">Cameras</div>
+                <div class="screen-nav-item">LAN scan</div>
+              </div>
+              <div class="screen-main">
+                <div class="screen-stats">
+                  <div class="screen-stat">
+                    <div class="screen-stat-label">Cameras</div>
+                    <div class="screen-stat-value">4</div>
+                  </div>
+                  <div class="screen-stat">
+                    <div class="screen-stat-label">Open alerts</div>
+                    <div class="screen-stat-value live-val" style="color:var(--danger)">3</div>
+                  </div>
+                  <div class="screen-stat">
+                    <div class="screen-stat-label">History</div>
+                    <div class="screen-stat-value">17</div>
+                  </div>
+                  <div class="screen-stat">
+                    <div class="screen-stat-label">Clips</div>
+                    <div class="screen-stat-value" style="color:var(--ok)">12</div>
+                  </div>
+                </div>
+                <div class="screen-alerts">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:4px 0">Latest alerts</div>
+                  <div class="screen-alert">
+                    <div class="screen-thumb"><div class="screen-thumb-scan"></div></div>
+                    <div>
+                      <div class="screen-alert-label">PERSON DETECTED</div>
+                      <div class="screen-alert-meta">Front door · 2 mins ago</div>
+                    </div>
+                    <span class="screen-badge">NEW</span>
+                  </div>
+                  <div class="screen-alert">
+                    <div class="screen-thumb" style="background:linear-gradient(135deg,rgba(55,211,154,.12),rgba(53,224,184,.08))"><div class="screen-thumb-scan" style="animation-delay:1.3s;background:linear-gradient(180deg,transparent,rgba(55,211,154,.28),transparent)"></div></div>
+                    <div>
+                      <div class="screen-alert-label">VEHICLE DETECTED</div>
+                      <div class="screen-alert-meta">Car park · 18 mins ago</div>
+                    </div>
+                    <span class="screen-badge ok">CLIP READY</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-glow"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ FEATURE STRIP ═════════════════════════════════ -->
+    <section class="features-strip">
+      <div class="container">
+        <div class="strip-grid">
+          <div class="strip-card">
+            <div class="strip-icon blue">📡</div>
+            <div class="strip-title">LAN discovery</div>
+            <div class="strip-desc">Scan your local network for ONVIF and HTTP cameras. Auto-detect IPs, try common snapshot paths, add in seconds.</div>
+          </div>
+          <div class="strip-card">
+            <div class="strip-icon teal">🔔</div>
+            <div class="strip-title">Motion alerts</div>
+            <div class="strip-desc">Worker polls cameras, runs detection, and fires alerts with a thumbnail snapshot. Alert inbox for fast triage.</div>
+          </div>
+          <div class="strip-card">
+            <div class="strip-icon purple">🎬</div>
+            <div class="strip-title">Clip capture</div>
+            <div class="strip-desc">Post-trigger 12-second MP4 clips captured via ffmpeg from the RTSP stream. Play back directly in the operator console.</div>
+          </div>
+          <div class="strip-card">
+            <div class="strip-icon amber">🥧</div>
+            <div class="strip-title">Runs on Raspberry Pi</div>
+            <div class="strip-desc">Designed to run at the edge on Pi 4 hardware. One install command, Docker Compose stack, Watchtower auto-updates.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ HOW IT WORKS ══════════════════════════════════ -->
+    <section class="hiw-section">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">How it works</div>
+          <h2 class="headline">Up in three steps</h2>
+          <p class="sub">From bare Pi to monitoring in under ten minutes. Tested on Raspberry Pi OS Lite.</p>
+        </div>
+
+        <div class="hiw-steps">
+          <div class="hiw-step">
+            <div class="step-number">1</div>
+            <div class="step-title">Install on your Pi</div>
+            <p class="step-desc">Run the one-liner install script. Docker is installed automatically if missing. The compose stack starts three services: API, worker, and Watchtower.</p>
+          </div>
+          <div class="hiw-step">
+            <div class="step-number">2</div>
+            <div class="step-title">Add your cameras</div>
+            <p class="step-desc">Open the operator console at <span style="font-family:monospace;color:var(--accent);font-size:13px">:8000</span>. Scan your LAN, pick cameras, enter credentials, and test a live snapshot — all in the browser.</p>
+          </div>
+          <div class="hiw-step">
+            <div class="step-number">3</div>
+            <div class="step-title">Get alerts with clips</div>
+            <p class="step-desc">The background worker polls each camera, runs detection, fires alerts with thumbnails to your inbox, and captures a short MP4 clip for playback.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PI INSTALL ════════════════════════════════════ -->
+    <section class="install-section" id="install">
+      <div class="container">
+        <div class="install-grid">
+          <div>
+            <div class="eyebrow" style="margin-bottom:14px">Self-hosted · Edge-first</div>
+            <h2 class="headline" style="margin-bottom:18px">One command.<br/>Your Pi. Your data.</h2>
+            <p class="sub" style="margin-bottom:20px">
+              No SaaS account, no cloud dependency. TECHCAMAI runs entirely on your local network.
+              Your camera footage never leaves your hardware.
+            </p>
+            <div class="install-pills">
+              <span class="pill ok">Free forever</span>
+              <span class="pill beta">Pi 4 / Pi 5</span>
+              <span class="pill">Docker Compose</span>
+              <span class="pill">Auto-updates via Watchtower</span>
+            </div>
+            <div class="install-ctas">
+              <a class="btn primary" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">View on GitHub</a>
+              <a class="btn ghost" href="features.html">What's included</a>
+            </div>
+            <p class="install-note">Raspberry Pi OS Lite or Desktop · Ethernet recommended for first run</p>
+          </div>
+
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px">Install one-liner</div>
+            <div class="code-block"><span class="comment"># Replace HOST:PORT with your dev machine or file server</span>
+curl -fsSL http://HOST:PORT/install.sh | sudo bash -s -- \
+  --src http://HOST:PORT/techcamai.tgz \
+  --camera-urls \
+    "http://user:pass@192.168.0.30/ISAPI/Streaming/channels/1/picture"
+
+<span class="comment"># Then open the console at:</span>
+http://&lt;pi-ip&gt;:8000/</div>
+            <p style="margin-top:12px;font-size:12px;color:var(--faint)">
+              Docker is installed automatically if missing. Stack runs under <code style="color:var(--accent2);font-size:11px">/opt/techcamai</code>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PRICING PREVIEW ═══════════════════════════════ -->
+    <section class="pricing-preview">
+      <div class="container">
+        <div class="section-header">
+          <div class="eyebrow">Pricing</div>
+          <h2 class="headline">Start free. Scale when ready.</h2>
+          <p class="sub">Community tier is free forever. Pro and Enterprise tiers are in planning — no release date yet.</p>
+        </div>
+
+        <div class="pricing-cards">
+
+          <!-- Community -->
+          <div class="pricing-card">
+            <div class="pricing-tier">Community</div>
+            <div class="pricing-price">Free</div>
+            <div class="pricing-cadence">Self-hosted · Forever</div>
+            <p class="pricing-desc">Everything in the repo, right now. Run it on your own Pi or server with no limitations or expiry.</p>
+            <ul class="pricing-features">
+              <li>LAN camera discovery</li>
+              <li>Live snapshot wall</li>
+              <li>Motion alert inbox</li>
+              <li>Post-trigger clip capture</li>
+              <li>Operator console (dark mode)</li>
+              <li>Watchtower auto-updates</li>
+            </ul>
+            <div class="pricing-cta">
+              <a class="btn" href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">Get the code →</a>
+            </div>
+          </div>
+
+          <!-- Pro — coming soon -->
+          <div class="pricing-card featured">
+            <span class="featured-badge">Coming soon</span>
+            <div class="pricing-tier">Pro</div>
+            <div class="pricing-price">TBC <sub>/ site</sub></div>
+            <div class="pricing-cadence">Hosted or self-hosted · Monthly</div>
+            <p class="pricing-desc">
+              Planned paid tier. Pricing not confirmed. Features listed are targets, not commitments — subject to change before launch.
+            </p>
+            <ul class="pricing-features">
+              <li>Everything in Community</li>
+              <li class="soon">Multi-site dashboard</li>
+              <li class="soon">Role-based access control</li>
+              <li class="soon">Longer clip retention</li>
+              <li class="soon">Email / webhook notifications</li>
+              <li class="soon">Priority support</li>
+            </ul>
+            <div class="pricing-cta">
+              <a class="btn ghost" href="pricing.html">See full comparison</a>
+            </div>
+          </div>
+
+          <!-- Enterprise -->
+          <div class="pricing-card">
+            <div class="pricing-tier">Enterprise</div>
+            <div class="pricing-price">Contact</div>
+            <div class="pricing-cadence">Custom · Annual</div>
+            <p class="pricing-desc">
+              For deployments at scale. No confirmed feature list or pricing yet — reach out to discuss requirements.
+            </p>
+            <ul class="pricing-features">
+              <li>Everything in Pro (planned)</li>
+              <li class="soon">Custom integrations</li>
+              <li class="soon">On-premise deployment</li>
+              <li class="soon">SLA & dedicated support</li>
+              <li class="soon">Volume camera licensing</li>
+            </ul>
+            <div class="pricing-cta">
+              <a class="btn ghost" href="pricing.html#enterprise">Get in touch</a>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="pricing-view-all">
+          <a href="pricing.html" style="color:var(--accent);font-size:14px;font-weight:600">
+            Full pricing comparison →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ FOOTER ════════════════════════════════════════ -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI" />
+            <div class="footer-brand-name">TECHCAMAI</div>
+            <p class="footer-tagline">Edge-first AI camera monitoring. Runs on your hardware. Your data stays on your network.</p>
+          </div>
+
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="features.html">Features</a></li>
+              <li><a href="pricing.html">Pricing</a></li>
+              <li><a href="index.html#install">Install</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <h4>Open source</h4>
+            <ul>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai/issues" target="_blank" rel="noopener">Issues</a></li>
+              <li><a href="https://github.com/geekmarrs-alt/techcamai/releases" target="_blank" rel="noopener">Releases</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <h4>Status</h4>
+            <ul>
+              <li><a href="#">Developer Preview</a></li>
+              <li><a href="pricing.html#enterprise">Enterprise enquiry</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <p>© 2026 TECHCAMAI. Developer Preview — not production-ready.</p>
+          <p>Built for Raspberry Pi · Edge-first · No cloud dependency</p>
+        </div>
+      </div>
+    </footer>
+
+  </div><!-- /page-wrap -->
+
+  <script>
+    function toggleNav(btn) {
+      const drawer = document.getElementById('nav-drawer');
+      const isOpen = drawer.classList.toggle('open');
+      btn.setAttribute('aria-expanded', isOpen);
+    }
+
+    /* ── Canvas: AI surveillance background ─────────────── */
+    ;(function () {
+      const canvas = document.getElementById('bg-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H;
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      /* Particles */
+      const isMobile = window.innerWidth < 700;
+      const N = isMobile ? 38 : 70;
+      const pts = [];
+      for (let i = 0; i < N; i++) {
+        pts.push({
+          x:  Math.random() * window.innerWidth,
+          y:  Math.random() * window.innerHeight,
+          vx: (Math.random() - .5) * .32,
+          vy: (Math.random() - .5) * .32,
+          r:  Math.random() * 1.4 + .4,
+          a:  Math.random() * .32 + .08,
+        });
+      }
+
+      /* Detection boxes */
+      const CLRS = {
+        alert: [255, 91, 118],
+        scan:  [83, 182, 255],
+        ok:    [55, 211, 154],
+        warn:  [248, 191, 76],
+      };
+      const LBLS = ['PERSON', 'MOTION', 'VEHICLE', 'SCANNING', 'OBJECT', 'TRACK'];
+
+      function makeBox() {
+        const keys = Object.keys(CLRS);
+        const [r, g, b] = CLRS[keys[Math.floor(Math.random() * keys.length)]];
+        return {
+          x: Math.random() * (W - 220) + 60,
+          y: Math.random() * (H - 180) + 40,
+          w: Math.random() * 130 + 50,
+          h: Math.random() * 90 + 38,
+          alpha: 0,
+          phase: 'in',
+          phaseAt: performance.now() - Math.random() * 2000,
+          holdMs: Math.random() * 2500 + 900,
+          r, g, b,
+          lbl: LBLS[Math.floor(Math.random() * LBLS.length)],
+          conf: Math.floor(Math.random() * 28 + 72),
+          cs: 10,
+        };
+      }
+
+      const NBOXES = isMobile ? 2 : 4;
+      const boxes = Array.from({ length: NBOXES }, makeBox);
+
+      function drawBox(b) {
+        const { x, y, w, h, r, g, b: bl, alpha, lbl, conf, cs } = b;
+        if (alpha <= 0) return;
+        const col = `rgba(${r},${g},${bl},${alpha})`;
+        ctx.save();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x,         y + cs); ctx.lineTo(x,         y);     ctx.lineTo(x + cs,     y);
+        ctx.moveTo(x + w - cs,y);      ctx.lineTo(x + w,     y);     ctx.lineTo(x + w,      y + cs);
+        ctx.moveTo(x + w,     y+h-cs); ctx.lineTo(x + w,     y + h); ctx.lineTo(x + w - cs, y + h);
+        ctx.moveTo(x + cs,    y + h);  ctx.lineTo(x,         y + h); ctx.lineTo(x,          y + h - cs);
+        ctx.stroke();
+        ctx.font = 'bold 8px ui-monospace,monospace';
+        ctx.fillStyle = `rgba(${r},${g},${bl},${Math.min(alpha * 1.3, 1)})`;
+        ctx.fillText(`${lbl}  ${conf}%`, x + 2, y - 5);
+        ctx.restore();
+      }
+
+      /* Scanline */
+      const scan = { state: 'idle', y: 0, stateAt: performance.now() };
+
+      /* Grid */
+      function drawGrid() {
+        ctx.strokeStyle = 'rgba(83,182,255,.022)';
+        ctx.lineWidth = 1;
+        const step = 72;
+        for (let x = 0; x <= W; x += step) {
+          ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += step) {
+          ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke();
+        }
+      }
+
+      /* Corner crosshairs */
+      function drawXhair(cx, cy, size, a) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(83,182,255,${a})`;
+        ctx.lineWidth = 1;
+        const g = size * .36;
+        ctx.beginPath();
+        ctx.moveTo(cx - size, cy); ctx.lineTo(cx - g, cy);
+        ctx.moveTo(cx + g,    cy); ctx.lineTo(cx + size, cy);
+        ctx.moveTo(cx, cy - size); ctx.lineTo(cx, cy - g);
+        ctx.moveTo(cx, cy + g);    ctx.lineTo(cx, cy + size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * .18, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(83,182,255,${a * 1.6})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* Main loop */
+      let last = performance.now();
+
+      function frame(now) {
+        const dt = Math.min(now - last, 50);
+        last = now;
+        ctx.clearRect(0, 0, W, H);
+
+        drawGrid();
+
+        /* Move particles, wrap */
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -30) p.x = W + 30;
+          if (p.x > W+30) p.x = -30;
+          if (p.y < -30) p.y = H + 30;
+          if (p.y > H+30) p.y = -30;
+        });
+
+        /* Connections */
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            const d  = Math.sqrt(dx * dx + dy * dy);
+            if (d < 145) {
+              ctx.strokeStyle = `rgba(83,182,255,${(1 - d / 145) * .1})`;
+              ctx.lineWidth = .6;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        /* Nodes */
+        pts.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(83,182,255,${p.a})`;
+          ctx.fill();
+        });
+
+        /* Detection boxes */
+        boxes.forEach(b => {
+          const elapsed = now - b.phaseAt;
+          if (b.phase === 'in') {
+            b.alpha = Math.min(.58, b.alpha + dt * .0014);
+            if (b.alpha >= .58) { b.phase = 'hold'; b.phaseAt = now; }
+          } else if (b.phase === 'hold') {
+            if (elapsed > b.holdMs) { b.phase = 'out'; b.phaseAt = now; }
+          } else {
+            b.alpha = Math.max(0, b.alpha - dt * .0008);
+            if (b.alpha <= 0) Object.assign(b, makeBox(), { alpha: 0, phase: 'in', phaseAt: now });
+          }
+          drawBox(b);
+        });
+
+        /* Scanline sweep */
+        if (scan.state === 'idle' && now - scan.stateAt > 5200) {
+          scan.state = 'scan'; scan.y = 0; scan.stateAt = now;
+        } else if (scan.state === 'scan') {
+          scan.y += dt * .24;
+          const g = ctx.createLinearGradient(0, scan.y - 55, 0, scan.y + 8);
+          g.addColorStop(0, 'rgba(83,182,255,0)');
+          g.addColorStop(1, 'rgba(83,182,255,.05)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, scan.y - 55, W, 63);
+          if (scan.y > H) { scan.state = 'idle'; scan.stateAt = now; }
+        }
+
+        /* Corner crosshairs — subtle breathing */
+        const t = now * .001;
+        const a1 = .07 + Math.sin(t * .65) * .022;
+        const a2 = .06 + Math.sin(t * .48 + 1.9) * .018;
+        drawXhair(32, 32, 16, a1);
+        drawXhair(W - 32, 32, 16, a2);
+        drawXhair(32, H - 32, 16, a2);
+        drawXhair(W - 32, H - 32, 16, a1);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    }());
+
+    /* ── Hero screen 3D mouse tilt ───────────────────────── */
+    ;(function () {
+      const screen = document.querySelector('.hero-screen');
+      if (!screen || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      let mx = 0, my = 0, cx = 0, cy = 0;
+      let rafId;
+
+      const cleanup = () => { if (rafId) cancelAnimationFrame(rafId); };
+      window.addEventListener('beforeunload', cleanup);
+
+      document.addEventListener('mousemove', e => {
+        const rect = screen.getBoundingClientRect();
+        mx = ((e.clientX - (rect.left + rect.width  * .5)) / (rect.width  * .5));
+        my = ((e.clientY - (rect.top  + rect.height * .5)) / (rect.height * .5));
+      });
+
+      document.addEventListener('mouseleave', () => { mx = 0; my = 0; });
+
+      function tilt() {
+        cx += (mx - cx) * .07;
+        cy += (my - cy) * .07;
+        screen.style.transform =
+          `perspective(1400px) rotateX(${-cy * 5}deg) rotateY(${cx * 7}deg) scale3d(1.01,1.01,1)`;
+        rafId = requestAnimationFrame(tilt);
+      }
+      tilt();
+    }());
+  </script>
+</body>
+</html>
