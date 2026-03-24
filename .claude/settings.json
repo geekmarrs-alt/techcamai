@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ruflo": {
+      "command": "npx",
+      "args": ["ruflo@latest", "mcp", "start"],
+      "env": {
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+      }
+    }
+  },
+  "tools": {
+    "groups": ["implement", "test", "fix", "memory"]
+  }
+}
