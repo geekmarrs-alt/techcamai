@@ -1,1 +1,63 @@
-{"services": {"api": {"build": "./api", "env_file": ".env", "network_mode": "host", "restart": "unless-stopped", "healthcheck": {"test": ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"], "interval": "15s", "timeout": "5s", "retries": 3, "start_period": "10s"}, "volumes": ["techcamai-data:/data"], "labels": ["traefik.enable=true", "traefik.http.routers.techcamai.rule=Host(\"techcamai.com\")", "traefik.http.routers.techcamai.entrypoints=websecure", "traefik.http.routers.techcamai.tls.certresolver=letsencrypt", "traefik.http.services.techcamai.loadbalancer.server.port=8000"]}, "worker": {"build": "./worker", "env_file": ".env", "network_mode": "host", "restart": "unless-stopped", "depends_on": {"api": {"condition": "service_healthy"}}, "volumes": ["techcamai-data:/data"]}}, "volumes": {"techcamai-data": {}}}
+{
+  "services": {
+    "api": {
+      "build": "./api",
+      "env_file": ".env",
+      "network_mode": "host",
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-f",
+          "http://127.0.0.1:8000/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "10s"
+      },
+      "volumes": [
+        "techcamai-data:/data"
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.http.routers.techcamai.rule=Host(\"techcamai.com\")",
+        "traefik.http.routers.techcamai.entrypoints=websecure",
+        "traefik.http.routers.techcamai.tls.certresolver=letsencrypt",
+        "traefik.http.services.techcamai.loadbalancer.server.port=8000"
+      ]
+    },
+    "worker": {
+      "build": "./worker",
+      "env_file": ".env",
+      "network_mode": "host",
+      "restart": "unless-stopped",
+      "depends_on": {
+        "api": {
+          "condition": "service_healthy"
+        }
+      },
+      "volumes": [
+        "techcamai-data:/data"
+      ]
+    },
+    "website": {
+      "build": "./web",
+      "restart": "unless-stopped",
+      "ports": [
+        "3000:80"
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.http.routers.techcamai-web.rule=Host(\"techcamai.com\") && PathPrefix(\"/website\")",
+        "traefik.http.routers.techcamai-web.entrypoints=websecure",
+        "traefik.http.routers.techcamai-web.tls.certresolver=letsencrypt",
+        "traefik.http.services.techcamai-web.loadbalancer.server.port=80"
+      ]
+    }
+  },
+  "volumes": {
+    "techcamai-data": {}
+  }
+}
