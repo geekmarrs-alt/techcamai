@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TECHCAMAI · AI Alerts Preview</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#08111f;--bg2:#0a1020;
+  --text:rgba(245,248,255,.96);--muted:rgba(176,200,230,.75);--faint:rgba(176,200,230,.45);
+  --border:rgba(96,165,250,.15);--border2:rgba(255,255,255,.08);
+  --accent:#22d3ee;--accent2:#3b82f6;
+  --danger:#f87171;--ok:#34d399;--warn:#fbbf24;
+  --panel:rgba(8,15,30,.65);--shadow:0 20px 60px rgba(0,0,0,.38);--radius:24px;
+}
+html,body{min-height:100%;}
+body{
+  color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-size:14px;
+  background:
+    radial-gradient(circle at top,rgba(37,99,235,.22),transparent 28%),
+    linear-gradient(180deg,#08111f 0%,#0a1020 45%,#07101c 100%);
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none;}
+
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
+.side{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  border-right:1px solid var(--border);padding:20px 16px;
+  background:rgba(8,15,30,.6);backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;
+}
+.main{padding:24px;}
+
+.logo-wrap{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+.logo-icon{width:52px;height:52px;border-radius:16px;border:1px solid rgba(34,211,238,.4);background:linear-gradient(135deg,rgba(59,130,246,.4),rgba(8,15,30,1),rgba(34,211,238,.3));box-shadow:0 0 30px rgba(34,211,238,.18);display:flex;align-items:center;justify-content:center;font-size:22px;}
+.logo-text-main{font-size:22px;font-weight:900;letter-spacing:.18em;}
+.logo-text-main span{color:#22d3ee;}
+.logo-text-sub{font-size:10px;letter-spacing:.35em;text-transform:uppercase;color:rgba(147,197,253,.8);margin-top:1px;}
+.logo-text-powered{font-size:10px;color:rgba(34,211,238,.8);}
+
+.nav{display:flex;flex-direction:column;gap:4px;}
+.nav a{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:18px;color:rgba(176,200,230,.8);transition:.18s;font-size:15px;font-weight:500;}
+.nav a:hover{background:rgba(255,255,255,.05);color:var(--text);}
+.nav a.active{background:linear-gradient(135deg,rgba(59,130,246,.35),rgba(34,211,238,.2));color:var(--text);box-shadow:0 0 30px rgba(59,130,246,.18);}
+
+.status-card{margin-top:auto;padding:16px;border-radius:18px;border:1px solid rgba(34,211,238,.15);background:linear-gradient(180deg,rgba(8,15,30,.8),rgba(10,18,40,.9));}
+.status-card h4{font-size:15px;font-weight:600;margin-bottom:14px;}
+.status-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.03);margin-bottom:8px;font-size:13px;color:rgba(176,200,230,.75);}
+.status-row:last-child{margin-bottom:0;}
+.status-val{font-weight:700;}
+.status-val.ok{color:var(--ok);}
+.status-val.accent{color:var(--accent);}
+
+/* Hero alert cards */
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.hero-card{
+  position:relative;overflow:hidden;padding:24px;border-radius:var(--radius);
+  border:1px solid rgba(255,255,255,.1);color:white;
+  box-shadow:0 18px 60px rgba(0,0,0,.25);
+}
+.hero-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(255,255,255,.18),transparent 35%);}
+.hero-card.person{background:linear-gradient(135deg,#dc2626,#ef4444,#b91c1c);}
+.hero-card.vehicle{background:linear-gradient(135deg,#2563eb,#38bdf8,#1d4ed8);}
+.hero-inner{position:relative;display:flex;align-items:center;gap:16px;}
+.hero-icon-wrap{padding:12px;border-radius:18px;background:rgba(255,255,255,.1);backdrop-filter:blur(4px);font-size:32px;}
+.hero-title{font-size:26px;font-weight:900;text-transform:uppercase;letter-spacing:.02em;}
+.hero-zone{font-size:18px;font-weight:500;opacity:.95;margin-top:2px;}
+.hero-time{font-size:14px;opacity:.8;margin-top:4px;}
+
+/* Filter + events section */
+.panel{
+  border-radius:var(--radius);border:1px solid var(--border);
+  background:rgba(8,15,30,.6);backdrop-filter:blur(20px);
+  box-shadow:var(--shadow);padding:20px;margin-bottom:16px;
+}
+.panel h2{font-size:18px;font-weight:800;margin-bottom:14px;}
+
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{
+  padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;
+  border:1px solid;cursor:pointer;transition:.16s;
+}
+.chip.person{background:rgba(239,68,68,.2);color:#fca5a5;border-color:rgba(248,113,113,.3);}
+.chip.vehicle{background:rgba(59,130,246,.2);color:#93c5fd;border-color:rgba(96,165,250,.3);}
+.chip.animal{background:rgba(168,85,247,.2);color:#d8b4fe;border-color:rgba(192,132,252,.3);}
+.chip.motion{background:rgba(251,191,36,.2);color:#fde68a;border-color:rgba(251,191,36,.3);}
+
+/* Event cards in right rail */
+.events-3col{display:grid;grid-template-columns:1.4fr .8fr;gap:16px;}
+.event-list{display:flex;flex-direction:column;gap:10px;}
+.event-card{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:18px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);
+}
+.event-icon-wrap{
+  width:44px;height:44px;flex-shrink:0;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.event-icon-wrap.person{background:linear-gradient(135deg,#dc2626,#ef4444);}
+.event-icon-wrap.vehicle{background:linear-gradient(135deg,#2563eb,#38bdf8);}
+.event-icon-wrap.motion{background:linear-gradient(135deg,#d97706,#fbbf24);}
+.event-body{flex:1;min-width:0;}
+.event-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.event-zone{font-size:12px;color:var(--muted);}
+.event-conf{font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;}
+
+/* Timeline table */
+.timeline-table{width:100%;border-collapse:collapse;}
+.timeline-table th{
+  text-align:left;padding:10px 12px;
+  font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(176,200,230,.45);border-bottom:1px solid rgba(255,255,255,.08);
+}
+.timeline-table td{padding:14px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;vertical-align:middle;}
+.timeline-table tr:last-child td{border-bottom:none;}
+.time-cell{color:var(--muted);font-family:ui-monospace,monospace;font-size:12px;}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid;}
+.badge.person{background:rgba(239,68,68,.2);color:#fca5a5;border-color:rgba(248,113,113,.3);}
+.badge.vehicle{background:rgba(59,130,246,.2);color:#93c5fd;border-color:rgba(96,165,250,.3);}
+.badge.motion{background:rgba(251,191,36,.2);color:#fde68a;border-color:rgba(251,191,36,.3);}
+.conf-cell{color:#22d3ee;font-weight:700;}
+
+/* Log section */
+.log-list{display:flex;flex-direction:column;gap:8px;}
+.log-row{
+  padding:12px 14px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+}
+.log-time{font-family:ui-monospace,monospace;font-size:11px;color:rgba(176,200,230,.6);}
+.log-body{flex:1;}
+.log-title{font-size:13px;font-weight:700;}
+.log-zone{font-size:12px;color:var(--muted);margin-top:1px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="logo-wrap">
+      <div class="logo-icon">👁</div>
+      <div>
+        <div class="logo-text-main">TECH<span>CAM</span>AI</div>
+        <div class="logo-text-sub">AI CCTV Intelligence</div>
+        <div class="logo-text-powered">Powered by Geek-Tech</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#">⊞&nbsp;&nbsp;Dashboard</a>
+      <a href="#">📷&nbsp;&nbsp;Cameras</a>
+      <a href="#" class="active">⚠&nbsp;&nbsp;AI Alerts</a>
+      <a href="#">🗺&nbsp;&nbsp;Map View</a>
+      <a href="#">▶&nbsp;&nbsp;Recordings</a>
+      <a href="#">📊&nbsp;&nbsp;Analytics</a>
+      <a href="#">⚙&nbsp;&nbsp;Settings</a>
+    </nav>
+    <div style="flex:1;"></div>
+    <div class="status-card">
+      <h4>System Status</h4>
+      <div class="status-row"><span>📷 Cameras Online</span><span class="status-val">12 / 12</span></div>
+      <div class="status-row"><span>⚡ CPU Usage</span><span class="status-val accent">42%</span></div>
+      <div class="status-row"><span>🤖 AI Engine</span><span class="status-val ok">Active</span></div>
+      <div class="status-row"><span>💾 Storage</span><span class="status-val">72%</span></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:rgba(34,211,238,.8);">Powered by Geek-Tech</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Hero alert cards -->
+    <div class="hero-grid">
+      <div class="hero-card person">
+        <div class="hero-inner">
+          <div class="hero-icon-wrap">👤</div>
+          <div>
+            <div class="hero-title">Person Detected</div>
+            <div class="hero-zone">Front Gate</div>
+            <div class="hero-time">5 seconds ago</div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-card vehicle">
+        <div class="hero-inner">
+          <div class="hero-icon-wrap">🚗</div>
+          <div>
+            <div class="hero-title">Vehicle Detected</div>
+            <div class="hero-zone">Parking Lot</div>
+            <div class="hero-time">20 seconds ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters + Live events -->
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;margin-bottom:16px;">
+      <div>
+        <!-- Filter panel -->
+        <div class="panel" style="margin-bottom:16px;">
+          <h2>AI Event Filters</h2>
+          <div class="filter-chips">
+            <span class="chip person">👤 Person</span>
+            <span class="chip vehicle">🚗 Vehicle</span>
+            <span class="chip animal" style="opacity:.55;">🐰 Animal</span>
+            <span class="chip motion">⚡ Motion</span>
+          </div>
+        </div>
+
+        <!-- Timeline table -->
+        <div class="panel">
+          <h2>AI Events Timeline</h2>
+          <table class="timeline-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="time-cell">11:24:30</td>
+                <td><span class="badge person">👤 Person</span></td>
+                <td><div style="font-weight:700;">Person Detected</div><div style="color:var(--muted);font-size:12px;">Front Gate</div></td>
+                <td class="conf-cell">96%</td>
+              </tr>
+              <tr>
+                <td class="time-cell">11:23:11</td>
+                <td><span class="badge vehicle">🚗 Vehicle</span></td>
+                <td><div style="font-weight:700;">Vehicle Detected</div><div style="color:var(--muted);font-size:12px;">Parking Lot</div></td>
+                <td class="conf-cell">93%</td>
+              </tr>
+              <tr>
+                <td class="time-cell">11:22:18</td>
+                <td><span class="badge motion">⚡ Motion</span></td>
+                <td><div style="font-weight:700;">Motion Detected</div><div style="color:var(--muted);font-size:12px;">Loading Dock</div></td>
+                <td class="conf-cell">81%</td>
+              </tr>
+              <tr>
+                <td class="time-cell">11:20:45</td>
+                <td><span class="badge person">👤 Person</span></td>
+                <td><div style="font-weight:700;">Person Detected</div><div style="color:var(--muted);font-size:12px;">Back Alley</div></td>
+                <td class="conf-cell">89%</td>
+              </tr>
+              <tr>
+                <td class="time-cell">11:18:02</td>
+                <td><span class="badge vehicle">🚗 Vehicle</span></td>
+                <td><div style="font-weight:700;">Vehicle Detected</div><div style="color:var(--muted);font-size:12px;">Side Gate</div></td>
+                <td class="conf-cell">91%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- Live events -->
+        <div class="panel">
+          <h2>Live AI Events</h2>
+          <div class="event-list">
+            <div class="event-card">
+              <div class="event-icon-wrap person">👤</div>
+              <div class="event-body">
+                <div class="event-title">Person Detected</div>
+                <div class="event-zone">Front Gate</div>
+              </div>
+              <div class="event-conf">96%</div>
+            </div>
+            <div class="event-card">
+              <div class="event-icon-wrap vehicle">🚗</div>
+              <div class="event-body">
+                <div class="event-title">Vehicle Detected</div>
+                <div class="event-zone">Parking Lot</div>
+              </div>
+              <div class="event-conf">93%</div>
+            </div>
+            <div class="event-card">
+              <div class="event-icon-wrap motion">⚡</div>
+              <div class="event-body">
+                <div class="event-title">Motion Detected</div>
+                <div class="event-zone">Loading Dock</div>
+              </div>
+              <div class="event-conf">81%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Event log -->
+        <div class="panel">
+          <h2>Event Log</h2>
+          <div class="log-list">
+            <div class="log-row">
+              <div class="log-body"><div class="log-time">11:24:30</div><div class="log-title">Person Detected</div><div class="log-zone">Front Gate</div></div>
+              <span class="badge person">👤 Person</span>
+            </div>
+            <div class="log-row">
+              <div class="log-body"><div class="log-time">11:23:11</div><div class="log-title">Vehicle Detected</div><div class="log-zone">Parking Lot</div></div>
+              <span class="badge vehicle">🚗 Vehicle</span>
+            </div>
+            <div class="log-row">
+              <div class="log-body"><div class="log-time">11:22:18</div><div class="log-title">Motion Detected</div><div class="log-zone">Loading Dock</div></div>
+              <span class="badge motion">⚡ Motion</span>
+            </div>
+            <div class="log-row">
+              <div class="log-body"><div class="log-time">11:20:45</div><div class="log-title">Person Detected</div><div class="log-zone">Back Alley</div></div>
+              <span class="badge person">👤 Person</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

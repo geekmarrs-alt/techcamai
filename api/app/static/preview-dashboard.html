@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TECHCAMAI · Dashboard Preview</title>
+<style>
+:root{
+  --bg:#07111f;--bg2:#0b1629;
+  --panel:rgba(10,19,37,.82);--panel-strong:rgba(8,15,30,.92);
+  --text:rgba(245,248,255,.96);--muted:rgba(200,214,236,.72);
+  --faint:rgba(200,214,236,.48);--border:rgba(130,164,220,.16);
+  --accent:#53b6ff;--accent2:#35e0b8;--accent3:#7c5cff;
+  --danger:#ff5b76;--ok:#37d39a;--warn:#f8bf4c;
+  --shadow:0 22px 60px rgba(0,0,0,.35);--radius:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100%;}
+body{
+  color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-size:14px;
+  background:
+    radial-gradient(1000px 600px at 10% -10%,rgba(83,182,255,.18),transparent 58%),
+    radial-gradient(900px 700px at 100% 0%,rgba(124,92,255,.16),transparent 52%),
+    radial-gradient(900px 600px at 50% 120%,rgba(53,224,184,.10),transparent 60%),
+    linear-gradient(180deg,var(--bg),var(--bg2));
+}
+a{color:inherit;text-decoration:none;}
+button,input,select{font:inherit;}
+
+/* ── Layout ── */
+.app{display:grid;grid-template-columns:290px 1fr;min-height:100vh;}
+.side{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  border-right:1px solid var(--border);
+  padding:22px 18px;
+  background:linear-gradient(180deg,rgba(8,17,33,.94),rgba(10,19,37,.86));
+  backdrop-filter:blur(18px);
+}
+.main{padding:26px 26px 42px;}
+
+/* ── Brand ── */
+.brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px;}
+.brand-logo{display:grid;place-items:center;width:100%;}
+.brand-logo-img{
+  width:180px;height:120px;border-radius:22px;
+  background:linear-gradient(135deg,rgba(83,182,255,.18),rgba(124,92,255,.22));
+  border:1px solid rgba(83,182,255,.22);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:900;letter-spacing:.12em;
+  color:var(--accent);text-shadow:0 0 30px rgba(83,182,255,.5);
+}
+.brand-title{font-size:20px;font-weight:800;letter-spacing:.14em;text-align:center;}
+.brand-sub{margin-top:6px;color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-align:center;}
+
+/* ── Nav ── */
+.nav-section{margin:18px 0 8px;color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
+.nav{display:flex;flex-direction:column;gap:8px;}
+.nav a{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 14px;border:1px solid transparent;border-radius:16px;
+  color:var(--muted);transition:.18s ease;
+}
+.nav a:hover{background:rgba(255,255,255,.04);border-color:rgba(130,164,220,.12);color:var(--text);}
+.nav a.active{
+  color:var(--text);border-color:rgba(83,182,255,.18);
+  background:linear-gradient(135deg,rgba(83,182,255,.14),rgba(124,92,255,.10));
+}
+.nav small{color:var(--faint);font-size:11px;}
+.side-card{margin-top:18px;padding:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid var(--border);}
+.eyebrow{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;
+  padding:5px 10px;border-radius:999px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--muted);
+}
+.pill.ok{color:#052e16;background:rgba(55,211,154,.92);border-color:transparent;}
+.pill.bad{color:white;background:rgba(255,91,118,.72);border-color:transparent;}
+.pill.warn{color:#271800;background:rgba(248,191,76,.9);border-color:transparent;}
+.pill.accent{color:#001624;background:rgba(83,182,255,.88);border-color:transparent;}
+
+/* ── Command bar ── */
+.cmd-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 18px;border-radius:20px;
+  border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));
+  margin-bottom:16px;
+}
+.cmd-title{font-size:22px;font-weight:800;letter-spacing:-.03em;}
+.cmd-pills{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+.stat{
+  padding:18px;border-radius:20px;
+  background:var(--panel);border:1px solid var(--border);box-shadow:var(--shadow);
+  backdrop-filter:blur(14px);
+}
+.stat .lbl{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
+.stat .val{margin-top:10px;font-size:30px;font-weight:800;letter-spacing:-.04em;}
+.stat .hint{margin-top:6px;color:var(--muted);font-size:12px;}
+.stat.ok-tint .val{color:var(--ok);}
+.stat.warn-tint .val{color:var(--warn);}
+.stat.accent-tint .val{color:var(--accent);}
+
+/* ── Filter bar ── */
+.filter-bar{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding:12px 16px;border-radius:18px;
+  border:1px solid var(--border);background:rgba(255,255,255,.03);
+  margin-bottom:16px;
+}
+.chip{
+  display:inline-flex;align-items:center;padding:6px 13px;border-radius:999px;
+  border:1px solid var(--border);background:rgba(255,255,255,.04);
+  color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:.16s;
+}
+.chip.active{
+  border-color:rgba(83,182,255,.28);
+  background:linear-gradient(135deg,rgba(83,182,255,.16),rgba(124,92,255,.10));
+  color:var(--text);
+}
+.search-input{
+  margin-left:auto;width:200px;padding:7px 12px;border-radius:12px;
+  border:1px solid var(--border);background:rgba(0,0,0,.22);
+  color:var(--text);font-size:13px;outline:none;
+}
+.search-input::placeholder{color:rgba(255,255,255,.32);}
+
+/* ── Main grid ── */
+.main-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,.75fr);gap:16px;margin-bottom:16px;}
+
+/* ── Camera stage ── */
+.stage-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);backdrop-filter:blur(14px);}
+.stage-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.stage-hdr h3{font-size:13px;color:var(--faint);font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.focus-wrap{position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.10);}
+.focus-img{
+  width:100%;height:380px;display:block;
+  background:linear-gradient(180deg,#0a1628,#060e1b);
+  position:relative;overflow:hidden;
+}
+.focus-img::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(400px 300px at 30% 40%,rgba(83,182,255,.07),transparent),
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(83,182,255,.04) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(83,182,255,.04) 40px);
+}
+.cam-label{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:40px 16px 16px;
+  background:linear-gradient(0deg,rgba(5,9,18,.9),transparent);
+  display:flex;justify-content:space-between;align-items:flex-end;
+}
+.cam-name{font-size:20px;font-weight:800;letter-spacing:-.02em;}
+.cam-meta{display:flex;gap:8px;align-items:center;margin-top:4px;}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--ok);box-shadow:0 0 8px var(--ok);
+  animation:pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.mini-cams{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+.mini-cam{border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.10);cursor:pointer;}
+.mini-img{
+  width:100%;height:90px;display:block;
+  background:linear-gradient(180deg,#0a1628,#060e1b);
+  position:relative;
+}
+.mini-img.cam2::before{content:"";position:absolute;inset:0;background:radial-gradient(200px 150px at 60% 50%,rgba(53,224,184,.08),transparent);}
+.mini-img.cam3::before{content:"";position:absolute;inset:0;background:radial-gradient(200px 150px at 40% 60%,rgba(248,191,76,.06),transparent);}
+.mini-footer{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:rgba(0,0,0,.25);}
+.mini-name{font-size:11px;font-weight:700;color:var(--muted);}
+
+/* ── Rail ── */
+.rail-stack{display:grid;gap:12px;}
+.rail-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px;box-shadow:var(--shadow);backdrop-filter:blur(14px);
+}
+.rail-panel.ai-tint{border-color:rgba(124,92,255,.22);background:linear-gradient(180deg,rgba(124,92,255,.07),rgba(255,255,255,.025));}
+.rail-title{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:12px;}
+.ai-cmd{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 14px;border-radius:14px;
+  border:1px dashed rgba(124,92,255,.28);background:rgba(124,92,255,.06);
+}
+.ai-placeholder{color:rgba(255,255,255,.3);font-size:13px;}
+.kbd{
+  padding:3px 8px;border-radius:7px;border:1px solid rgba(130,164,220,.22);
+  background:rgba(255,255,255,.06);color:var(--faint);font-size:11px;font-weight:700;
+}
+.ai-slots{display:grid;gap:8px;margin-top:10px;}
+.ai-slot{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:9px 12px;border-radius:13px;border:1px solid rgba(124,92,255,.14);
+  background:rgba(255,255,255,.025);
+}
+.ai-icon{font-size:15px;color:var(--accent3);opacity:.7;}
+
+/* ── Alert feed ── */
+.incident-list{display:grid;gap:10px;}
+.incident-card{
+  display:grid;grid-template-columns:90px 1fr;gap:10px;
+  padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.04);
+}
+.inc-thumb{
+  border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg,#0a1020,#070d1a);
+  height:80px;display:flex;align-items:center;justify-content:center;
+}
+.inc-thumb.red-tint{background:linear-gradient(180deg,rgba(255,91,118,.12),#070d1a);}
+.inc-thumb.green-tint{background:linear-gradient(180deg,rgba(55,211,154,.1),#070d1a);}
+.inc-thumb svg{opacity:.5;}
+.inc-body{display:grid;gap:6px;}
+.inc-label{font-weight:700;font-size:13px;}
+.inc-meta{color:var(--muted);font-size:11px;}
+.inc-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.btn-xs{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 9px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(255,255,255,.05);color:var(--muted);font-size:11px;cursor:pointer;
+}
+
+/* ── Ops strip ── */
+.ops-strip{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow);backdrop-filter:blur(14px);
+}
+.ops-section h4{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:12px;}
+.pulse-list{display:grid;gap:8px;}
+.pulse-row{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.pulse-row:last-child{border-bottom:none;padding-bottom:0;}
+.pulse-row strong{font-size:18px;letter-spacing:-.03em;}
+.pulse-lbl{color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
+.coverage-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden;}
+.coverage-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+.meta-grid-sm{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.meta-card-sm{padding:11px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);}
+.meta-card-sm .lbl{color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
+.meta-card-sm strong{display:block;margin-top:6px;font-size:16px;letter-spacing:-.02em;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-logo">
+        <div class="brand-logo-img">TCA</div>
+      </div>
+      <div>
+        <div class="brand-title">TECHCAMAI</div>
+        <div class="brand-sub">Operator console</div>
+        <div style="margin-top:6px;display:flex;justify-content:center">
+          <span class="pill" style="font-size:10px;padding:3px 9px;opacity:.65">Developer Preview</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-section">Workspace</div>
+    <nav class="nav">
+      <a href="#" class="active"><span>Overview</span><small>home</small></a>
+      <a href="#"><span>Live</span><small>wall</small></a>
+      <a href="#"><span>Alerts</span><small>inbox</small></a>
+      <a href="#"><span>Timeline</span><small>events</small></a>
+      <a href="#"><span>Cameras</span><small>manage</small></a>
+      <a href="#"><span>LAN scan</span><small>discover</small></a>
+      <a href="#"><span>Add / test</span><small>camera</small></a>
+    </nav>
+
+    <div class="side-card">
+      <div class="eyebrow">MVP capability</div>
+      <div class="chiprow">
+        <span class="pill">LAN scan</span>
+        <span class="pill">Digest auth</span>
+        <span class="pill">Snapshot wall</span>
+        <span class="pill">Alert inbox</span>
+      </div>
+    </div>
+    <div class="side-card">
+      <div class="eyebrow">Operator notes</div>
+      <div style="margin-top:8px;color:var(--muted);font-size:12px;line-height:1.5;">Keep the live wall and the alert inbox one click apart. If the UI makes you hunt, it is failing.</div>
+      <div style="display:grid;gap:8px;margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
+          <span style="color:var(--muted);font-size:12px;">Direction</span><strong style="font-size:18px;">Dark beta</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
+          <span style="color:var(--muted);font-size:12px;">Priority</span><strong style="font-size:18px;">Fast triage</strong>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Command bar -->
+    <div class="cmd-bar">
+      <div>
+        <div class="cmd-title">Dashboard</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:3px;">Wednesday 25 Mar 2026 · 09:41 UTC</div>
+      </div>
+      <div class="cmd-pills">
+        <span class="pill ok">● 6 cameras live</span>
+        <span class="pill bad">3 unacked alerts</span>
+        <span class="pill accent">2 clips ready</span>
+        <span class="pill">Worker OK</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat accent-tint">
+        <div class="lbl">Cameras online</div>
+        <div class="val">6 / 8</div>
+        <div class="hint">2 disabled</div>
+      </div>
+      <div class="stat ok-tint">
+        <div class="lbl">Rule coverage</div>
+        <div class="val">75%</div>
+        <div class="hint">6 of 8 cameras have rules</div>
+      </div>
+      <div class="stat warn-tint">
+        <div class="lbl">Open alerts</div>
+        <div class="val">3</div>
+        <div class="hint">Oldest: 14 min ago</div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Clips ready</div>
+        <div class="val">2</div>
+        <div class="hint">4 pending processing</div>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <span style="color:var(--faint);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;flex-shrink:0;">Filter</span>
+      <span class="chip active">All activity</span>
+      <span class="chip">Unacked</span>
+      <span class="chip">Person</span>
+      <span class="chip">Vehicle</span>
+      <span class="chip">Motion</span>
+      <span class="chip">Clip ready</span>
+      <input class="search-input" placeholder="Search alerts…" type="text"/>
+    </div>
+
+    <!-- Main grid: camera stage + rail -->
+    <div class="main-grid">
+
+      <!-- Camera stage -->
+      <div class="stage-card">
+        <div class="stage-hdr">
+          <h3>Camera stage</h3>
+          <span class="pill ok" style="font-size:11px;">● LIVE</span>
+        </div>
+        <div class="focus-wrap">
+          <div class="focus-img">
+            <!-- SVG grid overlay to simulate camera feed look -->
+            <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.15" viewBox="0 0 640 380" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M40 0L0 0 0 40" fill="none" stroke="#53b6ff" stroke-width=".5"/>
+                </pattern>
+              </defs>
+              <rect width="640" height="380" fill="url(#grid)"/>
+              <!-- Simulated detection box -->
+              <rect x="160" y="100" width="120" height="180" fill="none" stroke="#37d39a" stroke-width="2" rx="4"/>
+              <text x="164" y="96" fill="#37d39a" font-size="11" font-family="monospace">PERSON 94%</text>
+            </svg>
+          </div>
+          <div class="cam-label">
+            <div>
+              <div class="cam-name">Front Entrance</div>
+              <div class="cam-meta">
+                <div class="live-dot"></div>
+                <span style="color:var(--muted);font-size:12px;">192.168.1.101 · Channel 1</span>
+              </div>
+            </div>
+            <span class="pill ok">● ONLINE</span>
+          </div>
+        </div>
+        <div class="mini-cams">
+          <div class="mini-cam">
+            <div class="mini-img cam2">
+              <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.1" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">
+                <defs><pattern id="g2" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0L0 0 0 20" fill="none" stroke="#35e0b8" stroke-width=".5"/></pattern></defs>
+                <rect width="160" height="90" fill="url(#g2)"/>
+              </svg>
+            </div>
+            <div class="mini-footer">
+              <span class="mini-name">Car Park A</span>
+              <span class="pill ok" style="font-size:10px;padding:3px 7px;">●</span>
+            </div>
+          </div>
+          <div class="mini-cam">
+            <div class="mini-img cam3">
+              <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.1" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">
+                <defs><pattern id="g3" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0L0 0 0 20" fill="none" stroke="#f8bf4c" stroke-width=".5"/></pattern></defs>
+                <rect width="160" height="90" fill="url(#g3)"/>
+              </svg>
+            </div>
+            <div class="mini-footer">
+              <span class="mini-name">Side Gate</span>
+              <span class="pill warn" style="font-size:10px;padding:3px 7px;">!</span>
+            </div>
+          </div>
+          <div class="mini-cam">
+            <div class="mini-img">
+              <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.08" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">
+                <defs><pattern id="g4" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0L0 0 0 20" fill="none" stroke="#7c5cff" stroke-width=".5"/></pattern></defs>
+                <rect width="160" height="90" fill="url(#g4)"/>
+              </svg>
+            </div>
+            <div class="mini-footer">
+              <span class="mini-name">Lobby</span>
+              <span class="pill ok" style="font-size:10px;padding:3px 7px;">●</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right rail -->
+      <div class="rail-stack">
+        <!-- AI rail -->
+        <div class="rail-panel ai-tint">
+          <div class="rail-title" style="color:rgba(124,92,255,.8);">AI Assist</div>
+          <div class="ai-cmd">
+            <span class="ai-placeholder">Ask about your cameras…</span>
+            <span class="kbd">⌘K</span>
+          </div>
+          <div class="ai-slots">
+            <div class="ai-slot">
+              <span class="ai-icon">◆</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--muted);">Scene summary</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:2px;">Natural language scene description coming soon</div>
+              </div>
+            </div>
+            <div class="ai-slot">
+              <span class="ai-icon">◆</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--muted);">Voice control</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:2px;">Voice-driven triage &amp; playback</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alert feed -->
+        <div class="rail-panel">
+          <div class="rail-title">Recent Alerts</div>
+          <div class="incident-list">
+            <div class="incident-card">
+              <div class="inc-thumb red-tint">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ff5b76" stroke-width="1.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              </div>
+              <div class="inc-body">
+                <div class="inc-label">Person detected</div>
+                <div class="inc-meta">Front Entrance · 09:38 · 94% conf</div>
+                <div class="inc-actions">
+                  <span class="pill bad" style="font-size:10px;padding:3px 8px;">NEW</span>
+                  <span class="pill accent" style="font-size:10px;padding:3px 8px;color:#001624;background:rgba(83,182,255,.88);border-color:transparent;">CLIP</span>
+                  <button class="btn-xs">Ack</button>
+                </div>
+              </div>
+            </div>
+            <div class="incident-card">
+              <div class="inc-thumb green-tint">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#37d39a" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg>
+              </div>
+              <div class="inc-body">
+                <div class="inc-label">Vehicle detected</div>
+                <div class="inc-meta">Car Park A · 09:31 · 88% conf</div>
+                <div class="inc-actions">
+                  <span class="pill bad" style="font-size:10px;padding:3px 8px;">NEW</span>
+                  <button class="btn-xs">Ack</button>
+                </div>
+              </div>
+            </div>
+            <div class="incident-card">
+              <div class="inc-thumb">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(200,214,236,.3)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+              </div>
+              <div class="inc-body">
+                <div class="inc-label">Motion detected</div>
+                <div class="inc-meta">Side Gate · 09:22 · 76% conf</div>
+                <div class="inc-actions">
+                  <span class="pill" style="font-size:10px;padding:3px 8px;color:#052e16;background:rgba(55,211,154,.6);border-color:transparent;">ACKED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ops strip -->
+    <div class="ops-strip">
+      <div class="ops-section">
+        <h4>System pulse</h4>
+        <div class="pulse-list">
+          <div class="pulse-row">
+            <div><div class="pulse-lbl">24h alerts</div></div>
+            <strong>47</strong>
+          </div>
+          <div class="pulse-row">
+            <div><div class="pulse-lbl">Pending clips</div></div>
+            <strong>4</strong>
+          </div>
+          <div class="pulse-row">
+            <div><div class="pulse-lbl">Coverage gaps</div></div>
+            <strong style="color:var(--warn);">2</strong>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="color:var(--muted);font-size:12px;">Rule coverage</span>
+            <span style="color:var(--accent);font-size:12px;font-weight:700;">75%</span>
+          </div>
+          <div class="coverage-bar"><div class="coverage-fill" style="width:75%"></div></div>
+        </div>
+      </div>
+      <div class="ops-section">
+        <h4>Focus camera</h4>
+        <div class="meta-grid-sm">
+          <div class="meta-card-sm">
+            <div class="lbl">Camera</div>
+            <strong>Front Entrance</strong>
+          </div>
+          <div class="meta-card-sm">
+            <div class="lbl">IP</div>
+            <strong style="font-family:monospace;font-size:13px;">192.168.1.101</strong>
+          </div>
+          <div class="meta-card-sm">
+            <div class="lbl">Status</div>
+            <strong style="color:var(--ok);">Online</strong>
+          </div>
+          <div class="meta-card-sm">
+            <div class="lbl">Rules</div>
+            <strong>3 active</strong>
+          </div>
+          <div class="meta-card-sm">
+            <div class="lbl">Auth</div>
+            <strong>Digest</strong>
+          </div>
+          <div class="meta-card-sm">
+            <div class="lbl">Alerts 24h</div>
+            <strong>12</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>
