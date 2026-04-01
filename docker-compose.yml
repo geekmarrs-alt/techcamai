@@ -1,10 +1,22 @@
+# TECHCAMAI — Docker Compose
+# Project folder : ~/techcamai
+# Branch         : claude/cctv-ai-dashboard-briKD
+# Start command  : docker compose up -d --build
+#
+# Browser access (after deploy):
+#   Operator dashboard : http://<your-vps-ip>:8000   or https://techcamai.com
+#   Marketing website  : http://<your-vps-ip>:3000   or https://www.techcamai.com
+
+name: techcamai
+
 services:
 
+  # ── Operator dashboard API (FastAPI) ─────────────────────────────────────
   api:
     build: ./api
     env_file: .env
-    network_mode: host
     restart: unless-stopped
+    network_mode: host          # binds directly to host port 8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 15s
@@ -12,7 +24,7 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - techcamai-data:/data
+      - techcamai-data:/data    # SQLite db + alert clips
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.techcamai.rule=Host(`techcamai.com`)"
@@ -20,22 +32,24 @@ services:
       - "traefik.http.routers.techcamai.tls.certresolver=letsencrypt"
       - "traefik.http.services.techcamai.loadbalancer.server.port=8000"
 
+  # ── Camera worker (polls cameras, fires alerts, captures clips) ───────────
   worker:
     build: ./worker
     env_file: .env
-    network_mode: host
     restart: unless-stopped
+    network_mode: host          # talks to api via localhost
     depends_on:
       api:
         condition: service_healthy
     volumes:
-      - techcamai-data:/data
+      - techcamai-data:/data    # shared clip storage with api
 
+  # ── Marketing website (nginx static) ─────────────────────────────────────
   website:
     build: ./web
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:80"               # http://<vps-ip>:3000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.techcamai-web.rule=Host(`www.techcamai.com`)"
@@ -44,4 +58,4 @@ services:
       - "traefik.http.services.techcamai-web.loadbalancer.server.port=80"
 
 volumes:
-  techcamai-data:
+  techcamai-data:               # persists database and clips across restarts
