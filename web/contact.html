@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact — TECHCAMAI</title>
+  <meta name="description" content="Get early access to Operator Pro, request an Enterprise quote, or just say hello.">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/techcamai-icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI">TECHCAMAI
+  </a>
+  <ul class="nav-links">
+    <li><a href="features.html">Features</a></li>
+    <li><a href="pricing.html">Pricing</a></li>
+    <li><a href="download.html">Download</a></li>
+    <li><a href="contact.html" style="color:var(--text)">Contact</a></li>
+  </ul>
+  <a href="download.html" class="btn btn-primary nav-cta">Get Started</a>
+</nav>
+
+<div class="page-hero">
+  <h1>Let's talk.</h1>
+  <p>Early access, Enterprise quotes, integration questions, or general feedback — we're here.</p>
+</div>
+
+<div class="section" style="padding-top:0;max-width:900px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start">
+
+    <!-- form -->
+    <div class="card" style="padding:36px">
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:6px">Send a message</h2>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:28px">We read every message and reply within 24 hours.</p>
+
+      <form id="contactForm">
+        <div class="form-field">
+          <label class="form-label" for="fname">Full name</label>
+          <input class="form-input" type="text" id="fname" placeholder="Your name" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="femail">Email address</label>
+          <input class="form-input" type="email" id="femail" placeholder="you@company.com" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="ftype">Enquiry type</label>
+          <select class="form-input" id="ftype">
+            <option value="">— Select one —</option>
+            <option>Early access — Operator Pro</option>
+            <option>Enterprise quote</option>
+            <option>Integration / reseller question</option>
+            <option>Bug report</option>
+            <option>General feedback</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="fmsg">Message</label>
+          <textarea class="form-input" id="fmsg" placeholder="Tell us what you're working on…" rows="5" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center" id="submitBtn">
+          Send message →
+        </button>
+        <div id="formSuccess" style="display:none;margin-top:16px;padding:14px 16px;background:rgba(55,211,154,.08);border:1px solid rgba(55,211,154,.22);border-radius:10px;font-size:14px;color:var(--ok)">
+          ✓ Message sent! We'll be in touch within 24 hours.
+        </div>
+      </form>
+    </div>
+
+    <!-- contact info cards -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <div class="card" style="padding:22px 24px">
+        <div style="font-size:20px;margin-bottom:10px">⚡</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">Early access</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6">
+          Operator Pro is in early access. Get on the list to try unlimited cameras,
+          email alerts, and rule templates — and help shape the product roadmap.
+        </div>
+      </div>
+
+      <div class="card" style="padding:22px 24px">
+        <div style="font-size:20px;margin-bottom:10px">🏢</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">Enterprise enquiries</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6">
+          Multi-site deployments, reseller agreements, and custom integration work.
+          Typically a 30-min call is enough to scope a pilot.
+        </div>
+      </div>
+
+      <div class="card" style="padding:22px 24px">
+        <div style="font-size:20px;margin-bottom:10px">🐛</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">Bug reports &amp; feedback</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6">
+          Community users can also open issues on GitHub. Include your Docker logs
+          and a description of what you expected vs what happened.
+        </div>
+        <a href="https://github.com/geekmarrs-alt/techcamai/issues" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);font-weight:600;margin-top:12px">
+          Open a GitHub issue →
+        </a>
+      </div>
+
+      <div class="card" style="padding:22px 24px;background:rgba(83,182,255,.05);border-color:rgba(83,182,255,.2)">
+        <div style="font-size:13px;color:var(--muted);line-height:1.6">
+          <strong style="color:var(--text)">Response time:</strong> within 24 hours on weekdays.<br>
+          <strong style="color:var(--text)">Pro support SLA:</strong> 48 hours after activation.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-brand"><img src="assets/brand/techcamai-icon.svg" alt="">TECHCAMAI</div>
+  <nav class="footer-links">
+    <a href="features.html">Features</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="download.html">Download</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+  <span class="footer-copy">© 2026 TECHCAMAI. All rights reserved.</span>
+</footer>
+
+<script>
+document.getElementById('contactForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  setTimeout(() => {
+    document.getElementById('formSuccess').style.display = 'block';
+    btn.textContent = '✓ Sent';
+    btn.style.opacity = '.6';
+  }, 900);
+});
+</script>
+
+</body>
+</html>

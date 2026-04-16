@@ -1,0 +1,18 @@
+{
+  "name": "techcamai",
+  "version": "1.0.0",
+  "description": "TECHCAMAI – edge-first camera monitoring with Ruflo AI orchestration",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "ruflo:init": "npx ruflo@latest init --wizard",
+    "ruflo:start": "npx ruflo@latest mcp start",
+    "ruflo:status": "npx ruflo@latest status",
+    "ruflo:swarm": "npx ruflo@latest swarm init"
+  },
+  "devDependencies": {
+    "ruflo": "latest"
+  }
+}

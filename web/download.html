@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download — TECHCAMAI</title>
+  <meta name="description" content="Install TECHCAMAI on a Raspberry Pi or any Linux host in under two minutes with a single command.">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/techcamai-icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI">TECHCAMAI
+  </a>
+  <ul class="nav-links">
+    <li><a href="features.html">Features</a></li>
+    <li><a href="pricing.html">Pricing</a></li>
+    <li><a href="download.html" style="color:var(--text)">Download</a></li>
+    <li><a href="contact.html">Contact</a></li>
+  </ul>
+  <a href="contact.html" class="btn btn-primary nav-cta">Get Pro Access</a>
+</nav>
+
+<div class="page-hero">
+  <span class="badge badge-ok" style="margin-bottom:16px">Community — Free forever</span>
+  <h1>Up and running<br><span class="grad">in two minutes.</span></h1>
+  <p>One command. Docker handles the rest. Works on Raspberry Pi, Ubuntu, and any amd64/arm64 Linux host.</p>
+</div>
+
+<div class="section" style="padding-top:0">
+
+  <!-- prereqs notice -->
+  <div style="background:rgba(83,182,255,.06);border:1px solid rgba(83,182,255,.2);border-radius:var(--r);padding:20px 24px;display:flex;gap:14px;align-items:flex-start;margin-bottom:40px;max-width:800px;margin-left:auto;margin-right:auto">
+    <span style="font-size:20px;flex-shrink:0">ℹ️</span>
+    <div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">Prerequisites</div>
+      <div style="font-size:14px;color:var(--muted);line-height:1.6">
+        Docker + Docker Compose must be installed. On a fresh Raspberry Pi, the installer handles this automatically.
+        On existing hosts, install <a href="https://docs.docker.com/engine/install/" style="color:var(--accent)">Docker Engine</a> first.
+      </div>
+    </div>
+  </div>
+
+  <div class="dl-grid" style="max-width:900px;margin:0 auto">
+
+    <!-- Raspberry Pi -->
+    <div class="dl-card">
+      <div style="font-size:28px;margin-bottom:12px">🥧</div>
+      <h3>Raspberry Pi</h3>
+      <p>Recommended. Installs Docker if missing, configures host networking, and starts the stack. Point a browser at <code style="font-family:monospace;color:var(--accent2)">http://&lt;pi-ip&gt;:8000</code> when done.</p>
+      <div class="dl-terminal">
+        <div><span style="color:var(--faint)"># Replace HOST:PORT with your file server or use the hosted installer</span></div>
+        <div>curl -fsSL techcamai.com/install.sh | sudo bash \</div>
+        <div>&nbsp;&nbsp;--camera-urls "rtsp://user:pass@192.168.1.10/stream"</div>
+      </div>
+      <a href="#" class="btn btn-primary" style="width:100%;justify-content:center" id="dlPiBtn">
+        Copy Pi install command
+      </a>
+    </div>
+
+    <!-- Docker Compose -->
+    <div class="dl-card">
+      <div style="font-size:28px;margin-bottom:12px">🐳</div>
+      <h3>Docker Compose</h3>
+      <p>For any x86-64 or arm64 Linux host. Clone the repo, copy <code style="font-family:monospace;color:var(--accent2)">.env.example</code> to <code style="font-family:monospace;color:var(--accent2)">.env</code>, and bring the stack up.</p>
+      <div class="dl-terminal">
+        <div>git clone https://github.com/geekmarrs-alt/techcamai</div>
+        <div>cd techcamai</div>
+        <div>cp .env.example .env &amp;&amp; nano .env</div>
+        <div>docker compose up -d</div>
+      </div>
+      <a href="https://github.com/geekmarrs-alt/techcamai" class="btn btn-ghost" style="width:100%;justify-content:center">
+        View on GitHub →
+      </a>
+    </div>
+
+  </div>
+
+  <!-- what you get -->
+  <div style="margin-top:64px;max-width:900px;margin-left:auto;margin-right:auto">
+    <h2 style="font-size:28px;font-weight:800;margin-bottom:32px;text-align:center">What you get with Community</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">4 cameras</div>
+        <div style="font-size:12px;color:var(--muted)">Full feature set on up to 4 IP cameras</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Motion alerts</div>
+        <div style="font-size:12px;color:var(--muted)">Rule-based detection with cooldown control</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Clip capture</div>
+        <div style="font-size:12px;color:var(--muted)">12-second RTSP clips on every alert</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Operator console</div>
+        <div style="font-size:12px;color:var(--muted)">Full dashboard, timeline, and live wall</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Auto-updates</div>
+        <div style="font-size:12px;color:var(--muted)">Watchtower pulls stable releases silently</div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:var(--r-sm);padding:18px 20px">
+        <div style="font-size:20px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">Zero cloud</div>
+        <div style="font-size:12px;color:var(--muted)">Everything stays on your LAN, always</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:48px">
+    <p style="color:var(--muted);font-size:15px;margin-bottom:16px">Need unlimited cameras or email alerts?</p>
+    <a href="pricing.html" class="btn btn-ghost">View Operator Pro →</a>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-brand"><img src="assets/brand/techcamai-icon.svg" alt="">TECHCAMAI</div>
+  <nav class="footer-links">
+    <a href="features.html">Features</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="download.html">Download</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+  <span class="footer-copy">© 2026 TECHCAMAI. All rights reserved.</span>
+</footer>
+
+<script>
+document.getElementById('dlPiBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  const cmd = 'curl -fsSL techcamai.com/install.sh | sudo bash';
+  navigator.clipboard.writeText(cmd).then(() => {
+    this.textContent = '✓ Copied to clipboard';
+    setTimeout(() => { this.textContent = 'Copy Pi install command'; }, 2000);
+  });
+});
+</script>
+
+</body>
+</html>

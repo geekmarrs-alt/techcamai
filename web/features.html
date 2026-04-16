@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Features — TECHCAMAI</title>
+  <meta name="description" content="Explore every feature of TECHCAMAI: real-time alerts, clip capture, PTZ support, LAN discovery, operator console and more.">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/techcamai-icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI">TECHCAMAI
+  </a>
+  <ul class="nav-links">
+    <li><a href="features.html" style="color:var(--text)">Features</a></li>
+    <li><a href="pricing.html">Pricing</a></li>
+    <li><a href="download.html">Download</a></li>
+    <li><a href="contact.html">Contact</a></li>
+  </ul>
+  <a href="download.html" class="btn btn-primary nav-cta">Get Started</a>
+</nav>
+
+<div class="page-hero">
+  <span class="badge badge-accent" style="margin-bottom:16px">Everything included</span>
+  <h1>Built for operators.<br><span class="grad">Not admins.</span></h1>
+  <p>Every feature in TECHCAMAI is designed around one question: what does a security operator actually need right now?</p>
+</div>
+
+<!-- feature grid -->
+<div class="section">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">🔔</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Rule-based Alerts</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Create detection rules per camera with configurable labels (motion, person, vehicle), confidence thresholds, and cooldown windows to eliminate noise.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">🎬</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">RTSP Clip Capture</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Every alert triggers an ffmpeg RTSP clip capture. Clips are stored locally, tracked (pending/ready/failed), and playable in-browser without any external tools.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">📡</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">LAN Camera Discovery</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Built-in network scanner finds IP cameras on your LAN automatically. Test credentials, verify snapshot URLs, and add cameras to inventory — all from the UI.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">🖥</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Premium Dashboard</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">3-column operator console: live camera stage, alert inbox rail, and clip playback queue. Smart prioritisation ensures unacked alerts always surface first.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">⚡</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Live Snapshot Wall</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Full-screen camera grid with configurable refresh rates (2–10s). Monitor all cameras simultaneously with instant access to individual feeds.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">🥧</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Raspberry Pi Native</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Multi-arch Docker images (amd64 + arm64) built for Pi. Host networking gives the worker direct LAN access to cameras. Watchtower auto-updates silently.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">🔒</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Camera Protocol Support</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Native Hikvision ISAPI support. RTSP and HTTP snapshot fallbacks for all major OEMs. Basic and Digest authentication, plus embedded credentials in RTSP URLs.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">📊</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Event Timeline</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Chronological incident flow across all cameras and rules. Filter, acknowledge, and review clips from a single timeline view. Built for shift handovers.</p>
+    </div>
+
+    <div class="card">
+      <div class="feat-icon" style="margin-bottom:16px">💡</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">Zero Cloud Dependency</h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">Every byte stays on-site. No camera footage, alert metadata, or clip data ever leaves your LAN. SQLite database, local storage, fully self-contained.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- camera compatibility -->
+<div class="section section-center" style="padding-top:0">
+  <div class="eyebrow" style="display:block;margin-bottom:14px">Camera compatibility</div>
+  <h2 class="section-title">Works with the cameras<br><span class="grad">you already have.</span></h2>
+  <p class="section-sub">TECHCAMAI is tested with Hikvision, Dahua, Reolink, Annke, and generic ONVIF cameras. If it has an RTSP stream, it works.</p>
+  <div style="display:flex;justify-content:center;gap:40px;margin-top:48px;flex-wrap:wrap">
+    <div class="card" style="padding:20px 32px;text-align:center;min-width:140px">
+      <div style="font-size:13px;font-weight:700">Hikvision</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">ISAPI · RTSP</div>
+    </div>
+    <div class="card" style="padding:20px 32px;text-align:center;min-width:140px">
+      <div style="font-size:13px;font-weight:700">Dahua</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">RTSP · HTTP</div>
+    </div>
+    <div class="card" style="padding:20px 32px;text-align:center;min-width:140px">
+      <div style="font-size:13px;font-weight:700">Reolink</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">RTSP · HTTP</div>
+    </div>
+    <div class="card" style="padding:20px 32px;text-align:center;min-width:140px">
+      <div style="font-size:13px;font-weight:700">Annke</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">RTSP</div>
+    </div>
+    <div class="card" style="padding:20px 32px;text-align:center;min-width:140px">
+      <div style="font-size:13px;font-weight:700">Generic ONVIF</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">RTSP · HTTP</div>
+    </div>
+  </div>
+</div>
+
+<div class="cta-banner">
+  <div class="cta-banner-copy">
+    <h2>See it live on your<br><span class="grad">own cameras.</span></h2>
+    <p>Install in under two minutes. No credit card required.</p>
+  </div>
+  <div class="cta-banner-actions">
+    <a href="download.html" class="btn btn-primary btn-lg">Self-host free →</a>
+    <a href="pricing.html" class="btn btn-ghost btn-lg">View pricing</a>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-brand"><img src="assets/brand/techcamai-icon.svg" alt="">TECHCAMAI</div>
+  <nav class="footer-links">
+    <a href="features.html">Features</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="download.html">Download</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+  <span class="footer-copy">© 2026 TECHCAMAI. All rights reserved.</span>
+</footer>
+
+</body>
+</html>
