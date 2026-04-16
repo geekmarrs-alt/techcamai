@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TECHCAMAI — Edge-First AI Camera Monitoring</title>
+  <meta name="description" content="Self-host AI camera monitoring on a Raspberry Pi. Real-time alerts, clip evidence, and a premium operator console. No cloud. No subscription.">
+  <link rel="icon" type="image/svg+xml" href="assets/brand/techcamai-icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<!-- ─── NAV ──────────────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI">
+    TECHCAMAI
+  </a>
+  <ul class="nav-links">
+    <li><a href="features.html">Features</a></li>
+    <li><a href="pricing.html">Pricing</a></li>
+    <li><a href="download.html">Download</a></li>
+    <li><a href="contact.html">Contact</a></li>
+  </ul>
+  <a href="download.html" class="btn btn-primary nav-cta">Get Started</a>
+</nav>
+
+<!-- ─── HERO ─────────────────────────────────────────────────────────────── -->
+<div class="hero-wrap">
+
+  <!-- left: copy -->
+  <div class="hero-copy">
+    <div class="hero-eyebrow fade-up d1">
+      <span class="badge badge-ok">● Live</span>
+      <span class="eyebrow" style="margin-left:12px;">Edge-first AI camera monitoring</span>
+    </div>
+
+    <h1 class="hero-title fade-up d2">
+      Know what's<br>
+      happening.<br>
+      <span class="grad">Right now.</span>
+    </h1>
+
+    <p class="hero-sub fade-up d3">
+      AI-powered CCTV monitoring that runs on a Raspberry Pi on your LAN.
+      Real-time motion alerts, clip evidence, and a premium operator console —
+      no cloud, no subscription, no compromise.
+    </p>
+
+    <div class="hero-actions fade-up d4">
+      <a href="download.html" class="btn btn-primary btn-lg">Self-host free →</a>
+      <a href="contact.html" class="btn btn-ghost btn-lg">Request early access</a>
+    </div>
+
+    <div class="terminal fade-up d5">
+      <span class="terminal-prompt">$</span>
+      <span class="terminal-cmd" id="termCmd">curl -fsSL techcamai.com/install.sh | sudo bash</span>
+      <button class="terminal-copy" id="copyBtn" title="Copy command">⎘ Copy</button>
+    </div>
+
+    <div class="hero-ticker fade-up d5">
+      <div class="ticker-dot"></div>
+      <span class="ticker-text" id="tickerText">Motion detected — Warehouse Door — 09:42:17</span>
+    </div>
+  </div>
+
+  <!-- right: 3D PTZ camera scene -->
+  <div class="cam-scene" id="camScene">
+
+    <!-- background grid + scanline -->
+    <div class="cam-bg">
+      <div class="cam-scanline"></div>
+    </div>
+
+    <!-- 3D camera assembly -->
+    <div class="cam-assembly" id="camAssembly">
+      <div class="cam-mount-plate"></div>
+      <div class="cam-mount-arm"></div>
+
+      <div class="cam-pan" id="camPan">
+        <div class="cam-tilt" id="camTilt">
+
+          <!-- tilt bracket -->
+          <div class="cam-bracket"></div>
+
+          <!-- barrel body -->
+          <div class="cam-barrel">
+            <div class="cam-barrel-vents"></div>
+            <div class="cam-barrel-label">DS-2CD2T47G2 · SN:TC2024</div>
+            <div class="cam-status-led"></div>
+          </div>
+
+          <!-- circular front face with lens -->
+          <div class="cam-front">
+            <!-- 8 IR LEDs -->
+            <div class="cam-ir lit" style="--i:0"></div>
+            <div class="cam-ir lit" style="--i:1"></div>
+            <div class="cam-ir lit" style="--i:2"></div>
+            <div class="cam-ir lit" style="--i:3"></div>
+            <div class="cam-ir lit" style="--i:4"></div>
+            <div class="cam-ir lit" style="--i:5"></div>
+            <div class="cam-ir lit" style="--i:6"></div>
+            <div class="cam-ir lit" style="--i:7"></div>
+
+            <!-- lens assembly -->
+            <div class="cam-lens" id="camLens">
+              <div class="cam-lens-r cam-lens-r1"></div>
+              <div class="cam-lens-r cam-lens-r2"></div>
+              <div class="cam-lens-r cam-lens-r3"></div>
+              <div class="cam-lens-r cam-lens-r4"></div>
+              <div class="cam-lens-glare"></div>
+            </div>
+          </div><!-- /cam-front -->
+
+        </div><!-- /cam-tilt -->
+      </div><!-- /cam-pan -->
+    </div><!-- /cam-assembly -->
+
+    <!-- HUD overlay -->
+    <div class="cam-hud">
+      <div class="hud-corner tl"></div>
+      <div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div>
+      <div class="hud-corner br"></div>
+      <div class="hud-tl"><div class="hud-rec-dot"></div> REC</div>
+      <div class="hud-tr">PTZ MODE</div>
+      <div class="hud-bl">TECHCAMAI&nbsp;CAM-1</div>
+      <div class="hud-br" id="hudCoords">PAN&nbsp;0.0°&nbsp;/&nbsp;TILT&nbsp;0.0°</div>
+    </div>
+
+    <!-- tracking reticle -->
+    <div class="cam-reticle" id="camReticle">
+      <div class="reticle-ring"></div>
+      <div class="reticle-line h"></div>
+      <div class="reticle-line v"></div>
+      <div class="reticle-tag">TRACKING</div>
+    </div>
+
+  </div><!-- /cam-scene -->
+</div><!-- /hero-wrap -->
+
+<!-- ─── FEATURE STRIP ─────────────────────────────────────────────────────── -->
+<div class="feat-strip">
+  <div class="feat-strip-item">
+    <div class="feat-icon">🔔</div>
+    <h3>Real-time Alerts</h3>
+    <p>Motion, person, and vehicle detection with clip evidence on every trigger.</p>
+  </div>
+  <div class="feat-strip-item">
+    <div class="feat-icon">🎬</div>
+    <h3>Clip Capture</h3>
+    <p>Automatic RTSP clip recording the moment an alert fires. Review it instantly.</p>
+  </div>
+  <div class="feat-strip-item">
+    <div class="feat-icon">🥧</div>
+    <h3>Runs on a Pi</h3>
+    <p>Deploys in one command on Raspberry Pi. Watchtower keeps it updated silently.</p>
+  </div>
+  <div class="feat-strip-item">
+    <div class="feat-icon">🖥</div>
+    <h3>Operator Console</h3>
+    <p>A premium dark-mode dashboard built for real security operators, not IT admins.</p>
+  </div>
+</div>
+
+<!-- ─── STATS BAR ──────────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad">~30</span><span class="stat-unit">s</span></div>
+    <div class="stat-label">Detection latency</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad">12</span><span class="stat-unit">s</span></div>
+    <div class="stat-label">Default clip duration</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad">4</span><span class="stat-unit">+</span></div>
+    <div class="stat-label">Cameras on Community</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad">0</span></div>
+    <div class="stat-label">Cloud dependencies</div>
+  </div>
+</div>
+
+<!-- ─── FEATURE ROW 1: ALERT LOOP ────────────────────────────────────────── -->
+<div class="feature-row">
+  <div class="feat-copy">
+    <span class="eyebrow">Detection &amp; Alerting</span>
+    <h2>Every alert carries<br><span class="grad">clip evidence.</span></h2>
+    <p>
+      TECHCAMAI watches your camera feeds continuously. The moment motion is detected,
+      it fires a rule-matched alert and automatically captures an RTSP clip — so your
+      operators see exactly what triggered it, not just a notification.
+    </p>
+    <ul class="feat-list">
+      <li>Motion, person, and vehicle detection labels</li>
+      <li>Confidence threshold per rule — no false positive floods</li>
+      <li>Cooldown windows so one event doesn't spam your inbox</li>
+      <li>Clip status tracking: pending → ready → reviewed</li>
+    </ul>
+  </div>
+  <div class="feat-visual">
+    <div class="mock-panel">
+      <div class="mock-header">
+        <span class="mock-title">Alert Inbox</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div class="mock-dot g"></div>
+          <span style="font-size:10px;color:var(--muted)">3 unacked</span>
+        </div>
+      </div>
+      <!-- mock alert rows -->
+      <div style="display:flex;flex-direction:column;gap:7px;flex:1;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,91,118,.07);border:1px solid rgba(255,91,118,.18);border-radius:9px;padding:10px 12px;">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,.5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🚶</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">Person detected</div>
+            <div style="font-size:10px;color:var(--muted)">Warehouse Door · 91% conf</div>
+          </div>
+          <div style="font-size:10px;color:var(--faint);font-family:monospace;flex-shrink:0">09:44</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(248,191,76,.05);border:1px solid rgba(248,191,76,.15);border-radius:9px;padding:10px 12px;">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,.5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">💨</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700">Motion detected</div>
+            <div style="font-size:10px;color:var(--muted)">Car Park · Zone B</div>
+          </div>
+          <div style="font-size:10px;color:var(--faint);font-family:monospace;flex-shrink:0">09:41</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 12px;opacity:.6">
+          <div style="width:36px;height:36px;background:rgba(0,0,0,.5);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">✔</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--muted)">Motion · Acked</div>
+            <div style="font-size:10px;color:var(--faint)">Front Door · 09:28</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── FEATURE ROW 2: OPERATOR CONSOLE ──────────────────────────────────── -->
+<div class="feature-row rev">
+  <div class="feat-copy">
+    <span class="eyebrow">Operator Console</span>
+    <h2>A dashboard built for<br><span class="grad">real operators.</span></h2>
+    <p>
+      Not a consumer app. Not an IT admin panel. TECHCAMAI's operator console is
+      designed for security teams who need to act fast — live wall, alert rail,
+      clip playback, and system health in one view.
+    </p>
+    <ul class="feat-list">
+      <li>Live camera wall with configurable refresh rate</li>
+      <li>3-column layout: feed stage · alert rail · playback queue</li>
+      <li>Smart prioritisation — unacked alerts surface first</li>
+      <li>Worker heartbeat and system health indicators</li>
+    </ul>
+  </div>
+  <div class="feat-visual">
+    <div class="mock-panel">
+      <div class="mock-header">
+        <span class="mock-title">Live Wall</span>
+        <span style="font-size:10px;color:var(--ok);font-family:monospace">● 4 cameras online</span>
+      </div>
+      <div class="mock-grid">
+        <div class="mock-cam">
+          <span style="font-size:18px">📷</span>
+          <span class="mock-cam-label">CAM-1 · FRONT</span>
+        </div>
+        <div class="mock-cam" style="border-color:rgba(255,91,118,.3)">
+          <span style="font-size:18px">🚨</span>
+          <span class="mock-cam-label" style="color:var(--danger)">ALERT · CAM-2</span>
+        </div>
+        <div class="mock-cam">
+          <span style="font-size:18px">📷</span>
+          <span class="mock-cam-label">CAM-3 · REAR</span>
+        </div>
+        <div class="mock-cam">
+          <span style="font-size:18px">📷</span>
+          <span class="mock-cam-label">CAM-4 · GATE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── FEATURE ROW 3: EDGE DEPLOYMENT ───────────────────────────────────── -->
+<div class="feature-row">
+  <div class="feat-copy">
+    <span class="eyebrow">Edge deployment</span>
+    <h2>One command.<br><span class="grad">Runs on a Pi.</span></h2>
+    <p>
+      Install TECHCAMAI on a Raspberry Pi in under two minutes. Docker Compose
+      manages the API and worker containers. Watchtower pulls stable image updates
+      automatically — no SSH required after day one.
+    </p>
+    <ul class="feat-list">
+      <li>Raspberry Pi OS — Lite or Desktop, amd64 + arm64</li>
+      <li>Host-network mode for direct LAN camera access</li>
+      <li>Auto-updates via Watchtower on a daily schedule</li>
+      <li>SQLite — no database server to manage</li>
+    </ul>
+  </div>
+  <div class="feat-visual">
+    <div class="mock-panel">
+      <div class="mock-header">
+        <span class="mock-title">System Health</span>
+        <div class="mock-dot g"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+          <span style="color:var(--muted)">API service</span>
+          <span style="color:var(--ok);font-weight:700">● Running</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+          <span style="color:var(--muted)">Worker</span>
+          <span style="color:var(--ok);font-weight:700">● 28s ago</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+          <span style="color:var(--muted)">Watchtower</span>
+          <span style="color:var(--ok);font-weight:700">● Active</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+          <span style="color:var(--muted)">Storage</span>
+          <span style="color:var(--warn);font-weight:700">3.2 GB used</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PRICING PREVIEW ───────────────────────────────────────────────────── -->
+<div class="section section-center">
+  <div class="eyebrow" style="display:block;margin-bottom:14px">Pricing</div>
+  <h2 class="section-title">Start free. Scale when<br><span class="grad">you're ready.</span></h2>
+  <p class="section-sub">Community is free forever. Operator Pro unlocks unlimited cameras, email alerts, and advanced rules.</p>
+
+  <div class="pricing-grid">
+
+    <!-- Community -->
+    <div class="pricing-card">
+      <div class="pricing-tier">Community</div>
+      <div class="pricing-price-free">Free</div>
+      <div class="pricing-desc">Self-hosted. No licence key. Everything you need to get started.</div>
+      <hr class="pricing-divider">
+      <ul class="pricing-feats">
+        <li><span class="pf-check">✓</span> Up to 4 cameras</li>
+        <li><span class="pf-check">✓</span> Motion detection &amp; alerts</li>
+        <li><span class="pf-check">✓</span> Clip capture (12s default)</li>
+        <li><span class="pf-check">✓</span> Operator console</li>
+        <li><span class="pf-check">✓</span> Raspberry Pi deployment</li>
+        <li><span class="pf-cross">–</span> Email / webhook alerts</li>
+        <li><span class="pf-cross">–</span> Rule templates</li>
+      </ul>
+      <a href="download.html" class="btn btn-ghost" style="width:100%;justify-content:center">Download free</a>
+    </div>
+
+    <!-- Operator Pro -->
+    <div class="pricing-card featured">
+      <div class="pricing-top-badge">Most popular</div>
+      <div class="pricing-tier">Operator Pro</div>
+      <div class="pricing-price"><sup>£</sup>39<sub>/site/mo</sub></div>
+      <div class="pricing-desc">For professional installations. Unlimited cameras and full alerting.</div>
+      <hr class="pricing-divider">
+      <ul class="pricing-feats">
+        <li><span class="pf-check">✓</span> Unlimited cameras</li>
+        <li><span class="pf-check">✓</span> Everything in Community</li>
+        <li><span class="pf-check">✓</span> Email &amp; webhook alerts</li>
+        <li><span class="pf-check">✓</span> Rule templates</li>
+        <li><span class="pf-check">✓</span> Scheduled suppression</li>
+        <li><span class="pf-check">✓</span> Clip retention config</li>
+        <li><span class="pf-check">✓</span> Priority email support</li>
+      </ul>
+      <a href="contact.html" class="btn btn-primary" style="width:100%;justify-content:center">Get early access</a>
+    </div>
+
+    <!-- Enterprise -->
+    <div class="pricing-card">
+      <div class="pricing-tier">Enterprise</div>
+      <div class="pricing-price-free" style="font-size:32px">Contact us</div>
+      <div class="pricing-desc">Multi-site fleets, custom integrations, and dedicated support.</div>
+      <hr class="pricing-divider">
+      <ul class="pricing-feats">
+        <li><span class="pf-check">✓</span> Everything in Pro</li>
+        <li><span class="pf-check">✓</span> Multi-site fleet dashboard</li>
+        <li><span class="pf-check">✓</span> Multi-tenant workspaces</li>
+        <li><span class="pf-check">✓</span> Fleet OTA management</li>
+        <li><span class="pf-check">✓</span> M2M API access</li>
+        <li><span class="pf-check">✓</span> Contracted SLA</li>
+        <li><span class="pf-check">✓</span> Dedicated account contact</li>
+      </ul>
+      <a href="contact.html" class="btn btn-ghost" style="width:100%;justify-content:center">Talk to us</a>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── CTA BANNER ────────────────────────────────────────────────────────── -->
+<div class="cta-banner">
+  <div class="cta-banner-copy">
+    <h2>Start monitoring in<br><span class="grad">under two minutes.</span></h2>
+    <p>One command on a Raspberry Pi. No cloud account. No credit card.</p>
+  </div>
+  <div class="cta-banner-actions">
+    <a href="download.html" class="btn btn-primary btn-lg">Self-host free →</a>
+    <a href="contact.html" class="btn btn-ghost btn-lg">Contact sales</a>
+  </div>
+</div>
+
+<!-- ─── FOOTER ────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-brand">
+    <img src="assets/brand/techcamai-icon.svg" alt="TECHCAMAI">
+    TECHCAMAI
+  </div>
+  <nav class="footer-links">
+    <a href="features.html">Features</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="download.html">Download</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+  <span class="footer-copy">© 2026 TECHCAMAI. All rights reserved.</span>
+</footer>
+
+<!-- ─── 3-D PTZ CAMERA ANIMATION ─────────────────────────────────────────── -->
+<script>
+(function () {
+  const scene    = document.getElementById('camScene');
+  const camPan   = document.getElementById('camPan');
+  const camTilt  = document.getElementById('camTilt');
+  const camLens  = document.getElementById('camLens');
+  const reticle  = document.getElementById('camReticle');
+  const coords   = document.getElementById('hudCoords');
+
+  let targetPan  = 0, targetTilt  = 0;
+  let currentPan = 0, currentTilt = 0;
+  let targetZoom = 1, currentZoom = 1;
+  let inside = false;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  scene.addEventListener('mousemove', (e) => {
+    const rect = scene.getBoundingClientRect();
+    const cx = rect.width  / 2;
+    const cy = rect.height / 2;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const nx = (mx - cx) / cx;   // –1 … +1
+    const ny = (my - cy) / cy;   // –1 … +1
+
+    targetPan  =  nx * 38;       // ±38° horizontal
+    targetTilt =  ny * 22;       // ±22° vertical
+
+    const dist = Math.sqrt(nx * nx + ny * ny);
+    targetZoom = 1 + (1 - Math.min(dist, 1)) * 0.18;
+
+    reticle.style.left = mx + 'px';
+    reticle.style.top  = my + 'px';
+    inside = true;
+  });
+
+  scene.addEventListener('mouseleave', () => {
+    targetPan  = 0;
+    targetTilt = 0;
+    targetZoom = 1;
+    inside = false;
+  });
+
+  function tick() {
+    currentPan  = lerp(currentPan,  targetPan,  0.055);
+    currentTilt = lerp(currentTilt, targetTilt, 0.055);
+    currentZoom = lerp(currentZoom, targetZoom, 0.05);
+
+    camPan.style.transform  = `rotateY(${currentPan}deg)`;
+    camTilt.style.transform = `rotateX(${-currentTilt}deg)`;
+    camLens.style.transform = `scale(${currentZoom})`;
+
+    reticle.style.opacity = inside ? '1' : '0';
+
+    const p = currentPan.toFixed(1);
+    const t = (-currentTilt).toFixed(1);
+    coords.textContent = `PAN\u00A0${p > 0 ? '+' : ''}${p}°\u00A0/\u00A0TILT\u00A0${t > 0 ? '+' : ''}${t}°`;
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ── copy button ──
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    const cmd = document.getElementById('termCmd').textContent;
+    navigator.clipboard.writeText(cmd).then(() => {
+      this.textContent = '✓ Copied';
+      setTimeout(() => { this.textContent = '⎘ Copy'; }, 1800);
+    });
+  });
+
+  // ── alert ticker ──
+  const alerts = [
+    'Motion detected — Warehouse Door — 09:42:17',
+    'Person detected — Car Park Zone B — 91% conf — 09:44:02',
+    'Motion detected — Front Entrance — 09:46:55',
+    'Vehicle detected — Loading Bay — 78% conf — 09:51:20',
+    'Person detected — Server Room Corridor — 09:53:08',
+    'Motion detected — Rear Gate — 09:57:44',
+  ];
+  let ti = 0;
+  const ticker = document.getElementById('tickerText');
+  setInterval(() => {
+    ti = (ti + 1) % alerts.length;
+    ticker.style.opacity = '0';
+    setTimeout(() => {
+      ticker.textContent = alerts[ti];
+      ticker.style.transition = 'opacity .4s';
+      ticker.style.opacity = '1';
+    }, 300);
+  }, 3200);
+})();
+</script>
+
+</body>
+</html>
