@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="TECHCAMAI icon">
+  <defs>
+    <linearGradient id="blueStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C2FF"/>
+      <stop offset="45%" stop-color="#1A73E8"/>
+      <stop offset="100%" stop-color="#00E5FF"/>
+    </linearGradient>
+
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .65 0" result="colored"/>
+      <feMerge>
+        <feMergeNode in="colored"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+
+    <radialGradient id="iris" cx="45%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#B8F2FF"/>
+      <stop offset="35%" stop-color="#00C2FF"/>
+      <stop offset="70%" stop-color="#1A73E8"/>
+      <stop offset="100%" stop-color="#0A2A5E"/>
+    </radialGradient>
+  </defs>
+
+  <!-- NOTE: Original design used a 1400x1400 coordinate space. We scale it to 1024. -->
+  <g transform="scale(0.7314285714)" filter="url(#shadow)">
+    <!-- Outer hex -->
+    <path d="M700 170 L1010 350 L1010 710 L700 890 L390 710 L390 350 Z" fill="#071B39" stroke="url(#blueStroke)" stroke-width="16" opacity="0.98"/>
+
+    <!-- Inner hex glow outline -->
+    <path d="M700 210 L980 372 L980 688 L700 850 L420 688 L420 372 Z" fill="none" stroke="url(#blueStroke)" stroke-width="6" opacity="0.55" filter="url(#glow)"/>
+
+    <!-- Circuit lines -->
+    <g stroke="url(#blueStroke)" stroke-width="10" stroke-linecap="round" opacity="0.9">
+      <!-- left -->
+      <path d="M460 510 H525 V455" fill="none"/>
+      <circle cx="460" cy="510" r="7" fill="#00C2FF"/>
+      <circle cx="525" cy="455" r="7" fill="#1A73E8"/>
+
+      <path d="M470 610 H540 V660" fill="none"/>
+      <circle cx="470" cy="610" r="7" fill="#00E5FF"/>
+      <circle cx="540" cy="660" r="7" fill="#1A73E8"/>
+
+      <!-- right -->
+      <path d="M940 510 H875 V455" fill="none"/>
+      <circle cx="940" cy="510" r="7" fill="#00C2FF"/>
+      <circle cx="875" cy="455" r="7" fill="#1A73E8"/>
+
+      <path d="M930 610 H860 V660" fill="none"/>
+      <circle cx="930" cy="610" r="7" fill="#00E5FF"/>
+      <circle cx="860" cy="660" r="7" fill="#1A73E8"/>
+
+      <!-- top -->
+      <path d="M700 260 V330" fill="none"/>
+      <circle cx="700" cy="260" r="7" fill="#00C2FF"/>
+      <circle cx="700" cy="330" r="7" fill="#1A73E8"/>
+
+      <!-- bottom -->
+      <path d="M700 810 V740" fill="none"/>
+      <circle cx="700" cy="810" r="7" fill="#00C2FF"/>
+      <circle cx="700" cy="740" r="7" fill="#1A73E8"/>
+    </g>
+
+    <!-- Eye -->
+    <g filter="url(#glow)">
+      <path d="M520 560 C585 480 650 450 700 450 C750 450 815 480 880 560 C815 640 750 670 700 670 C650 670 585 640 520 560 Z" fill="#0A1E3D" stroke="url(#blueStroke)" stroke-width="10"/>
+      <circle cx="700" cy="560" r="86" fill="url(#iris)" stroke="#9EEBFF" stroke-width="6" opacity="0.98"/>
+      <circle cx="700" cy="560" r="38" fill="#041024"/>
+      <circle cx="728" cy="535" r="14" fill="#EAFBFF" opacity="0.9"/>
+      <circle cx="750" cy="558" r="6" fill="#EAFBFF" opacity="0.55"/>
+    </g>
+  </g>
+</svg>
