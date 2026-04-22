@@ -1,0 +1,385 @@
+// TechCam AI — Prisma Schema
+// Central data model for the licensing, portal, and billing system.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  INSTALLER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PlanType {
+  ANNUAL
+  MONTHLY
+  BUNDLE
+}
+
+enum LicenseStatus {
+  DRAFT
+  UNPAID
+  READY_TO_ACTIVATE
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+  RESET_PENDING
+}
+
+enum BillingInterval {
+  ONE_TIME
+  MONTHLY
+  ANNUAL
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PAST_DUE
+}
+
+enum SupportRequestType {
+  LICENSE_RECOVERY
+  GENERAL
+}
+
+enum SupportRequestStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users & Auth
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         UserRole @default(INSTALLER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  installerProfile InstallerProfile?
+  createdLicenses  License[]         @relation("LicenseCreatedBy")
+  assignedRequests SupportRequest[]  @relation("AssignedSupport")
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Partner / Installer
+// ─────────────────────────────────────────────────────────────
+
+model PartnerApplication {
+  id          String            @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  company     String
+  website     String?
+  message     String            @db.Text
+  status      ApplicationStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewNotes String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("partner_applications")
+}
+
+model InstallerProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName  String
+  phone        String?
+  address      String?
+  // Partner pricing override — null means use default pricing
+  partnerPrice Decimal? @db.Decimal(10, 2)
+  active       Boolean  @default(true)
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customers Customer[]
+  licenses  License[]  @relation("InstallerLicenses")
+  orders    Order[]
+
+  @@map("installer_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Customers
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String           @id @default(cuid())
+  installerId String
+  installer   InstallerProfile @relation(fields: [installerId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?          @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  licenses License[]
+  orders   Order[]
+
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Products & Orders
+// ─────────────────────────────────────────────────────────────
+
+model Product {
+  id              String          @id @default(cuid())
+  name            String
+  description     String?         @db.Text
+  price           Decimal         @db.Decimal(10, 2)
+  billingInterval BillingInterval
+  stripeProductId String?         @unique
+  stripePriceId   String?         @unique
+  active          Boolean         @default(true)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  orders Order[]
+
+  @@map("products")
+}
+
+model Order {
+  id              String            @id @default(cuid())
+  customerId      String?
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  installerId     String?
+  installer       InstallerProfile? @relation(fields: [installerId], references: [id])
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id])
+  stripeSessionId String?           @unique
+  status          OrderStatus       @default(PENDING)
+  totalAmount     Decimal           @db.Decimal(10, 2)
+  currency        String            @default("gbp")
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  payments Payment[]
+  licenses License[]
+
+  @@map("orders")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  orderId               String?
+  order                 Order?        @relation(fields: [orderId], references: [id])
+  licenseId             String?
+  license               License?      @relation(fields: [licenseId], references: [id])
+  stripePaymentIntentId String?       @unique
+  stripeSubscriptionId  String?       @unique
+  stripeInvoiceId       String?       @unique
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("gbp")
+  status                PaymentStatus @default(PENDING)
+  failureReason         String?
+  paidAt                DateTime?
+  nextDueDate           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Licenses — core of the system
+// ─────────────────────────────────────────────────────────────
+
+model License {
+  id                   String        @id @default(cuid())
+  key                  String        @unique
+  planType             PlanType
+  status               LicenseStatus @default(DRAFT)
+
+  // Relationships
+  installerId          String?
+  installer            InstallerProfile? @relation("InstallerLicenses", fields: [installerId], references: [id])
+  customerId           String?
+  customer             Customer?         @relation(fields: [customerId], references: [id])
+  orderId              String?
+  order                Order?            @relation(fields: [orderId], references: [id])
+
+  // Device binding — single device per license
+  deviceId             String?
+  device               Device?           @relation(fields: [deviceId], references: [id])
+
+  // Dates
+  activationDate       DateTime?
+  expiryDate           DateTime?
+
+  // Renewal & billing
+  renewalWarningSentAt DateTime?
+  paymentStatus        PaymentStatus     @default(PENDING)
+
+  // Metadata
+  notes                String?           @db.Text
+  createdById          String?
+  createdBy            User?             @relation("LicenseCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  activations     LicenseActivation[]
+  renewalNotices  RenewalNotice[]
+  supportRequests SupportRequest[]
+  payments        Payment[]
+
+  @@map("licenses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Device binding & heartbeat
+// ─────────────────────────────────────────────────────────────
+
+model Device {
+  id           String    @id @default(cuid())
+  fingerprint  String    @unique
+  name         String?
+  // Additional identification fields for flexible fingerprinting
+  macAddress   String?
+  hostname     String?
+  appVersion   String?
+  platform     String?
+  onlineStatus Boolean   @default(false)
+  lastSeenAt   DateTime?
+  lastHeartbeatPayload Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  licenses    License[]
+  activations LicenseActivation[]
+
+  @@map("devices")
+}
+
+model LicenseActivation {
+  id            String   @id @default(cuid())
+  licenseId     String
+  license       License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  deviceId      String?
+  device        Device?  @relation(fields: [deviceId], references: [id])
+  activatedAt   DateTime @default(now())
+  activatedByIp String?
+  appVersion    String?
+  success       Boolean  @default(true)
+  failReason    String?
+
+  @@map("license_activations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Renewals
+// ─────────────────────────────────────────────────────────────
+
+model RenewalNotice {
+  id         String   @id @default(cuid())
+  licenseId  String
+  license    License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  noticeType String   // "14_day_warning" | "3_day_warning" | "expired" | "payment_failed"
+  channel    String   @default("email")
+  sentAt     DateTime @default(now())
+
+  @@map("renewal_notices")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Support
+// ─────────────────────────────────────────────────────────────
+
+model SupportRequest {
+  id             String               @id @default(cuid())
+  type           SupportRequestType
+  licenseId      String?
+  license        License?             @relation(fields: [licenseId], references: [id])
+  licenseKeyHint String?              // raw key entered by user (may be unresolved)
+  name           String
+  email          String
+  phone          String?
+  message        String               @db.Text
+  status         SupportRequestStatus @default(OPEN)
+  assignedToId   String?
+  assignedTo     User?                @relation("AssignedSupport", fields: [assignedToId], references: [id])
+  adminNotes     String?              @db.Text
+  resolvedAt     DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@map("support_requests")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audit log
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // e.g. "license.activate" | "license.reset" | "installer.create"
+  entityType String?  // "License" | "Device" | "InstallerProfile" | etc.
+  entityId   String?
+  details    Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Site settings (admin-configurable key/value store)
+// ─────────────────────────────────────────────────────────────
+
+model SiteSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
