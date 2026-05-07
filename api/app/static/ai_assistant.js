@@ -1,5 +1,5 @@
 /**
- * TECHCAMAI AI Assistant Client (Jarvis UI)
+ * TECHCAMAI AI Assistant Client (Camia UI)
  * Handles:
  * - Voice synthesis (Talking back)
  * - Navigation commands
@@ -29,7 +29,7 @@ class TechCamAIAssistant {
   initUI() {
     this.orb = document.getElementById('ai-orb-trigger');
     this.bubble = document.getElementById('ai-speech-bubble');
-    this.panel = document.getElementById('ai-jarvis-panel');
+    this.panel = document.getElementById('ai-camia-panel');
     this.history = document.getElementById('ai-history-log');
     this.input = document.getElementById('ai-command-input');
 

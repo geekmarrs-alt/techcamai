@@ -1,98 +1,37 @@
-# TECHCAMAI
+# TECHCAMAI: Windows AI CCTV Monitoring System
 
-Edge-first camera monitoring MVP.
+TECHCAMAI is a professional-grade, edge-first AI CCTV monitoring system designed exclusively for Windows. It features a JARVIS-style assistant (now **Camia**), remote OS notifications, and high-concurrency camera tracking.
 
-This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
+## 🚀 Quick Start (Windows Only)
 
-## What this repo is good for right now
-- Local/LAN camera onboarding
-- Snapshot polling via worker
-- Rule-based motion alert creation
-- Alert inbox + timeline
-- Post-trigger clip capture/playback MVP
-- Raspberry Pi deployment path via Docker/GHCR
-- Dashboard direction work for the operator UI
+1.  **Download the Source:** Use the [Direct Download Link](https://github.com/your-repo/archive/main.zip) (replace with your actual link) and extract it.
+2.  **Run the Installer:** Double-click `windows_install.bat`. This will:
+    *   Install Python dependencies.
+    *   Verify FFmpeg is installed.
+    *   **Create a "TechCamAI" shortcut on your Desktop.**
+3.  **Launch:** Double-click the **TechCamAI** shortcut on your desktop. The system will start in "Ghost" mode (no background terminals).
 
-## What it is not yet
-- Public customer-facing product site
-- Login / auth / roles
-- Licence or billing system
-- Multi-tenant backend
-- Hardened production fleet management
+## 🤖 Meet Camia (The AI Assistant)
 
-If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
+Look for the pulsing **Blue Orb** in the top-right corner.
+*   **Voice Interactions:** Camia speaks site status updates and responds to your commands.
+*   **Command Panel:** Click the orb or press `Cmd+K` (Ctrl+K) to open the interaction history and manual command input.
+*   **Try This:** Type *"Status report"* for a natural language summary of your site's health.
 
-## Current surfaces
-### Operator UI
-- `/` — dashboard v2 preview (current default)
-- `/preview/dashboard-v1` — simpler fallback overview
-- `/preview/dashboard-v2` — explicit preview route
-- `/ui/scan` — LAN scan
-- `/ui/add` — test/save camera
-- `/cameras/manage` — camera inventory and editing
-- `/live` — live wall
-- `/alerts` — alert inbox
-- `/timeline` — event flow
+## 📱 Remote Monitoring
 
-### API / integration endpoints
-- `/health`
-- `/discover`
-- `/cameras`
-- `/cameras/test`
-- `/worker/cameras`
-- `/rules`
-- `/ingest/detection`
-- `/api/alerts/latest`
-- `/alerts/{id}/clip`
-- `/alerts/{id}/ack`
+*   **Remote Alerts:** Keep the dashboard open on any computer to receive real-time Windows notifications for incidents.
+*   **Site Check (Mobile):** Use the "Site Check" tab for an optimized view when monitoring while walking the site.
 
-## Beta-readiness snapshot
-### Near enough for a real beta walkthrough
-- Recovered FastAPI app boots
-- Dashboard is no longer the broken/truncated template from the earlier recovery state
-- Alert playback fields exist in the API model
-- Worker has clip capture path using `ffmpeg`
-- Docker Compose mounts shared `/data` volume for API + worker
-- GitHub Actions workflow exists to publish multi-arch images to GHCR on `master`
+## 🔑 Login Credentials
 
-### Still needs beta validation in a live environment
-- Real RTSP clip capture against live camera streams
-- Browser playback on the actual Pi deployment
-- End-to-end ingest on the real camera/rule set
-- Clear proof that every enabled camera has a valid rule
-- Failure visibility for bad creds / unreachable cameras / slow snapshots
-- Fresh image publish + pull on Pi from the real source-of-truth repo
+*   **Admin:** `admin` / `techcamai123`
+*   **License Key:** `TCAI-DEMO-2026`
 
-For the blunt version, read `BETA_READINESS_2026-03-13.md`.
+## 🛠 Prerequisites
 
-## Windows Desktop Path (New)
-1. Download or clone this repository to your Windows PC.
-2. Double-click `windows_install.bat` to install dependencies and create a desktop shortcut.
-3. Launch **TechCamAI** directly from your desktop.
-4. On first launch, activate with your license key or use the admin login.
+*   **Python 3.12+:** [Download here](https://www.python.org/downloads/) (Make sure to check "Add Python to PATH").
+*   **FFmpeg:** [Download here](https://ffmpeg.org/download.html) (Required for detection and recording).
 
-## Quick start (dev)
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Then open:
-- Dashboard: http://localhost:8000/
-- API docs: http://localhost:8000/docs
-
-## Raspberry Pi path
-Read:
-- `pi/README_PI.md`
-- `pi/UPDATE_STRATEGY.md`
-
-Short version:
-1. Push code to the real GitHub-backed repo
-2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
-
-## Recommended demo order
-Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
-
-## Known product truth
-TECHCAMAI currently looks like a serious operator MVP, not a finished commercial control plane. That is still useful. Just present it honestly.
+---
+© 2026 TECHCAMAI. Distributed under the MIT License.

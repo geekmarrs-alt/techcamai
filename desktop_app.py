@@ -38,7 +38,16 @@ def main():
     try:
         import webview
         print("Launching desktop window...")
-        webview.create_window('TECHCAMAI Operator Console', 'http://127.0.0.1:8000', width=1280, height=800)
+        # Frameless/Custom frames in pywebview can be tricky on Windows;
+        # using standard window with translucent background if possible.
+        webview.create_window(
+            'TECHCAMAI AI CCTV Console',
+            'http://127.0.0.1:8000',
+            width=1280,
+            height=860,
+            min_size=(1024, 720),
+            background_color='#050a14'
+        )
         webview.start()
     except ImportError:
         print("pywebview not found. Running in 'Headless' Desktop mode.")

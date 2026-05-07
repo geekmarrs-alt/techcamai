@@ -52,17 +52,26 @@ def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool 
 
 def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """Grab one frame via ffmpeg.
-
-    This is intentionally dumb + robust for MVP: spawn ffmpeg, write /tmp frame, read bytes.
+    Windows-native: calls ffmpeg directly.
     """
-    out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
+    temp_dir = Path(os.environ.get("TEMP", "/tmp"))
+    out = temp_dir / f"techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
+
+    cmd = [
+        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+        "-rtsp_transport", "tcp",
+        "-i", rtsp_url,
+        "-frames:v", "1", "-q:v", "3",
+        "-update", "1", str(out)
+    ]
+
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20.0)
-        with open(out, "rb") as f:
-            b = f.read()
-        if not b.startswith(b"\xff\xd8"):
-            return None
-        return b
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20.0)
+        if out.exists():
+            b = out.read_bytes()
+            if b.startswith(b"\xff\xd8"):
+                return b
+        return None
     except Exception:
         return None
 
@@ -181,11 +190,24 @@ def capture_alert_clip(cam: dict, alert: dict):
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     rtsp_url = _camera_rtsp_url(cam)
+    duration = str(max(1, int(S.CLIP_DURATION_SEC)))
+
+    cmd = [
+        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+        "-rtsp_transport", "tcp",
+        "-i", rtsp_url,
+        "-t", duration,
+        "-an",
+        "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        str(out_path)
+    ]
+
     try:
         # Give ffmpeg enough time to capture the full duration + buffer
         capture_timeout = float(S.CLIP_DURATION_SEC) + 15.0
         subprocess.run(
-            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
+            cmd,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
