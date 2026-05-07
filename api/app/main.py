@@ -11,7 +11,7 @@ from typing import Optional, List
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -26,6 +26,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: Optional[str] = None
 
 
 settings = Settings()
@@ -200,6 +201,17 @@ def _normalize_clip_status(status: Optional[str]) -> str:
     if value not in _ALLOWED_CLIP_STATUSES:
         raise HTTPException(status_code=400, detail=f"invalid clip_status: {status}")
     return value
+
+
+def verify_worker_token(request: Request):
+    if not settings.SECRET_KEY:
+        return
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = auth_header.split(" ")[1]
+    if token != settings.SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
@@ -786,7 +798,7 @@ def _public_camera(c: Camera) -> dict:
     }
 
 
-@app.get("/worker/cameras")
+@app.get("/worker/cameras", dependencies=[Depends(verify_worker_token)])
 def worker_cameras():
     # MVP: worker runs on same box, so we return creds.
     # Filter out auto-created junk rows.
@@ -926,7 +938,7 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
     return last is not None
 
 
-@app.post("/ingest/detection")
+@app.post("/ingest/detection", dependencies=[Depends(verify_worker_token)])
 def ingest_detection(det: DetectionIn):
     now = datetime.now(timezone.utc)
 
@@ -985,7 +997,7 @@ def ingest_detection(det: DetectionIn):
         return {"ok": True, "triggered": triggered}
 
 
-@app.put("/alerts/{alert_id}/clip")
+@app.put("/alerts/{alert_id}/clip", dependencies=[Depends(verify_worker_token)])
 def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)
