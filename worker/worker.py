@@ -13,6 +13,7 @@ from typing import List
 from urllib.parse import quote
 
 import httpx
+from crypto import decrypt_password
 from pydantic_settings import BaseSettings
 
 
@@ -204,13 +205,13 @@ def _camera_rtsp_url(cam: dict) -> str:
     if ch < 100:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    pw = decrypt_password(cam.get("password")) or ""
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
     user = cam.get("username")
-    pw = cam.get("password")
+    pw = decrypt_password(cam.get("password"))
     if not user or not pw:
         return None
     auth = (cam.get("auth") or "digest").lower()
