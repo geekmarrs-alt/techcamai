@@ -23,3 +23,28 @@ INFO:     127.0.0.1:46700 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
 INFO:     127.0.0.1:46700 - "GET /ui/ai-widgets HTTP/1.1" 200 OK
 INFO:     127.0.0.1:46700 - "GET /ui/wifi HTTP/1.1" 200 OK
 INFO:     127.0.0.1:46700 - "GET /cameras/manage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36786 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36786 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36786 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39546 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39546 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39546 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45838 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45838 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45838 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59466 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59466 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59466 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:59466 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59466 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59480 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59480 - "GET /alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47348 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47348 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47348 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:47348 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47348 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58548 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58548 - "GET /alerts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58548 - "GET /alerts?q=person HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58548 - "GET /cameras/manage HTTP/1.1" 200 OK

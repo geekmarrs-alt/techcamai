@@ -62,11 +62,29 @@ class TechCamAIAssistant {
       return;
     }
 
+    if (query.includes('system health') || query.includes('check worker') || query.includes('check heartbeat')) {
+      this.speak("Checking system telemetry and worker heartbeat.");
+      window.location.href = '/health';
+      return;
+    }
+
+    if (query.includes('show people') || query.includes('find persons')) {
+      this.speak("Filtering for human activity.");
+      window.location.href = '/alerts?q=person';
+      return;
+    }
+
+    if (query.includes('show vehicles') || query.includes('find cars')) {
+      this.speak("Filtering for vehicle activity.");
+      window.location.href = '/alerts?q=vehicle';
+      return;
+    }
+
     // Mock search for "Red car" / "Main gate"
     if (query.includes('red car') || query.includes('main gate')) {
-      this.speak("Searching recordings for a red car at the main gate. Please hold.");
+      this.speak("Searching recordings for specific object signatures. Please hold.");
       setTimeout(() => {
-        this.speak("I've found two potential matches from 2:15 AM on the Main Gate camera. Displaying the clips now.");
+        this.speak("I've found potential matches in the alert inbox. Filtering for your query now.");
         window.location.href = '/alerts?q=red+car';
       }, 2000);
       return;

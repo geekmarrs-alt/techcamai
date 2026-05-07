@@ -914,8 +914,11 @@ def create_camera(cam: CameraCreate):
         s.commit()
         s.refresh(c)
         # Automate default motion rule creation
-        r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
-        s.add(r)
+        # First check if one already exists for this label (prevents double-creation in tests)
+        exists = s.exec(select(Rule).where(Rule.camera_id == c.id).where(Rule.label == "motion")).first()
+        if not exists:
+            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+            s.add(r)
         s.commit()
         s.refresh(c)
         return c
@@ -974,28 +977,39 @@ async def test_camera(req: CameraTestRequest):
             f"https://{req.ip}/Streaming/channels/{ch}/picture",
             f"http://{req.ip}/Streaming/channels/{ch}/picture",
         ]
-    # Hikvision often uses Digest auth; try digest first.
-    digest = httpx.DigestAuth(req.username, req.password)
+    # Try Digest first (Hikvision default), then Basic auth.
+    auth_methods = [
+        httpx.DigestAuth(req.username, req.password),
+        (req.username, req.password),
+    ]
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
         last_err = None
-        for u in urls:
-            try:
-                r = await client.get(u, auth=digest)
-                if r.status_code != 200:
-                    last_err = f"{u} -> HTTP {r.status_code}"
-                    continue
-                if not r.content:
-                    last_err = f"{u} -> empty body"
-                    continue
-                # assume jpeg
-                b64 = base64.b64encode(r.content).decode("ascii")
-                return {"ok": True, "url": u, "jpeg_b64": b64}
-            except Exception as e:
-                last_err = f"{u} -> {e}"
-                continue
+        for auth in auth_methods:
+            for u in urls:
+                try:
+                    r = await client.get(u, auth=auth)
+                    if r.status_code == 401:
+                        # try next auth method
+                        continue
+                    if r.status_code != 200:
+                        last_err = f"{u} -> HTTP {r.status_code}"
+                        continue
+                    if not r.content:
+                        last_err = f"{u} -> empty body"
+                        continue
+                    # verify jpeg magic bytes
+                    if not r.content.startswith(b"\xff\xd8"):
+                        last_err = f"{u} -> not a valid JPEG"
+                        continue
 
-    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}")
+                    b64 = base64.b64encode(r.content).decode("ascii")
+                    return {"ok": True, "url": u, "jpeg_b64": b64, "auth_used": "digest" if isinstance(auth, httpx.DigestAuth) else "basic"}
+                except Exception as e:
+                    last_err = f"{u} -> {e}"
+                    continue
+
+    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}. Check your credentials and IP connectivity.")
 
 
 @app.get("/rules")
