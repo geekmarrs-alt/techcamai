@@ -47,9 +47,6 @@ class Camera(SQLModel, table=True):
     username: Optional[str] = None
     password: Optional[str] = None  # MVP: stored local plaintext on Pi
 
-    # legacy (kept for now)
-    snapshot_url: str = ""
-
     enabled: bool = True
 
 
@@ -257,7 +254,7 @@ def startup() -> None:
     with Session(engine) as s:
         cams = s.exec(select(Camera)).all()
         if not cams:
-            demo = Camera(name="Demo Cam", snapshot_url="")
+            demo = Camera(name="Demo Cam")
             s.add(demo)
             s.commit()
             s.refresh(demo)
@@ -367,17 +364,7 @@ def _dashboard_context(poll: int = 0) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, poll: int = 0):
-    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
-
-
-@app.get("/preview/dashboard-v1", response_class=HTMLResponse)
-def dashboard_v1_preview(request: Request, poll: int = 0):
     return templates.TemplateResponse(request, "dashboard.html", _dashboard_context(poll=poll))
-
-
-@app.get("/preview/dashboard-v2", response_class=HTMLResponse)
-def dashboard_v2_preview(request: Request, poll: int = 0):
-    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
 
 
 @app.get("/ui/scan", response_class=HTMLResponse)
@@ -849,9 +836,6 @@ def ingest_detection(det: DetectionIn):
 
         if det.camera_id is not None:
             cam = s.get(Camera, int(det.camera_id))
-
-        if not cam:
-            cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
 
         if not cam:
             # Fallback: match by hostname/IP and, when possible, channel.

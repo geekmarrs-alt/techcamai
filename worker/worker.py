@@ -72,13 +72,6 @@ def jpeg_b64(jpeg: bytes | None) -> str | None:
     return base64.b64encode(jpeg).decode("ascii")
 
 
-def fake_detect() -> tuple[str, float]:
-    # Legacy stub kept for fallback.
-    label = random.choice(["person", "vehicle"])
-    conf = random.uniform(0.3, 0.99)
-    return label, conf
-
-
 def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str, float]:
     """Cheap MVP "motion" detector.
 
@@ -253,11 +246,7 @@ def main():
                 _api_reachable = False
             cams = []
 
-        # legacy env fallback
-        urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
-        legacy = [{"ip": None, "snapshot_url": u} for u in urls]
-
-        if not cams and not legacy and _api_reachable:
+        if not cams and _api_reachable:
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
         for cam in cams:
@@ -289,27 +278,6 @@ def main():
                         capture_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
-
-        # legacy URLs (no auth)
-        for l in legacy:
-            u = l["snapshot_url"]
-
-            cur = fetch_snapshot_bytes(u)
-            prev = prev_by_url.get(u)
-            label, conf = motion_detect(prev, cur)
-            prev_by_url[u] = cur or prev_by_url.get(u) or b""
-
-            if conf <= 0.01:
-                continue
-
-            snap_b64 = jpeg_b64(cur)
-            try:
-                res = post_detection(u, label, conf, snap_b64)
-                trig = res.get("triggered", [])
-                if trig:
-                    print(f"[worker] Triggered {len(trig)} alert(s) for {u} label={label} conf={conf:.2f}")
-            except Exception as e:
-                print(f"[worker] Error posting detection for {u}: {e}")
 
         _write_heartbeat()
         time.sleep(max(1, int(S.POLL_INTERVAL_SEC)))
