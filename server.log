@@ -56,3 +56,42 @@ INFO:     127.0.0.1:55666 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 
 INFO:     127.0.0.1:55676 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55686 - "GET /live HTTP/1.1" 200 OK
 INFO:     127.0.0.1:55686 - "GET /cameras/1/snapshot.jpg?ts=1778150014 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:33904 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33904 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33904 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:33904 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33904 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33916 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33904 - "GET /mobile HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38570 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38570 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38570 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:38570 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38570 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38582 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38570 - "GET /api/ai/summary HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38598 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38598 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38598 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:38598 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38598 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38606 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38606 - "GET /mobile HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:45266 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45266 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45266 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:45266 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45278 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45266 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45278 - "GET /api/ai/summary HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:38068 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38068 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38068 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:38068 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38068 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38080 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38080 - "GET /mobile HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [575640]

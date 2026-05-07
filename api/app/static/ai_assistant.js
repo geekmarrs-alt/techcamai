@@ -138,6 +138,22 @@ class TechCamAIAssistant {
       return;
     }
 
+    if (query.includes('status report') || query.includes('site status') || query.includes('how is the site')) {
+      this.speak("Generating a full site status report.");
+      try {
+        const res = await fetch('/api/ai/summary');
+        const data = await res.json();
+        if (data.ok) {
+          this.speak(data.summary);
+        } else {
+          this.speak("I'm having trouble accessing the telemetry right now.");
+        }
+      } catch (e) {
+        this.speak("I cannot reach the command center at this moment.");
+      }
+      return;
+    }
+
     // Mock search
     if (query.includes('red car') || query.includes('main gate')) {
       this.speak("Searching recordings for specific object signatures. Please hold.");

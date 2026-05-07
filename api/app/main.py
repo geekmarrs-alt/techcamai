@@ -102,6 +102,7 @@ class Alert(SQLModel, table=True):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[str] = None
     clip_path: Optional[str] = None
     clip_status: str = "pending"
     clip_error: Optional[str] = None
@@ -114,6 +115,7 @@ class DetectionIn(BaseModel):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[dict] = None
 
 
 class CameraCreate(BaseModel):
@@ -1098,6 +1100,7 @@ def ingest_detection(det: DetectionIn):
                 label=det.label,
                 conf=float(det.conf),
                 snapshot_b64=det.snapshot_b64,
+                extra_metadata=json.dumps(det.extra_metadata) if det.extra_metadata else None,
                 acked=False,
             )
             s.add(a)
@@ -1152,3 +1155,39 @@ def ack_alert(alert_id: int, request: Request, poll: int = 0):
         sep = "&" if "?" in ref else "?"
         ref = f"{ref}{sep}poll=1"
     return RedirectResponse(url=ref, status_code=303)
+
+@app.get("/api/ai/summary")
+def get_ai_summary():
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        active_cams = [c for c in cams if c.enabled]
+        offline_cams = [c for c in active_cams if c.last_error]
+
+        # Recent alerts (last 1h)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_alerts = s.exec(select(Alert).where(Alert.created_at >= cutoff)).all()
+
+    status = "nominal"
+    if offline_cams:
+        status = "degraded"
+    if len(recent_alerts) > 10:
+        status = "active"
+
+    summary = f"Site status is {status}. "
+    summary += f"I am currently monitoring {len(active_cams)} cameras. "
+
+    if offline_cams:
+        summary += f"Warning: {len(offline_cams)} cameras are reporting errors, including {offline_cams[0].name}. "
+    else:
+        summary += "All enabled feeds are healthy. "
+
+    if recent_alerts:
+        summary += f"There have been {len(recent_alerts)} alerts in the last hour. "
+    else:
+        summary += "No recent incidents detected."
+
+    return {"ok": True, "summary": summary, "status": status}
+
+@app.get("/mobile", response_class=HTMLResponse)
+def mobile_view(request: Request):
+    return templates.TemplateResponse(request, "mobile_view.html", _dashboard_context(poll=1))
