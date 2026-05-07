@@ -3,14 +3,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import random
 import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
-from urllib.parse import quote
 
 import httpx
 from pydantic_settings import BaseSettings
@@ -291,8 +289,8 @@ def main():
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
         # legacy URLs (no auth)
-        for l in legacy:
-            u = l["snapshot_url"]
+        for legacy_cam in legacy:
+            u = legacy_cam["snapshot_url"]
 
             cur = fetch_snapshot_bytes(u)
             prev = prev_by_url.get(u)
