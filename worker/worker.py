@@ -7,6 +7,7 @@ import os
 import random
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -141,6 +142,20 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         return r.json()
 
 
+def update_camera_status(camera_id: int, last_seen: datetime | None = None, last_error: str | None = None):
+    payload = {}
+    if last_seen:
+        payload["last_seen"] = last_seen.isoformat()
+    if last_error is not None:
+        payload["last_error"] = last_error
+    try:
+        with httpx.Client(timeout=5.0) as c:
+            r = c.put(f"{S.API_BASE_URL}/cameras/{camera_id}/status", json=payload)
+            r.raise_for_status()
+    except Exception as e:
+        print(f"[worker] Could not update camera {camera_id} status: {e}")
+
+
 def _alert_clip_relpath(cam: dict, alert_id: int, created_at: str | None = None) -> str:
     cam_id = int(cam.get("id") or 0)
     ts = datetime.now(timezone.utc)
@@ -240,6 +255,7 @@ def main():
     print(f"[worker] Starting — API={S.API_BASE_URL} poll={S.POLL_INTERVAL_SEC}s clip_capture={bool(S.CLIP_CAPTURE_ENABLED)} clip_dur={S.CLIP_DURATION_SEC}s prefer_rtsp={bool(S.PREFER_RTSP)}")
     prev_by_url: dict[str, bytes] = {}
     _api_reachable = True
+    executor = ThreadPoolExecutor(max_workers=4)
 
     while True:
         try:
@@ -261,16 +277,25 @@ def main():
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
         for cam in cams:
+            cam_id = cam.get("id")
             # Prefer RTSP for broad camera compatibility.
+            err = None
             if int(S.PREFER_RTSP) == 1:
                 rtsp = _camera_rtsp_url(cam)
                 cur = fetch_rtsp_frame(rtsp)
                 key = rtsp
+                if not cur:
+                    err = "RTSP frame grab failed"
             else:
                 url = _camera_snapshot_url(cam)
                 auth = _camera_auth(cam)
                 cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
                 key = url
+                if not cur:
+                    err = "Snapshot fetch failed"
+
+            if cam_id:
+                update_camera_status(cam_id, last_seen=datetime.now(timezone.utc) if not err else None, last_error=err)
 
             prev = prev_by_url.get(key)
             label, conf = motion_detect(prev, cur)
@@ -286,7 +311,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        executor.submit(capture_alert_clip, cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 

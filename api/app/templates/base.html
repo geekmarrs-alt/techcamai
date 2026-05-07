@@ -404,6 +404,8 @@
           <a href="/live" class="{% if active=='live' %}active{% endif %}"><span>Live</span><small>wall</small></a>
           <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><span>Alerts</span><small>inbox</small></a>
           <a href="/timeline" class="{% if active=='timeline' %}active{% endif %}"><span>Timeline</span><small>events</small></a>
+          <a href="/ui/ai-widgets" class="{% if active=='ai_widgets' %}active{% endif %}"><span>AI Widgets</span><small>models</small></a>
+          <a href="/ui/wifi" class="{% if active=='wifi' %}active{% endif %}"><span>Wi-Fi track</span><small>signals</small></a>
           <a href="/cameras/manage" class="{% if active=='cameras' %}active{% endif %}"><span>Cameras</span><small>manage</small></a>
           <a href="/ui/scan" class="{% if active=='scan' %}active{% endif %}"><span>LAN scan</span><small>discover</small></a>
           <a href="/ui/add" class="{% if active=='add' %}active{% endif %}"><span>Add / test</span><small>camera</small></a>
@@ -442,6 +444,7 @@
         </script>
         <script src="/static/poll.js"></script>
       {% endif %}
+      <script src="/static/ai_assistant.js"></script>
       {% block scripts %}{% endblock %}
     </div>
   </body>

@@ -1,0 +1,25 @@
+INFO:     Started server process [575640]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:41480 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40698 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40698 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40712 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43464 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36518 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36518 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36530 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45010 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46906 - "GET / HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:46906 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46690 - "GET / HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:46690 - "GET /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46690 - "GET /static/techcamai-logo-128.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46690 - "POST /login HTTP/1.1" 303 See Other
+INFO:     127.0.0.1:46690 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46690 - "GET /static/techcamai-dashboard-logo.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46700 - "GET /static/ai_assistant.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46700 - "GET /ui/ai-widgets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46700 - "GET /ui/wifi HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46700 - "GET /cameras/manage HTTP/1.1" 200 OK

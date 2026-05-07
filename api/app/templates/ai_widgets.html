@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}AI Intelligence · TECHCAMAI{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Intelligence</div>
+      <h1>AI Capability Widgets</h1>
+      <div class="sub">Enable and configure specialized computer vision models for your site.</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="stack">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3>Standard Detection</h3>
+        <span class="pill ok">Core</span>
+      </div>
+      <div class="sub">General purpose motion and object detection.</div>
+
+      <div class="divider" style="margin:16px 0;"></div>
+
+      <div class="stack">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <strong>Motion Grid</strong>
+            <div class="sub">Standard pixel-change detection.</div>
+          </div>
+          <span class="pill ok">Active</span>
+        </div>
+
+        <div class="row" style="justify-content:space-between; margin-top:12px;">
+          <div>
+            <strong>Person/Vehicle</strong>
+            <div class="sub">Identify humans and cars specifically.</div>
+          </div>
+          <span class="pill ok">Active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3>Compliance & Safety</h3>
+        <span class="pill warn">Premium</span>
+      </div>
+      <div class="sub">Specialized models for industrial and construction sites.</div>
+
+      <div class="divider" style="margin:16px 0;"></div>
+
+      <div class="stack">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <strong>Hi-Vis Detection</strong>
+            <div class="sub">Alert if person detected without high-visibility clothing.</div>
+          </div>
+          <label class="btn small"><input type="checkbox" style="width:auto; margin-right:8px;"> Enable</label>
+        </div>
+
+        <div class="row" style="justify-content:space-between; margin-top:12px;">
+          <div>
+            <strong>Hard Hat Check</strong>
+            <div class="sub">Verify head protection compliance.</div>
+          </div>
+          <label class="btn small"><input type="checkbox" style="width:auto; margin-right:8px;"> Enable</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3>Operational Intelligence</h3>
+        <span class="pill warn">Premium</span>
+      </div>
+      <div class="sub">Analyze site behavior and parking.</div>
+
+      <div class="divider" style="margin:16px 0;"></div>
+
+      <div class="stack">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <strong>No-Parking Zone</strong>
+            <div class="sub">Alert if vehicle stationary in restricted areas for > 2 mins.</div>
+          </div>
+          <label class="btn small"><input type="checkbox" style="width:auto; margin-right:8px;"> Enable</label>
+        </div>
+
+        <div class="row" style="justify-content:space-between; margin-top:12px;">
+          <div>
+            <strong>Loitering Detection</strong>
+            <div class="sub">Flag unusual dwell times in entrance areas.</div>
+          </div>
+          <label class="btn small"><input type="checkbox" style="width:auto; margin-right:8px;"> Enable</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="surface center">
+      <div class="eyebrow">Smart Triage</div>
+      <p class="sub">AI automatically clusters these events on your dashboard AI Rail for a hands-free experience.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

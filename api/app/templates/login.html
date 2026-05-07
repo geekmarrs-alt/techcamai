@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login · TECHCAMAI</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+        :root { --bg: #07111f; --text: #f5f8ff; --accent: #53b6ff; --border: rgba(130,164,220,0.16); }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+        .card { background: rgba(10,19,37,0.82); padding: 40px; border-radius: 22px; border: 1px solid var(--border); width: 100%; max-width: 360px; text-align: center; }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        .sub { color: rgba(200,214,236,0.72); font-size: 14px; margin-bottom: 24px; }
+        input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 12px; border: 1px solid var(--border); background: #000; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 12px; border: none; background: var(--accent); color: #000; font-weight: bold; cursor: pointer; }
+        .link { margin-top: 20px; font-size: 13px; color: var(--accent); }
+        .error { color: #ff5b76; font-size: 12px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="/static/techcamai-logo-128.png" style="width: 80px; margin-bottom: 20px;">
+        <h1>Activation Required</h1>
+        <p class="sub">Enter your license key or admin credentials to access the operator console.</p>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <input type="text" name="identity" placeholder="License Key or Username" required autofocus>
+            <input type="password" name="password" placeholder="Password (for admin only)">
+            <button type="submit">Unlock Software</button>
+        </form>
+
+        <div class="link">
+            <a href="https://www.techcamai.com" target="_blank" style="color: inherit; text-decoration: none;">Buy a license key at techcamai.com →</a>
+        </div>
+    </div>
+</body>
+</html>

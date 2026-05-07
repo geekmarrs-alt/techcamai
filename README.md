@@ -65,6 +65,12 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 
 For the blunt version, read `BETA_READINESS_2026-03-13.md`.
 
+## Windows Desktop Path (New)
+1. Download or clone this repository to your Windows PC.
+2. Double-click `windows_install.bat` to install dependencies and create a desktop shortcut.
+3. Launch **TechCamAI** directly from your desktop.
+4. On first launch, activate with your license key or use the admin login.
+
 ## Quick start (dev)
 ```bash
 cp .env.example .env
