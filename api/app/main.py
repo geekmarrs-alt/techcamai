@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import ipaddress
 import json
 import re
 import sqlite3
@@ -221,6 +222,32 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
             return raw // 100
         return raw
     return None
+
+
+def _ensure_safe_ip(ip_str: str) -> None:
+    """Validate that the provided IP/hostname is safe for outgoing requests.
+    Blocks loopback, link-local (metadata), unspecified, and multicast addresses.
+    """
+    if not ip_str:
+        return
+
+    # Block common dangerous hostnames explicitly
+    if ip_str.lower() in ("localhost", "127.0.0.1", "::1"):
+        raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is not allowed")
+
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.is_loopback:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a loopback address")
+        if ip.is_link_local:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a link-local address")
+        if ip.is_unspecified:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is an unspecified address")
+        if ip.is_multicast:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a multicast address")
+    except ValueError:
+        # Not a valid IP address, treat as hostname.
+        pass
 
 
 class DiscoverRequest(BaseModel):
@@ -452,6 +479,7 @@ def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
 async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     if not cam.ip:
         raise HTTPException(status_code=400, detail="camera has no ip")
+    _ensure_safe_ip(cam.ip)
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
@@ -725,6 +753,7 @@ def worker_cameras():
 def create_camera(cam: CameraCreate):
     if not cam.ip:
         raise HTTPException(status_code=400, detail="ip required")
+    _ensure_safe_ip(cam.ip)
     with Session(engine) as s:
         c = Camera(
             name=cam.name,
@@ -743,6 +772,8 @@ def create_camera(cam: CameraCreate):
 
 @app.put("/cameras/{camera_id}")
 def update_camera(camera_id: int, patch: CameraUpdate):
+    if patch.ip is not None:
+        _ensure_safe_ip(patch.ip)
     with Session(engine) as s:
         c = s.get(Camera, camera_id)
         if not c:
@@ -764,6 +795,7 @@ def update_camera(camera_id: int, patch: CameraUpdate):
 
 @app.post("/cameras/test")
 async def test_camera(req: CameraTestRequest):
+    _ensure_safe_ip(req.ip)
     # Hikvision-first: try common snapshot endpoints.
     # Return base64 jpeg so UI can preview.
     # Many Hikvision devices use channel numbering like 101 for channel 1 main stream.
