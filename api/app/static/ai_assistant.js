@@ -154,6 +154,24 @@ class TechCamAIAssistant {
       return;
     }
 
+    // Support/Troubleshooting logic
+    if (query.includes('how do i') || query.includes('help me') || query.includes('troubleshoot') || query.includes('fix')) {
+      if (query.includes('401') || query.includes('auth') || query.includes('password')) {
+        this.speak("A 401 error means your camera credentials are wrong. Open 'Add Camera' and verify your password and Digest/Basic auth settings.");
+        return;
+      }
+      if (query.includes('nvr') || query.includes('dvr')) {
+        this.speak("To add an NVR, use the main NVR IP address and specify the channel index of the camera you want to monitor.");
+        return;
+      }
+      if (query.includes('notification')) {
+        this.speak("Enable notifications in your browser settings. I will then send Windows alerts for all high-confidence incidents.");
+        return;
+      }
+      this.speak("I'm here to help. You can ask about camera errors, NVR setup, or notification settings. If you find a bug, click the red triangle in my command panel.");
+      return;
+    }
+
     // Mock search
     if (query.includes('red car') || query.includes('main gate')) {
       this.speak("Searching recordings for specific object signatures. Please hold.");

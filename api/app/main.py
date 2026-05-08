@@ -94,6 +94,15 @@ class User(SQLModel, table=True):
     password_hash: str
 
 
+class ErrorLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    component: str  # api|worker|camera
+    level: str  # error|warning
+    message: str
+    details: Optional[str] = None
+
+
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(index=True)
@@ -588,6 +597,7 @@ async def ui_add_post(request: Request):
                 auth="digest",
                 username=username,
                 password=password,
+                local_path=(form.get("local_path") or "").strip() or None,
             )
             s.add(c)
             s.commit()
@@ -1191,3 +1201,15 @@ def get_ai_summary():
 @app.get("/mobile", response_class=HTMLResponse)
 def mobile_view(request: Request):
     return templates.TemplateResponse(request, "mobile_view.html", _dashboard_context(poll=1))
+
+@app.post("/api/system/report")
+async def report_error(log: ErrorLog):
+    with Session(engine) as s:
+        s.add(log)
+        s.commit()
+    return {"ok": True}
+
+@app.get("/api/system/errors")
+def get_errors(limit: int = 50):
+    with Session(engine) as s:
+        return s.exec(select(ErrorLog).order_by(ErrorLog.created_at.desc()).limit(limit)).all()
