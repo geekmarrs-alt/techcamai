@@ -17,9 +17,15 @@ if %errorlevel% neq 0 (
 :: 2. Check for FFmpeg
 ffmpeg -version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [WARNING] FFmpeg was not found in your PATH.
-    echo Detection and clip recording will not work without it.
-    echo Please install FFmpeg (e.g., via 'winget install ffmpeg') or ensure it is in your PATH.
+    echo [ERROR] FFmpeg was not found in your PATH.
+    echo Detection and clip recording require FFmpeg.
+    echo.
+    echo To install it automatically, open a new Terminal (as Admin) and run:
+    echo   winget install ffmpeg
+    echo.
+    echo Alternatively, download it from https://ffmpeg.org/download.html
+    pause
+    exit /b
 )
 
 :: 3. Install Dependencies

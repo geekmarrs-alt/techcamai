@@ -6,6 +6,7 @@
     <title>{% block title %}TECHCAMAI{% endblock %}</title>
     <style>
       :root{
+        /* Default: Night Mode */
         --bg: #050a14;
         --bg2: #081021;
         --panel: rgba(13, 22, 43, 0.86);
@@ -24,6 +25,23 @@
         --warn: #f8bf4c;
         --shadow: 0 22px 60px rgba(0,0,0,.35);
         --radius: 22px;
+      }
+
+      [data-theme="day"] {
+        --bg: #f5f8fa;
+        --bg2: #e1e8ed;
+        --panel: rgba(255, 255, 255, 0.90);
+        --panel-strong: rgba(245, 248, 250, 0.98);
+        --panel-soft: rgba(0, 0, 0, 0.04);
+        --text: #14171a;
+        --muted: #657786;
+        --faint: #aab8c2;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.14);
+        --accent: #1da1f2;
+        --accent2: #17bf63;
+        --accent3: #794bc4;
+        --shadow: 0 12px 40px rgba(0,0,0,0.08);
       }
       *{ box-sizing:border-box; }
       html, body{ min-height:100%; }
@@ -489,6 +507,16 @@
         align-items: center;
         background: rgba(255,255,255,0.03);
       }
+      .ai-minimize {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background .2s ease;
+      }
+      .ai-minimize:hover { background: rgba(255,255,255,0.1); }
       .ai-panel-body {
         flex: 1;
         overflow-y: auto;
@@ -568,6 +596,20 @@
           <a href="/mobile" class="{% if active=='mobile' %}active{% endif %}"><span>Site check</span><small>mobile</small></a>
         </nav>
 
+        <div class="side-card" style="margin-top:auto; border-color:var(--accent); background:rgba(29,161,242,0.05);">
+          <div class="eyebrow" style="color:var(--accent)">Windows Native</div>
+          <div class="sub" style="margin-top:8px; font-size:11px;">Running on Windows? Get the ghost-mode desktop app.</div>
+          <a href="https://github.com/your-repo/archive/main.zip" class="btn small primary" style="width:100%; margin-top:10px;">Download ZIP</a>
+        </div>
+
+        <div class="side-card">
+          <div class="eyebrow">Appearance</div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn small" onclick="setTheme('night')" id="theme-btn-night">Night</button>
+            <button class="btn small" onclick="setTheme('day')" id="theme-btn-day">Day</button>
+          </div>
+        </div>
+
         <div class="side-card">
           <div class="eyebrow">MVP capability</div>
           <div class="chiprow">
@@ -611,8 +653,13 @@
 
       <div class="ai-panel" id="ai-camia-panel">
         <div class="ai-panel-hdr">
-          <div class="eyebrow" style="margin:0; color:var(--accent)">Camia Intelligence</div>
-          <small class="muted">Cmd+K to focus</small>
+          <div style="display:flex; flex-direction:column;">
+            <div class="eyebrow" style="margin:0; color:var(--accent)">Camia Intelligence</div>
+            <small class="muted" style="font-size:10px;">Cmd+K to focus</small>
+          </div>
+          <div class="ai-minimize" onclick="window.techcamaiAssistant.togglePanel()" title="Minimize">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+          </div>
         </div>
         <div class="ai-panel-body" id="ai-history-log">
           <div class="ai-log-entry bot">Welcome back, operator. I'm monitoring all camera feeds for anomalies.</div>
@@ -625,6 +672,19 @@
         </div>
       </div>
 
+      <script>
+        function setTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          localStorage.setItem('tcai_theme', theme);
+          updateThemeButtons(theme);
+        }
+        function updateThemeButtons(theme) {
+          document.getElementById('theme-btn-night').classList.toggle('primary', theme === 'night');
+          document.getElementById('theme-btn-day').classList.toggle('primary', theme === 'day');
+        }
+        const savedTheme = localStorage.getItem('tcai_theme') || 'night';
+        setTheme(savedTheme);
+      </script>
       <script src="/static/ai_assistant.js"></script>
       {% block scripts %}{% endblock %}
     </div>
