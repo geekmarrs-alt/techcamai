@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Site Check · Mobile · TECHCAMAI{% endblock %}
+{% block head_extra %}
+<style>
+  .mobile-shell { display: grid; gap: 16px; padding: 10px; }
+  .mobile-header { display: flex; justify-content: space-between; align-items: center; }
+  .mobile-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  .mobile-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .mobile-alert-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-alert-item:last-child { border-bottom: none; }
+  .mobile-thumb { width: 80px; height: 60px; border-radius: 10px; object-fit: cover; }
+  .mobile-nav-fab {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--bg);
+    padding: 14px 24px;
+    border-radius: 30px;
+    font-weight: bold;
+    box-shadow: 0 10px 25px rgba(83, 182, 255, 0.4);
+    z-index: 100;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mobile-shell">
+  <div class="mobile-header">
+    <h2 style="margin:0">Site Check</h2>
+    <span class="pill ok">Live</span>
+  </div>
+
+  <div class="mobile-card">
+    <div class="eyebrow">Health Summary</div>
+    <div style="margin-top:12px; display:flex; justify-content:space-between;">
+        <span>Active Cameras</span>
+        <strong>{{ enabled_cameras }}</strong>
+    </div>
+    <div style="margin-top:8px; display:flex; justify-content:space-between;">
+        <span>Unacked Alerts</span>
+        <strong style="color:var(--warn)">{{ unacked_alerts }}</strong>
+    </div>
+  </div>
+
+  <div class="mobile-card">
+    <div class="eyebrow">Quick Alert Feed</div>
+    <div class="stack" style="margin-top:12px">
+        {% for a in alerts[:8] %}
+        <div class="mobile-alert-item">
+            {% if a.snapshot_b64 %}
+            <img src="data:image/jpeg;base64,{{ a.snapshot_b64 }}" class="mobile-thumb" alt="snapshot" />
+            {% else %}
+            <div class="mobile-thumb" style="background:#000"></div>
+            {% endif %}
+            <div style="flex:1">
+                <div style="font-weight:bold; text-transform:capitalize">{{ a.label }}</div>
+                <small class="muted">{{ a.created_at|relative_time }} · Cam #{{ a.camera_id }}</small>
+            </div>
+            {% if not a.acked %}
+            <form action="/alerts/{{ a.id }}/ack" method="post" style="margin:0">
+                <button type="submit" class="btn small primary">Ack</button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="sub">No recent alerts.</div>
+        {% endfor %}
+    </div>
+  </div>
+
+  <a href="/alerts" class="mobile-nav-fab">Full Alert Inbox</a>
+</div>
+{% endblock %}

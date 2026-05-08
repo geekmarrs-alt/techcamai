@@ -194,7 +194,8 @@ def test_ingest_triggers_alert(client):
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert len(body["triggered"]) == 1
+    # Two rules: the automated "Default Motion" and the manual "Ingest motion"
+    assert len(body["triggered"]) == 2
 
 
 # ── Alert clip updates ────────────────────────────────────────────────────────

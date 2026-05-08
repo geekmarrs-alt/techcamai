@@ -10,7 +10,7 @@ from typing import Optional, List
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -50,6 +50,9 @@ class Camera(SQLModel, table=True):
     # legacy (kept for now)
     snapshot_url: str = ""
 
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+    local_path: Optional[str] = None  # NVR/DVR direct path
     enabled: bool = True
 
 
@@ -64,6 +67,42 @@ class Rule(SQLModel, table=True):
     enabled: bool = True
 
 
+class WifiZone(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    ap_mac: str = Field(index=True)
+    camera_id: Optional[int] = None
+
+
+class WifiDevice(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    mac: str = Field(index=True)
+    last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    rssi: int
+    zone_id: Optional[int] = None
+
+
+class License(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(index=True)
+    active: bool = True
+
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True)
+    password_hash: str
+
+
+class ErrorLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    component: str  # api|worker|camera
+    level: str  # error|warning
+    message: str
+    details: Optional[str] = None
+
+
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(index=True)
@@ -72,6 +111,7 @@ class Alert(SQLModel, table=True):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[str] = None
     clip_path: Optional[str] = None
     clip_status: str = "pending"
     clip_error: Optional[str] = None
@@ -84,6 +124,7 @@ class DetectionIn(BaseModel):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[dict] = None
 
 
 class CameraCreate(BaseModel):
@@ -119,6 +160,9 @@ class CameraUpdate(BaseModel):
     channel: Optional[int] = None
     scheme: Optional[str] = None
     auth: Optional[str] = None
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+    local_path: Optional[str] = None
     enabled: Optional[bool] = None
 
 
@@ -128,7 +172,33 @@ class AlertClipUpdate(BaseModel):
     clip_error: Optional[str] = None
 
 
+class CameraStatusUpdate(BaseModel):
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
+
+# Security middleware
+@app.middleware("http")
+async def license_check_middleware(request: Request, call_next):
+    # Skip for static, login, and health
+    if request.url.path in ["/login", "/health", "/api/license/activate"] or request.url.path.startswith(("/static", "/clips")):
+        return await call_next(request)
+
+    # Allow localhost (worker) to bypass
+    if request.client and request.client.host in ("127.0.0.1", "localhost"):
+        return await call_next(request)
+
+    # Check session/cookie for auth
+    auth_token = request.cookies.get("tcai_session")
+    if auth_token == "admin-session-demo": # Simple MVP session check
+        return await call_next(request)
+
+    # If no session, redirect to login (the "Splash Page" / License wall)
+    # This ensures the user is prompted to login or activate
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 app.mount("/clips", StaticFiles(directory=str(clips_dir)), name="clips")
 
@@ -227,6 +297,27 @@ class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
 
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        wanted = {
+            "last_seen": "TEXT",
+            "last_error": "TEXT",
+            "local_path": "TEXT",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE camera ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 def _ensure_alert_columns() -> None:
     with sqlite3.connect(db_path) as conn:
         cur = conn.cursor()
@@ -251,6 +342,7 @@ def _ensure_alert_columns() -> None:
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
+    _ensure_camera_columns()
     _ensure_alert_columns()
 
     # seed minimal defaults if empty
@@ -263,6 +355,23 @@ def startup() -> None:
             s.refresh(demo)
             r = Rule(name="Motion", camera_id=demo.id, label="motion", min_conf=0.35, cooldown_sec=10)
             s.add(r)
+
+            # Seed demo Wi-Fi data
+            z = WifiZone(name="Front Gate Zone", ap_mac="AA:BB:CC:DD:EE:01", camera_id=demo.id)
+            s.add(z)
+            s.commit()
+            s.refresh(z)
+            d = WifiDevice(mac="DE:AD:BE:EF:00:01", rssi=-55, zone_id=z.id)
+            s.add(d)
+
+            # Seed demo user
+            admin = User(username="admin", password_hash="techcamai123")
+            s.add(admin)
+
+            # Seed demo license
+            demo_license = License(key="TCAI-DEMO-2026", active=True)
+            s.add(demo_license)
+
             s.commit()
 
 
@@ -320,6 +429,23 @@ def _dashboard_context(poll: int = 0) -> dict:
     featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
     featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
 
+    # AI Rail "Recent Insights"
+    ai_insights = []
+    high_conf_alerts = [a for a in alerts if a.conf > 0.8][:3]
+    for a in high_conf_alerts:
+        cam_name = cams[a.camera_id].name if a.camera_id in cams else f"Cam #{a.camera_id}"
+        ai_insights.append({
+            "icon": "◈",
+            "label": f"High Confidence {a.label.title()}",
+            "text": f"Detected on {cam_name} with {int(a.conf*100)}% confidence."
+        })
+    if not ai_insights and alerts:
+        ai_insights.append({
+            "icon": "⬡",
+            "label": "Activity Summary",
+            "text": f"{len(alerts_last_24h)} alerts recorded in the last 24 hours across {len(enabled_cameras)} cameras."
+        })
+
     if featured_alert and featured_camera:
         focus_summary = (
             f"{featured_camera.name} is staged because it has the freshest operator-relevant activity. "
@@ -362,7 +488,36 @@ def _dashboard_context(poll: int = 0) -> dict:
         "alerts_last_24h": alerts_last_24h,
         "cameras_with_rules": cameras_with_rules,
         "cameras_without_rules": cameras_without_rules,
+        "ai_insights": ai_insights,
     }
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_get(request: Request):
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request):
+    form = await request.form()
+    identity = (form.get("identity") or "").strip()
+    password = (form.get("password") or "").strip()
+
+    # Admin check
+    if identity == "admin" and password == "techcamai123":
+        resp = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        resp.set_cookie(key="tcai_session", value="admin-session-demo", httponly=True)
+        return resp
+
+    # License check
+    with Session(engine) as s:
+        lic = s.exec(select(License).where(License.key == identity).where(License.active == True)).first()
+        if lic:
+            resp = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+            resp.set_cookie(key="tcai_session", value="admin-session-demo", httponly=True)
+            return resp
+
+    return templates.TemplateResponse(request, "login.html", {"error": "Invalid license key or admin credentials."})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -378,6 +533,24 @@ def dashboard_v1_preview(request: Request, poll: int = 0):
 @app.get("/preview/dashboard-v2", response_class=HTMLResponse)
 def dashboard_v2_preview(request: Request, poll: int = 0):
     return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
+
+
+@app.get("/ui/ai-widgets", response_class=HTMLResponse)
+def ui_ai_widgets(request: Request):
+    return templates.TemplateResponse(request, "ai_widgets.html", {"active": "ai_widgets"})
+
+
+@app.get("/ui/wifi", response_class=HTMLResponse)
+def ui_wifi(request: Request):
+    with Session(engine) as s:
+        devices = s.exec(select(WifiDevice).order_by(WifiDevice.last_seen.desc()).limit(50)).all()
+        zones = {z.id: z for z in s.exec(select(WifiZone)).all()}
+        cams = {c.id: c for c in s.exec(select(Camera)).all()}
+    return templates.TemplateResponse(
+        request,
+        "wifi_track.html",
+        {"active": "wifi", "devices": devices, "zones": zones, "cams": cams},
+    )
 
 
 @app.get("/ui/scan", response_class=HTMLResponse)
@@ -424,9 +597,16 @@ async def ui_add_post(request: Request):
                 auth="digest",
                 username=username,
                 password=password,
+                local_path=(form.get("local_path") or "").strip() or None,
             )
             s.add(c)
             s.commit()
+            s.refresh(c)
+            # Automate default motion rule creation
+            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+            s.add(r)
+            s.commit()
+            s.refresh(c)
         result = {"ok": True, "saved": True}
 
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
@@ -504,12 +684,18 @@ def ui_live(request: Request):
 
 
 @app.get("/alerts", response_class=HTMLResponse)
-def ui_alerts(request: Request, show: str = "unacked", poll: int = 0):
+def ui_alerts(request: Request, show: str = "unacked", poll: int = 0, q: Optional[str] = None):
     with Session(engine) as s:
-        q = select(Alert).order_by(Alert.created_at.desc()).limit(200)
+        sql_q = select(Alert).order_by(Alert.created_at.desc()).limit(200)
         if show != "all":
-            q = q.where(Alert.acked == False)  # noqa: E712
-        alerts = s.exec(q).all()
+            sql_q = sql_q.where(Alert.acked == False)  # noqa: E712
+
+        if q:
+            term = f"%{q}%"
+            # Simple keyword search on label
+            sql_q = sql_q.where(Alert.label.like(term))
+
+        alerts = s.exec(sql_q).all()
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
     return templates.TemplateResponse(
@@ -602,6 +788,7 @@ async def ui_camera_update(camera_id: int, request: Request):
         channel=int(form.get("channel") or 1),
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
+        local_path=(form.get("local_path") or "").strip() or None,
     )
     update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
@@ -738,7 +925,30 @@ def create_camera(cam: CameraCreate):
         s.add(c)
         s.commit()
         s.refresh(c)
+        # Automate default motion rule creation
+        # First check if one already exists for this label (prevents double-creation in tests)
+        exists = s.exec(select(Rule).where(Rule.camera_id == c.id).where(Rule.label == "motion")).first()
+        if not exists:
+            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+            s.add(r)
+        s.commit()
+        s.refresh(c)
         return c
+
+
+@app.put("/cameras/{camera_id}/status")
+def update_camera_status(camera_id: int, status: CameraStatusUpdate):
+    with Session(engine) as s:
+        c = s.get(Camera, camera_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="camera not found")
+        if status.last_seen:
+            c.last_seen = status.last_seen
+        if status.last_error is not None:
+            c.last_error = status.last_error if status.last_error else None
+        s.add(c)
+        s.commit()
+        return {"ok": True}
 
 
 @app.put("/cameras/{camera_id}")
@@ -779,28 +989,39 @@ async def test_camera(req: CameraTestRequest):
             f"https://{req.ip}/Streaming/channels/{ch}/picture",
             f"http://{req.ip}/Streaming/channels/{ch}/picture",
         ]
-    # Hikvision often uses Digest auth; try digest first.
-    digest = httpx.DigestAuth(req.username, req.password)
+    # Try Digest first (Hikvision default), then Basic auth.
+    auth_methods = [
+        httpx.DigestAuth(req.username, req.password),
+        (req.username, req.password),
+    ]
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
         last_err = None
-        for u in urls:
-            try:
-                r = await client.get(u, auth=digest)
-                if r.status_code != 200:
-                    last_err = f"{u} -> HTTP {r.status_code}"
-                    continue
-                if not r.content:
-                    last_err = f"{u} -> empty body"
-                    continue
-                # assume jpeg
-                b64 = base64.b64encode(r.content).decode("ascii")
-                return {"ok": True, "url": u, "jpeg_b64": b64}
-            except Exception as e:
-                last_err = f"{u} -> {e}"
-                continue
+        for auth in auth_methods:
+            for u in urls:
+                try:
+                    r = await client.get(u, auth=auth)
+                    if r.status_code == 401:
+                        # try next auth method
+                        continue
+                    if r.status_code != 200:
+                        last_err = f"{u} -> HTTP {r.status_code}"
+                        continue
+                    if not r.content:
+                        last_err = f"{u} -> empty body"
+                        continue
+                    # verify jpeg magic bytes
+                    if not r.content.startswith(b"\xff\xd8"):
+                        last_err = f"{u} -> not a valid JPEG"
+                        continue
 
-    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}")
+                    b64 = base64.b64encode(r.content).decode("ascii")
+                    return {"ok": True, "url": u, "jpeg_b64": b64, "auth_used": "digest" if isinstance(auth, httpx.DigestAuth) else "basic"}
+                except Exception as e:
+                    last_err = f"{u} -> {e}"
+                    continue
+
+    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}. Check your credentials and IP connectivity.")
 
 
 @app.get("/rules")
@@ -889,12 +1110,16 @@ def ingest_detection(det: DetectionIn):
                 label=det.label,
                 conf=float(det.conf),
                 snapshot_b64=det.snapshot_b64,
+                extra_metadata=json.dumps(det.extra_metadata) if det.extra_metadata else None,
                 acked=False,
             )
             s.add(a)
-            s.commit()
-            s.refresh(a)
             triggered.append(a)
+
+        if triggered:
+            s.commit()
+            for a in triggered:
+                s.refresh(a)
 
         return {"ok": True, "triggered": triggered}
 
@@ -940,3 +1165,51 @@ def ack_alert(alert_id: int, request: Request, poll: int = 0):
         sep = "&" if "?" in ref else "?"
         ref = f"{ref}{sep}poll=1"
     return RedirectResponse(url=ref, status_code=303)
+
+@app.get("/api/ai/summary")
+def get_ai_summary():
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        active_cams = [c for c in cams if c.enabled]
+        offline_cams = [c for c in active_cams if c.last_error]
+
+        # Recent alerts (last 1h)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_alerts = s.exec(select(Alert).where(Alert.created_at >= cutoff)).all()
+
+    status = "nominal"
+    if offline_cams:
+        status = "degraded"
+    if len(recent_alerts) > 10:
+        status = "active"
+
+    summary = f"Site status is {status}. "
+    summary += f"I am currently monitoring {len(active_cams)} cameras. "
+
+    if offline_cams:
+        summary += f"Warning: {len(offline_cams)} cameras are reporting errors, including {offline_cams[0].name}. "
+    else:
+        summary += "All enabled feeds are healthy. "
+
+    if recent_alerts:
+        summary += f"There have been {len(recent_alerts)} alerts in the last hour. "
+    else:
+        summary += "No recent incidents detected."
+
+    return {"ok": True, "summary": summary, "status": status}
+
+@app.get("/mobile", response_class=HTMLResponse)
+def mobile_view(request: Request):
+    return templates.TemplateResponse(request, "mobile_view.html", _dashboard_context(poll=1))
+
+@app.post("/api/system/report")
+async def report_error(log: ErrorLog):
+    with Session(engine) as s:
+        s.add(log)
+        s.commit()
+    return {"ok": True}
+
+@app.get("/api/system/errors")
+def get_errors(limit: int = 50):
+    with Session(engine) as s:
+        return s.exec(select(ErrorLog).order_by(ErrorLog.created_at.desc()).limit(limit)).all()
