@@ -2,6 +2,17 @@
 
 This guide gives you a clean path to run TECHCAMAI on a Windows PC.
 
+## Fastest option (one file install)
+
+Download and run:
+
+`https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/TECHCAMAI_Quick_Install.bat`
+
+This one file will:
+1. Download the latest TECHCAMAI package
+2. Run the Windows installer automatically
+3. Create a Desktop shortcut (`TechCamAI`)
+
 ## 1) Prerequisites
 
 Install these first:
