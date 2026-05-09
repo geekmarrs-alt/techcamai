@@ -1,12 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Add camera · TECHCAMAI{% endblock %}
+{% block head_extra %}
+<style>
+  .onboarding-wizard { display: grid; gap: 20px; }
+  .wizard-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+  .wizard-tab {
+    padding: 12px 24px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--panel); cursor: pointer; transition: 0.2s;
+  }
+  .wizard-tab.active { border-color: var(--accent); background: rgba(83,182,255,0.1); color: var(--accent); }
+  .help-box {
+    margin-top: 10px; padding: 12px; border-radius: 12px;
+    background: rgba(83,182,255,0.05); border: 1px solid rgba(83,182,255,0.1);
+    font-size: 12px; line-height: 1.5; color: var(--muted);
+  }
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <div class="topbar">
     <div>
-      <div class="eyebrow">Onboarding</div>
-      <h1>Add / test camera</h1>
-      <div class="sub">Hikvision-friendly defaults: HTTPS plus Digest. Test first, then save once the feed actually responds.</div>
+      <div class="eyebrow">Onboarding Wizard</div>
+      <h1>Device setup</h1>
+      <div class="sub">Choose your device type to begin. We support individual IP cameras and full NVR/DVR systems.</div>
     </div>
     <div class="row">
       <a class="btn" href="/ui/scan">Back to scan</a>
@@ -15,57 +31,92 @@
   </div>
 </div>
 
-<div class="grid">
-  <section class="card">
-    <h3>Credentials</h3>
-    <form method="post" action="/ui/add" class="stack">
-      <div class="camera-admin-form-grid">
-        <div><div class="sub">IP</div><input name="ip" value="{{ ip }}" placeholder="192.168.0.84" /></div>
-        <div><div class="sub">Channel</div><input name="channel" value="1" /></div>
-        <div><div class="sub">Username</div><input name="username" value="admin" /></div>
-        <div><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Camera password" /></div>
-      </div>
+<div class="onboarding-wizard">
+  <div class="wizard-tabs">
+    <div class="wizard-tab active" onclick="setMode('single')">Single IP Camera</div>
+    <div class="wizard-tab" onclick="setMode('nvr')">NVR / DVR System</div>
+  </div>
 
-      <div class="camera-admin-actions">
-        <div class="sub">Save now stores the full camera entry, including creds, so the worker and live wall can actually use it.</div>
-        <div class="row">
-          <button class="btn primary" name="action" value="test" type="submit">Test snapshot</button>
-          <button class="btn" name="action" value="save" type="submit">Save camera</button>
+  <div class="grid">
+    <section class="card">
+      <h3 id="form-title">Single Camera Credentials</h3>
+      <form method="post" action="/ui/add" class="stack">
+        <div class="camera-admin-form-grid">
+          <div><div class="sub">IP Address</div><input name="ip" value="{{ ip }}" placeholder="192.168.0.84" required /></div>
+          <div><div class="sub" id="ch-label">Channel</div><input name="channel" id="channel-input" value="1" required /></div>
+          <div><div class="sub">Username</div><input name="username" value="admin" required /></div>
+          <div><div class="sub">Password</div><input name="password" type="password" placeholder="Camera password" required /></div>
         </div>
-      </div>
-    </form>
 
-    {% if result %}
-      <div class="surface" style="margin-top:14px;">
-        {% if result.ok %}
-          <span class="pill ok">OK</span>
-          {% if result.url %}<div class="sub" style="margin-top:8px">Resolved URL: <span class="mono">{{ result.url }}</span></div>{% endif %}
-          {% if result.saved %}<div class="sub" style="margin-top:8px">Camera saved. Next move: open the live wall or fine-tune the name in camera inventory.</div>{% endif %}
-        {% else %}
-          <span class="pill bad">FAILED</span>
-          <div class="sub" style="margin-top:8px">{{ result.error }}</div>
-        {% endif %}
-      </div>
-    {% endif %}
-  </section>
+        <div id="nvr-help" class="help-box" style="display:none">
+          <strong>NVR / DVR Integration:</strong>
+          Use the main IP of your recording unit.
+          The <strong>Channel</strong> number determines which camera feed is monitored.
+          <br><br>
+          <strong>Direct HDD Playback:</strong> If this unit is connected via SATA/USB to this computer, enter the local drive path (e.g., <code>D:\Recordings</code>) in the <strong>Storage Path</strong> field to enable instant AI playback.
+        </div>
 
-  <aside class="card stack">
-    <div>
-      <h3>Preview</h3>
+        <div>
+          <div class="sub">Storage Path (Optional)</div>
+          <input name="local_path" placeholder="e.g. D:\CCTV_Data" />
+        </div>
+
+        <div class="camera-admin-actions">
+          <div class="sub">Test connection before saving to ensure credentials and RTSP paths are valid.</div>
+          <div class="row">
+            <button class="btn primary" name="action" value="test" type="submit">Test Connection</button>
+            <button class="btn" name="action" value="save" type="submit">Save to Inventory</button>
+          </div>
+        </div>
+      </form>
+
+      {% if result %}
+        <div class="surface" style="margin-top:14px;">
+          {% if result.ok %}
+            <span class="pill ok">OK</span>
+            {% if result.url %}<div class="sub" style="margin-top:8px">Connected via: <span class="mono">{{ result.url }}</span></div>{% endif %}
+            {% if result.saved %}<div class="sub" style="margin-top:8px">System integrated successfully. Open the <strong>Live Wall</strong> to view.</div>{% endif %}
+          {% else %}
+            <span class="pill bad">FAILED</span>
+            <div class="sub" style="margin-top:8px">{{ result.error }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="card stack">
+      <h3>Live Preview</h3>
       {% if result and result.ok and result.jpeg_b64 %}
         <img class="preview" src="data:image/jpeg;base64,{{ result.jpeg_b64 }}" alt="Camera preview" />
       {% else %}
-        <div class="empty-state center">
-          <div class="tilename">No preview yet</div>
-          <div class="sub">Run <strong>Test snapshot</strong> and the frame lands here.</div>
+        <div class="empty-state center" style="min-height:240px">
+          <div class="tilename">Awaiting Signal</div>
+          <div class="sub">Run <strong>Test Connection</strong> to verify the feed.</div>
         </div>
       {% endif %}
-    </div>
-
-    <div class="surface">
-      <div class="eyebrow">Operator note</div>
-      <div class="sub" style="margin-top:8px">If a camera refuses the first attempt, it is usually auth mode, transport, or just the device being a diva. Test before assuming the network is cursed.</div>
-    </div>
-  </aside>
+      <div class="help-box">
+        <strong>Pro-tip:</strong> Most CCTV systems use port 80 or 443 for snapshots and 554 for RTSP. We handle the heavy lifting automatically.
+      </div>
+    </aside>
+  </div>
 </div>
+
+<script>
+  function setMode(mode) {
+    const tabs = document.querySelectorAll('.wizard-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+
+    if (mode === 'single') {
+      tabs[0].classList.add('active');
+      document.getElementById('form-title').textContent = 'Single Camera Credentials';
+      document.getElementById('ch-label').textContent = 'Channel';
+      document.getElementById('nvr-help').style.display = 'none';
+    } else {
+      tabs[1].classList.add('active');
+      document.getElementById('form-title').textContent = 'NVR / DVR System Credentials';
+      document.getElementById('ch-label').textContent = 'Master Channel';
+      document.getElementById('nvr-help').style.display = 'block';
+    }
+  }
+</script>
 {% endblock %}

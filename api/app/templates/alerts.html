@@ -26,9 +26,15 @@
   </section>
 
   <div class="page-actions">
-    <div>
-      <div class="eyebrow">Filter</div>
-      <div class="sub">Keep triage clean. Show only live work by default.</div>
+    <div class="row" style="flex-wrap: wrap; gap: 20px;">
+      <div>
+        <div class="eyebrow">Filter</div>
+        <div class="sub">Keep triage clean. Show only live work by default.</div>
+      </div>
+      <form action="/alerts" method="get" class="row" style="margin: 0; flex-grow: 1; max-width: 400px;">
+        <input type="text" name="q" placeholder="Search incidents (e.g. 'car', 'person')..." value="{{ request.query_params.get('q', '') }}" style="flex-grow: 1; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px;">
+        <button type="submit" class="btn primary">Search</button>
+      </form>
     </div>
     <div class="segmented">
       <a href="/alerts" class="{% if show != 'all' %}active{% endif %}">Unacked</a>

@@ -7,15 +7,21 @@
 
   <div class="v2-playback-list">
     {% for a in recent_playback_alerts %}
+    {% set cam = cams.get(a.camera_id) %}
     <article class="v2-playback-row" style="{% if a.clip_status == 'failed' %}align-items:flex-start; flex-direction:column; gap:6px;{% endif %}">
       <div>
-        <div class="tilename">{{ cams.get(a.camera_id).name if cams.get(a.camera_id) else ('Camera ' ~ a.camera_id) }}</div>
+        <div class="tilename">{{ cam.name if cam else ('Camera ' ~ a.camera_id) }}</div>
         <div class="sub">{{ a.created_at|relative_time }} · {{ a.created_at|dt_compact }} · {{ a.label|upper }}</div>
       </div>
       <div class="row" style="flex-wrap:wrap; gap:8px;">
         {% if a.clip_status == 'ready' and a.clip_path %}
         <a class="btn" href="/clips/{{ a.clip_path }}" target="_blank">Play clip</a>
         <a class="btn ghost" href="/alerts#alert-{{ a.id }}">Details</a>
+        {% elif cam and cam.local_path %}
+        <div style="display:grid; gap:4px;">
+          <span class="pill ok">Direct HDD access</span>
+          <div class="sub" style="font-size:11px; opacity:.7">Playback available via local mount: {{ cam.local_path[:30] }}...</div>
+        </div>
         {% elif a.clip_status == 'failed' %}
         <div style="display:grid; gap:4px;">
           <span class="pill bad">Clip failed ⚠</span>

@@ -14,11 +14,12 @@
   .v2-focus-header{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
   .v2-focus-image, .v2-camera-mini-image, .v2-incident-thumb{ overflow:hidden; border-radius:18px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.25); }
   .v2-focus-image{ position:relative; }
-  .v2-focus-image img{ display:block; width:100%; height:500px; object-fit:cover; }
-  .v2-focus-overlay{ position:absolute; inset:auto 16px 16px 16px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px; padding:14px 16px; border-radius:18px; background:linear-gradient(180deg, rgba(5,9,18,.08), rgba(5,9,18,.84)); backdrop-filter:blur(10px); }
-  .v2-focus-overlay-title{ margin-top:4px; font-size:22px; font-weight:800; letter-spacing:-.03em; }
-  .v2-focus-detail-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
-  .v2-focus-detail-card, .v2-focus-meta-card, .v2-side-panel, .v2-camera-mini, .v2-incident-card, .v2-playback-row, .v2-empty-panel{ padding:14px; border-radius:18px; border:1px solid var(--border); background:rgba(255,255,255,.04); }
+  .v2-focus-image img{ display:block; width:100%; height:560px; object-fit:cover; }
+  .v2-focus-overlay{ position:absolute; inset:auto 16px 16px 16px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px; padding:18px 22px; border-radius:20px; background:linear-gradient(180deg, rgba(5,9,18,.02), rgba(5,9,18,.92)); backdrop-filter:blur(12px); border: 1px solid rgba(255,255,255,0.06); }
+  .v2-focus-overlay-title{ margin-top:4px; font-size:26px; font-weight:900; letter-spacing:-.04em; }
+  .v2-focus-detail-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
+  .v2-focus-detail-card, .v2-focus-meta-card, .v2-side-panel, .v2-camera-mini, .v2-incident-card, .v2-playback-row, .v2-empty-panel{ padding:18px; border-radius:22px; border:1px solid var(--border); background:rgba(255,255,255,.05); transition: background .2s ease; }
+  .v2-focus-detail-card:hover, .v2-focus-meta-card:hover, .v2-camera-mini:hover, .v2-incident-card:hover { background: rgba(255,255,255,0.08); }
   .v2-focus-detail-card strong, .v2-focus-meta-card strong{ display:block; margin-top:8px; font-size:20px; letter-spacing:-.03em; }
   .v2-focus-actions{ display:flex; gap:10px; flex-wrap:wrap; }
   .v2-stage-side-stack, .v2-stage-sidebar, .v2-supporting-cameras, .v2-rail-stack, .v2-incident-list, .v2-playback-list, .v2-action-stack{ display:grid; gap:12px; }

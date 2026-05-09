@@ -64,6 +64,7 @@
           <div><div class="sub">Scheme</div><select class="select" name="scheme"><option value="https" {% if c.scheme=='https' %}selected{% endif %}>https</option><option value="http" {% if c.scheme=='http' %}selected{% endif %}>http</option></select></div>
           <div><div class="sub">Auth</div><select class="select" name="auth"><option value="digest" {% if c.auth=='digest' %}selected{% endif %}>digest</option><option value="basic" {% if c.auth=='basic' %}selected{% endif %}>basic</option></select></div>
           <div style="grid-column: span 2;"><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Leave blank to keep existing password" autocomplete="new-password" /></div>
+          <div style="grid-column: span 4;"><div class="sub">Local NVR/DVR Storage Path (for hard drive playback)</div><input name="local_path" value="{{c.local_path or ''}}" placeholder="/mnt/nvr/recordings/camera1" /></div>
         </div>
 
         <div class="camera-admin-actions">
