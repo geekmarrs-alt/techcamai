@@ -1,40 +1,99 @@
 # TECHCAMAI
 
-Edge-first camera monitoring MVP.
+Single-repo, operator-focused camera monitoring application.
 
-This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
+This repository contains one application with three runtime components:
+- `api/` - FastAPI backend + operator UI templates
+- `worker/` - polling and detection worker
+- `web/` - placeholder for future marketing site (not required to run the app)
 
-## What this repo is good for right now
-- Local/LAN camera onboarding
-- Snapshot polling via worker
-- Rule-based motion alert creation
-- Alert inbox + timeline
-- Post-trigger clip capture/playback MVP
-- Raspberry Pi deployment path via Docker/GHCR
-- Dashboard direction work for the operator UI
+## Repository cleanup policy (single active branch workflow)
 
-## What it is not yet
-- Public customer-facing product site
-- Login / auth / roles
-- Licence or billing system
-- Multi-tenant backend
-- Hardened production fleet management
+If your remote has many old branches, use this workflow to keep one active delivery branch:
 
-If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
+1. Keep `master` as the source-of-truth stable branch.
+2. Create one short-lived feature branch per change.
+3. Merge to `master` quickly, then delete the feature branch.
+4. Regularly prune merged local/remote branches.
 
-## Current surfaces
-### Operator UI
-- `/` — dashboard v2 preview (current default)
-- `/preview/dashboard-v1` — simpler fallback overview
-- `/preview/dashboard-v2` — explicit preview route
-- `/ui/scan` — LAN scan
-- `/ui/add` — test/save camera
-- `/cameras/manage` — camera inventory and editing
-- `/live` — live wall
-- `/alerts` — alert inbox
-- `/timeline` — event flow
+Commands:
 
-### API / integration endpoints
+```bash
+# Remove local branches already merged into master (except master)
+git checkout master
+git pull origin master
+git branch --merged | rg -v "^\*|master$" | xargs -r git branch -d
+
+# Remove stale remote-tracking refs
+git fetch --prune
+```
+
+To delete merged branches on GitHub UI:
+- GitHub -> repository -> Branches -> delete merged branches
+
+## Quick start (Windows-first)
+
+Use Docker Desktop on Windows and run the helper script:
+
+1. Install:
+   - Docker Desktop
+   - Git for Windows
+2. Download this repo (see "Direct download for Windows" below).
+3. Open PowerShell in the project root and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\start-techcamai.ps1
+```
+
+Then open:
+- App dashboard: http://localhost:8000/
+- API docs: http://localhost:8000/docs
+
+Detailed guide: `docs/WINDOWS_SETUP.md`
+
+## Direct download for Windows
+
+For this repository (`geekmarrs-alt/techcamai`), a direct source ZIP download is:
+
+`https://github.com/geekmarrs-alt/techcamai/archive/refs/heads/master.zip`
+
+You can also run the one-step download/start script:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\download-and-start.ps1
+```
+
+This downloads `master.zip`, extracts it, copies `.env.example` to `.env`, starts Docker Compose, and opens the dashboard.
+
+## Standard developer quick start (all platforms)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open:
+- Dashboard: http://localhost:8000/
+- API docs: http://localhost:8000/docs
+
+## Raspberry Pi deployment
+
+See:
+- `pi/README_PI.md`
+- `pi/UPDATE_STRATEGY.md`
+
+## Current operator surfaces
+
+### UI routes
+- `/` (dashboard)
+- `/ui/scan`
+- `/ui/add`
+- `/cameras/manage`
+- `/live`
+- `/alerts`
+- `/timeline`
+
+### API routes
 - `/health`
 - `/discover`
 - `/cameras`
@@ -45,48 +104,3 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 - `/api/alerts/latest`
 - `/alerts/{id}/clip`
 - `/alerts/{id}/ack`
-
-## Beta-readiness snapshot
-### Near enough for a real beta walkthrough
-- Recovered FastAPI app boots
-- Dashboard is no longer the broken/truncated template from the earlier recovery state
-- Alert playback fields exist in the API model
-- Worker has clip capture path using `ffmpeg`
-- Docker Compose mounts shared `/data` volume for API + worker
-- GitHub Actions workflow exists to publish multi-arch images to GHCR on `master`
-
-### Still needs beta validation in a live environment
-- Real RTSP clip capture against live camera streams
-- Browser playback on the actual Pi deployment
-- End-to-end ingest on the real camera/rule set
-- Clear proof that every enabled camera has a valid rule
-- Failure visibility for bad creds / unreachable cameras / slow snapshots
-- Fresh image publish + pull on Pi from the real source-of-truth repo
-
-For the blunt version, read `BETA_READINESS_2026-03-13.md`.
-
-## Quick start (dev)
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Then open:
-- Dashboard: http://localhost:8000/
-- API docs: http://localhost:8000/docs
-
-## Raspberry Pi path
-Read:
-- `pi/README_PI.md`
-- `pi/UPDATE_STRATEGY.md`
-
-Short version:
-1. Push code to the real GitHub-backed repo
-2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
-
-## Recommended demo order
-Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
-
-## Known product truth
-TECHCAMAI currently looks like a serious operator MVP, not a finished commercial control plane. That is still useful. Just present it honestly.
