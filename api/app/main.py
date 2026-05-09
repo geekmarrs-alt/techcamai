@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .discover import discover
+from .crypto import encrypt_password, decrypt_password, is_encrypted
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from sqlmodel import SQLModel, Field, Session, create_engine, select
@@ -345,6 +346,18 @@ def startup() -> None:
     _ensure_camera_columns()
     _ensure_alert_columns()
 
+    # MIGRATION: Encrypt existing plaintext passwords.
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        any_changed = False
+        for c in cams:
+            if c.password and not is_encrypted(c.password):
+                c.password = encrypt_password(c.password)
+                s.add(c)
+                any_changed = True
+        if any_changed:
+            s.commit()
+
     # seed minimal defaults if empty
     with Session(engine) as s:
         cams = s.exec(select(Camera)).all()
@@ -596,7 +609,7 @@ async def ui_add_post(request: Request):
                 scheme="https",
                 auth="digest",
                 username=username,
-                password=password,
+                password=encrypt_password(password),
                 local_path=(form.get("local_path") or "").strip() or None,
             )
             s.add(c)
@@ -635,11 +648,13 @@ async def _fetch_camera_snapshot(cam: Camera) -> bytes:
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
+    password = decrypt_password(cam.password)
+
     auth = None
     if (cam.auth or "digest").lower() == "basic":
-        auth = (cam.username or "", cam.password or "")
+        auth = (cam.username or "", password or "")
     else:
-        auth = httpx.DigestAuth(cam.username or "", cam.password or "")
+        auth = httpx.DigestAuth(cam.username or "", password or "")
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
         last_err = None
@@ -920,7 +935,7 @@ def create_camera(cam: CameraCreate):
             scheme=cam.scheme,
             auth=cam.auth,
             username=cam.username,
-            password=cam.password,
+            password=encrypt_password(cam.password),
         )
         s.add(c)
         s.commit()
@@ -962,6 +977,8 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         # SECURITY: empty password means "keep existing".
         if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
             data.pop("password", None)
+        elif "password" in data:
+            data["password"] = encrypt_password(data["password"])
 
         for k, v in data.items():
             setattr(c, k, v)
