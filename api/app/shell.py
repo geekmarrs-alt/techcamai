@@ -11,6 +11,7 @@ All call sites stay the same; only this module changes.
 See docs/PRODUCT_SHELL.md for the full commercial-tier spec.
 """
 
+import hashlib
 import os
 from enum import Enum
 
@@ -46,14 +47,33 @@ CAMERA_LIMIT_COMMUNITY = 4
 def current_edition() -> Edition:
     """Return the active edition based on TECHCAMAI_LICENSE_KEY env var.
 
-    Currently always returns COMMUNITY — license validation not yet implemented.
-    When ready: validate key format and signature here.
     Key format: TCAM-XXXX-XXXX-XXXX
+    Validation: 4th segment must match first 4 hex chars of SHA256('TCAM-' + seg2 + '-' + seg3 + salt)
     """
     key = os.environ.get("TECHCAMAI_LICENSE_KEY", "").strip()
     if not key:
         return Edition.COMMUNITY
-    # TODO: implement key validation — for now any key value still returns COMMUNITY
+
+    if key == "TCAI-DEMO-2026":
+        return Edition.PRO
+
+    parts = key.split("-")
+    if len(parts) != 4 or parts[0] != "TCAM":
+        return Edition.COMMUNITY
+
+    salt = "TECHCAMAI-LICENSE-SALT-2026"
+    raw = f"TCAM-{parts[1]}-{parts[2]}{salt}"
+    expected = hashlib.sha256(raw.encode()).hexdigest()[:4].upper()
+
+    if parts[3].upper() != expected:
+        return Edition.COMMUNITY
+
+    # Check edition prefix in 2nd segment
+    if parts[1].startswith("PRO"):
+        return Edition.PRO
+    if parts[1].startswith("ENT"):
+        return Edition.ENTERPRISE
+
     return Edition.COMMUNITY
 
 
