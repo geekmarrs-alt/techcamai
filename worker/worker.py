@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: str | None = None
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
 
@@ -128,6 +129,13 @@ def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str,
     return "motion", conf
 
 
+def _worker_headers() -> dict:
+    headers = {}
+    if S.SECRET_KEY:
+        headers["Authorization"] = f"Bearer {S.SECRET_KEY}"
+    return headers
+
+
 def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None, camera_id: int | None = None):
     payload = {
         "camera_snapshot_url": snapshot_url,
@@ -137,7 +145,7 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -149,7 +157,7 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -267,7 +275,7 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
