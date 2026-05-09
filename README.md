@@ -1,92 +1,66 @@
 # TECHCAMAI
 
-Edge-first camera monitoring MVP.
+TECHCAMAI is now a **Windows-only CCTV monitoring application**.
 
-This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
+---
 
-## What this repo is good for right now
-- Local/LAN camera onboarding
-- Snapshot polling via worker
-- Rule-based motion alert creation
-- Alert inbox + timeline
-- Post-trigger clip capture/playback MVP
-- Raspberry Pi deployment path via Docker/GHCR
-- Dashboard direction work for the operator UI
+## One-click Windows download and install
 
-## What it is not yet
-- Public customer-facing product site
-- Login / auth / roles
-- Licence or billing system
-- Multi-tenant backend
-- Hardened production fleet management
+Download this single file:
 
-If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
+**TECHCAMAI_Quick_Install.bat**
+`https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/TECHCAMAI_Quick_Install.bat`
 
-## Current surfaces
-### Operator UI
-- `/` — dashboard v2 preview (current default)
-- `/preview/dashboard-v1` — simpler fallback overview
-- `/preview/dashboard-v2` — explicit preview route
-- `/ui/scan` — LAN scan
-- `/ui/add` — test/save camera
-- `/cameras/manage` — camera inventory and editing
-- `/live` — live wall
-- `/alerts` — alert inbox
-- `/timeline` — event flow
+### Install steps (non-technical)
+1. Download `TECHCAMAI_Quick_Install.bat`
+2. Double-click it
+3. Allow it to run when Windows prompts
+4. Wait for installation to complete
+5. Use the `TechCamAI` desktop shortcut to launch the app
 
-### API / integration endpoints
-- `/health`
-- `/discover`
-- `/cameras`
-- `/cameras/test`
-- `/worker/cameras`
-- `/rules`
-- `/ingest/detection`
-- `/api/alerts/latest`
-- `/alerts/{id}/clip`
-- `/alerts/{id}/ack`
+---
 
-## Beta-readiness snapshot
-### Near enough for a real beta walkthrough
-- Recovered FastAPI app boots
-- Dashboard is no longer the broken/truncated template from the earlier recovery state
-- Alert playback fields exist in the API model
-- Worker has clip capture path using `ffmpeg`
-- Docker Compose mounts shared `/data` volume for API + worker
-- GitHub Actions workflow exists to publish multi-arch images to GHCR on `master`
+## What the installer does
 
-### Still needs beta validation in a live environment
-- Real RTSP clip capture against live camera streams
-- Browser playback on the actual Pi deployment
-- End-to-end ingest on the real camera/rule set
-- Clear proof that every enabled camera has a valid rule
-- Failure visibility for bad creds / unreachable cameras / slow snapshots
-- Fresh image publish + pull on Pi from the real source-of-truth repo
+- Downloads the latest TECHCAMAI code
+- Installs required Python dependencies
+- Sets up local app files
+- Creates a desktop quick-launch shortcut
 
-For the blunt version, read `BETA_READINESS_2026-03-13.md`.
+---
 
-## Quick start (dev)
-```bash
-cp .env.example .env
-docker compose up --build
-```
+## Manual install (if you already downloaded the repo)
 
-Then open:
-- Dashboard: http://localhost:8000/
-- API docs: http://localhost:8000/docs
+1. Open the repo folder
+2. Double-click `windows_install.bat`
+3. Launch from desktop shortcut `TechCamAI`
 
-## Raspberry Pi path
-Read:
-- `pi/README_PI.md`
-- `pi/UPDATE_STRATEGY.md`
+Detailed guide: `docs/WINDOWS_SETUP.md`
 
-Short version:
-1. Push code to the real GitHub-backed repo
-2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
+---
 
-## Recommended demo order
-Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
+## First launch
 
-## Known product truth
-TECHCAMAI currently looks like a serious operator MVP, not a finished commercial control plane. That is still useful. Just present it honestly.
+When TECHCAMAI starts, open:
+- Dashboard: `http://localhost:8000/`
+- Camera setup: `http://localhost:8000/ui/add`
+- Camera management: `http://localhost:8000/cameras/manage`
+- Alerts: `http://localhost:8000/alerts`
+
+---
+
+## Project structure
+
+- `TECHCAMAI_Quick_Install.bat` - one-click installer bootstrap
+- `windows_install.bat` - local installer for already-downloaded repo
+- `desktop_app.py` - desktop launcher entrypoint
+- `api/` - backend + dashboard
+- `worker/` - camera polling and detection worker
+- `docs/` - setup docs
+
+---
+
+## Notes
+
+- This repository is maintained as one unified codebase.
+- Primary install path is the Windows quick installer.

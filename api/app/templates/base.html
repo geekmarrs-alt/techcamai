@@ -6,16 +6,17 @@
     <title>{% block title %}TECHCAMAI{% endblock %}</title>
     <style>
       :root{
-        --bg: #07111f;
-        --bg2: #0b1629;
-        --panel: rgba(10, 19, 37, 0.82);
-        --panel-strong: rgba(8, 15, 30, 0.92);
-        --panel-soft: rgba(255,255,255,.05);
-        --text: rgba(245,248,255,.96);
-        --muted: rgba(200,214,236,.72);
-        --faint: rgba(200,214,236,.48);
-        --border: rgba(130,164,220,.16);
-        --border-strong: rgba(130,164,220,.24);
+        /* Default: Night Mode */
+        --bg: #050a14;
+        --bg2: #081021;
+        --panel: rgba(13, 22, 43, 0.86);
+        --panel-strong: rgba(10, 18, 36, 0.96);
+        --panel-soft: rgba(255,255,255,.06);
+        --text: rgba(245,248,255,.98);
+        --muted: rgba(190,210,240,.76);
+        --faint: rgba(180,200,230,.52);
+        --border: rgba(130,164,220,.18);
+        --border-strong: rgba(130,164,220,.28);
         --accent: #53b6ff;
         --accent2: #35e0b8;
         --accent3: #7c5cff;
@@ -25,17 +26,35 @@
         --shadow: 0 22px 60px rgba(0,0,0,.35);
         --radius: 22px;
       }
+
+      [data-theme="day"] {
+        --bg: #f5f8fa;
+        --bg2: #e1e8ed;
+        --panel: rgba(255, 255, 255, 0.90);
+        --panel-strong: rgba(245, 248, 250, 0.98);
+        --panel-soft: rgba(0, 0, 0, 0.04);
+        --text: #14171a;
+        --muted: #657786;
+        --faint: #aab8c2;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.14);
+        --accent: #1da1f2;
+        --accent2: #17bf63;
+        --accent3: #794bc4;
+        --shadow: 0 12px 40px rgba(0,0,0,0.08);
+      }
       *{ box-sizing:border-box; }
       html, body{ min-height:100%; }
       body{
         margin:0;
         color:var(--text);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+        font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
         background:
-          radial-gradient(1000px 600px at 10% -10%, rgba(83,182,255,.18), transparent 58%),
-          radial-gradient(900px 700px at 100% 0%, rgba(124,92,255,.16), transparent 52%),
-          radial-gradient(900px 600px at 50% 120%, rgba(53,224,184,.10), transparent 60%),
+          radial-gradient(1200px 800px at 10% -10%, rgba(83,182,255,.22), transparent 60%),
+          radial-gradient(1000px 900px at 100% 0%, rgba(124,92,255,.18), transparent 55%),
+          radial-gradient(1000px 700px at 50% 120%, rgba(53,224,184,.12), transparent 65%),
           linear-gradient(180deg, var(--bg), var(--bg2));
+        letter-spacing: -0.01em;
       }
       a{ color:inherit; text-decoration:none; }
       button, input, select{ font:inherit; }
@@ -377,6 +396,171 @@
         .page-actions, .topbar{ align-items:flex-start; }
         .topbar h1, .topbar h2{ font-size:24px; }
       }
+
+      /* ─── AI Camia Assistant UI ─── */
+      .ai-camia-shell {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        pointer-events: none;
+      }
+      .ai-orb-wrap {
+        position: relative;
+        cursor: pointer;
+        pointer-events: auto;
+        transition: transform .2s ease;
+      }
+      .ai-orb-wrap:hover { transform: scale(1.1); }
+      .ai-orb {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, var(--accent), var(--accent3));
+        box-shadow:
+          0 0 20px rgba(83, 182, 255, 0.4),
+          inset 0 0 15px rgba(255, 255, 255, 0.3);
+        animation: ai-pulse 2s infinite ease-in-out;
+        position: relative;
+        overflow: hidden;
+      }
+      .ai-orb:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 10deg, transparent 20deg);
+        animation: ai-rotate 10s linear infinite;
+      }
+      @keyframes ai-pulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(83, 182, 255, 0.4); }
+        50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(124, 92, 255, 0.6); }
+      }
+      @keyframes ai-rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .ai-bubble {
+        position: absolute;
+        right: 70px;
+        top: 6px;
+        background: var(--panel-strong);
+        border: 1px solid var(--border-strong);
+        padding: 10px 16px;
+        border-radius: 18px 18px 2px 18px;
+        font-size: 13px;
+        color: var(--text);
+        max-width: 240px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+        opacity: 0;
+        transform: translateX(10px);
+        transition: all .3s ease;
+        visibility: hidden;
+      }
+      .ai-bubble.active {
+        opacity: 1;
+        transform: translateX(0);
+        visibility: visible;
+      }
+
+      .ai-panel {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 380px;
+        max-height: 500px;
+        background: var(--panel-strong);
+        border: 1px solid var(--border-strong);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        z-index: 999;
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+        visibility: hidden;
+        transition: all .3s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: auto;
+      }
+      @media (max-width: 480px) {
+        .ai-panel {
+          width: calc(100% - 48px);
+          max-height: 400px;
+        }
+      }
+      .ai-panel.active {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        visibility: visible;
+      }
+      .ai-panel-hdr {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255,255,255,0.03);
+      }
+      .ai-minimize {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background .2s ease;
+      }
+      .ai-minimize:hover { background: rgba(255,255,255,0.1); }
+      .ai-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+        max-height: 340px;
+      }
+      .ai-log-entry {
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.04);
+      }
+      .ai-log-entry.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, rgba(83,182,255,0.1), rgba(124,92,255,0.1));
+        border: 1px solid rgba(83,182,255,0.2);
+        color: var(--accent);
+      }
+      .ai-log-entry.bot {
+        align-self: flex-start;
+        border: 1px solid var(--border);
+      }
+      .ai-panel-ft {
+        padding: 14px 18px;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid var(--border);
+      }
+      .ai-input-wrap {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .ai-input {
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 14px;
+        width: 100%;
+        outline: none;
+      }
     </style>
     {% block head_extra %}{% endblock %}
   </head>
@@ -404,10 +588,27 @@
           <a href="/live" class="{% if active=='live' %}active{% endif %}"><span>Live</span><small>wall</small></a>
           <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><span>Alerts</span><small>inbox</small></a>
           <a href="/timeline" class="{% if active=='timeline' %}active{% endif %}"><span>Timeline</span><small>events</small></a>
+          <a href="/ui/ai-widgets" class="{% if active=='ai_widgets' %}active{% endif %}"><span>AI Widgets</span><small>models</small></a>
+          <a href="/ui/wifi" class="{% if active=='wifi' %}active{% endif %}"><span>Wi-Fi track</span><small>signals</small></a>
           <a href="/cameras/manage" class="{% if active=='cameras' %}active{% endif %}"><span>Cameras</span><small>manage</small></a>
           <a href="/ui/scan" class="{% if active=='scan' %}active{% endif %}"><span>LAN scan</span><small>discover</small></a>
           <a href="/ui/add" class="{% if active=='add' %}active{% endif %}"><span>Add / test</span><small>camera</small></a>
+          <a href="/mobile" class="{% if active=='mobile' %}active{% endif %}"><span>Site check</span><small>mobile</small></a>
         </nav>
+
+        <div class="side-card" style="margin-top:auto; border-color:var(--accent); background:rgba(29,161,242,0.05);">
+          <div class="eyebrow" style="color:var(--accent)">Windows Native</div>
+          <div class="sub" style="margin-top:8px; font-size:11px;">Running on Windows? Get the ghost-mode desktop app.</div>
+          <a href="https://github.com/your-repo/archive/main.zip" class="btn small primary" style="width:100%; margin-top:10px;">Download ZIP</a>
+        </div>
+
+        <div class="side-card">
+          <div class="eyebrow">Appearance</div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn small" onclick="setTheme('night')" id="theme-btn-night">Night</button>
+            <button class="btn small" onclick="setTheme('day')" id="theme-btn-day">Day</button>
+          </div>
+        </div>
 
         <div class="side-card">
           <div class="eyebrow">MVP capability</div>
@@ -442,6 +643,79 @@
         </script>
         <script src="/static/poll.js"></script>
       {% endif %}
+      <!-- Camia AI Assistant UI -->
+      <div class="ai-camia-shell">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="ai-minimize" onclick="reportBug()" title="Report System Error" style="color:var(--danger); pointer-events:auto; background:var(--panel); box-shadow:var(--shadow);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="ai-orb-wrap" id="ai-orb-trigger">
+            <div class="ai-bubble" id="ai-speech-bubble">System online. How can I help?</div>
+            <div class="ai-orb"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-panel" id="ai-camia-panel">
+        <div class="ai-panel-hdr">
+          <div style="display:flex; flex-direction:column;">
+            <div class="eyebrow" style="margin:0; color:var(--accent)">Camia Intelligence</div>
+            <small class="muted" style="font-size:10px;">Cmd+K to focus</small>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <div class="ai-minimize" onclick="reportBug()" title="Report Problem" style="color:var(--danger)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="ai-minimize" onclick="window.techcamaiAssistant.togglePanel()" title="Minimize">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="ai-panel-body" id="ai-history-log">
+          <div class="ai-log-entry bot">Welcome back, operator. I'm monitoring all camera feeds for anomalies.</div>
+        </div>
+        <div class="ai-panel-ft">
+          <div class="ai-input-wrap">
+            <span style="color:var(--accent); font-weight:bold;">></span>
+            <input type="text" class="ai-input" id="ai-command-input" placeholder="Enter command or question..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function setTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          localStorage.setItem('tcai_theme', theme);
+          updateThemeButtons(theme);
+        }
+        function updateThemeButtons(theme) {
+          document.getElementById('theme-btn-night').classList.toggle('primary', theme === 'night');
+          document.getElementById('theme-btn-day').classList.toggle('primary', theme === 'day');
+        }
+
+        async function reportBug() {
+          const msg = prompt("Describe the issue for the TechCam team:");
+          if (!msg) return;
+          try {
+            await fetch('/api/system/report', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                component: 'ui-manual',
+                level: 'error',
+                message: msg,
+                details: navigator.userAgent
+              })
+            });
+            window.techcamaiAssistant.speak("Thank you. I've uploaded the error logs to the engineering team.");
+          } catch (e) {
+            alert("Could not reach report server.");
+          }
+        }
+        const savedTheme = localStorage.getItem('tcai_theme') || 'night';
+        setTheme(savedTheme);
+      </script>
+      <script src="/static/ai_assistant.js"></script>
       {% block scripts %}{% endblock %}
     </div>
   </body>
