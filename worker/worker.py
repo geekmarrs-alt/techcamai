@@ -3,8 +3,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import random
 import subprocess
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -270,8 +272,7 @@ def get_cameras() -> list[dict]:
         return r.json()
 
 
-def _process_camera(cam: dict, prev_by_url: dict[str, bytes]):
-    # Prefer RTSP for broad camera compatibility.
+def _process_camera(cam: dict, prev_by_url: dict[str, bytes], lock: threading.Lock):
     if int(S.PREFER_RTSP) == 1:
         rtsp = _camera_rtsp_url(cam)
         cur = fetch_rtsp_frame(rtsp)
@@ -282,9 +283,11 @@ def _process_camera(cam: dict, prev_by_url: dict[str, bytes]):
         cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
         key = url
 
-    prev = prev_by_url.get(key)
+    with lock:
+        prev = prev_by_url.get(key)
     label, conf = motion_detect(prev, cur)
-    prev_by_url[key] = cur or prev_by_url.get(key) or b""
+    with lock:
+        prev_by_url[key] = cur or prev_by_url.get(key) or b""
 
     if conf <= 0.01:
         return
@@ -294,18 +297,23 @@ def _process_camera(cam: dict, prev_by_url: dict[str, bytes]):
         res = post_detection(key, label, conf, snap_b64, cam.get("id"))
         trig = res.get("triggered", [])
         if trig:
-            print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
-            for alert in trig:
-                capture_alert_clip(cam, alert)
+            cam_desc = cam.get("ip") or key
+            print(f"[worker] Triggered {len(trig)} alert(s) for {cam_desc} label={label} conf={conf:.2f}")
+            if cam.get("id"):
+                for alert in trig:
+                    capture_alert_clip(cam, alert)
     except Exception as e:
-        print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
+        cam_desc = cam.get("ip") or key
+        print(f"[worker] Error posting detection for {cam_desc}: {e}")
 
 
-def _process_legacy_url(u: str, prev_by_url: dict[str, bytes]):
+def _process_legacy_url(u: str, prev_by_url: dict[str, bytes], lock: threading.Lock):
     cur = fetch_snapshot_bytes(u)
-    prev = prev_by_url.get(u)
+    with lock:
+        prev = prev_by_url.get(u)
     label, conf = motion_detect(prev, cur)
-    prev_by_url[u] = cur or prev_by_url.get(u) or b""
+    with lock:
+        prev_by_url[u] = cur or prev_by_url.get(u) or b""
 
     if conf <= 0.01:
         return
@@ -324,7 +332,7 @@ def main():
     print(f"[worker] Starting — API={S.API_BASE_URL} poll={S.POLL_INTERVAL_SEC}s clip_capture={bool(S.CLIP_CAPTURE_ENABLED)} clip_dur={S.CLIP_DURATION_SEC}s prefer_rtsp={bool(S.PREFER_RTSP)}")
     prev_by_url: dict[str, bytes] = {}
     _api_reachable = True
-    executor = ThreadPoolExecutor(max_workers=4)
+    lock = threading.Lock()
 
     while True:
         try:
@@ -344,12 +352,13 @@ def main():
         if not cams and not urls and _api_reachable:
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
-        for cam in cams:
-            _process_camera(cam, prev_by_url)
-
-        # legacy URLs (no auth)
-        for u in urls:
-            _process_legacy_url(u, prev_by_url)
+        total_jobs = len(cams) + len(urls)
+        if total_jobs > 0:
+            with ThreadPoolExecutor(max_workers=total_jobs) as poll_executor:
+                for cam in cams:
+                    poll_executor.submit(_process_camera, cam, prev_by_url, lock)
+                for u in urls:
+                    poll_executor.submit(_process_legacy_url, u, prev_by_url, lock)
 
         _write_heartbeat()
         time.sleep(max(1, int(S.POLL_INTERVAL_SEC)))
