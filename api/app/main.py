@@ -1168,60 +1168,71 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
     return last is not None
 
 
+def _resolve_camera(s: Session, det: DetectionIn) -> Optional[Camera]:
+    cam = None
+
+    if det.camera_id is not None:
+        cam = s.get(Camera, int(det.camera_id))
+
+    if not cam:
+        cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
+
+    if not cam:
+        # Fallback: match by hostname/IP and, when possible, channel.
+        try:
+            host = urlparse(det.camera_snapshot_url).hostname
+        except Exception:
+            host = None
+        if host:
+            channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
+            if channel_hint is not None:
+                cam = s.exec(
+                    select(Camera)
+                    .where(Camera.ip == host)
+                    .where(Camera.channel == channel_hint)
+                ).first()
+            if not cam:
+                cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+
+    return cam
+
+
+def _evaluate_rules(s: Session, cam: Camera, det: DetectionIn, now: datetime) -> List[Alert]:
+    rules = s.exec(select(Rule).where(Rule.camera_id == cam.id).where(Rule.enabled == True)).all()  # noqa: E712
+    triggered: List[Alert] = []
+    for r in rules:
+        if r.label != det.label:
+            continue
+        if det.conf < r.min_conf:
+            continue
+        if _cooldown_hit(s, r, now):
+            continue
+        a = Alert(
+            created_at=now,
+            camera_id=cam.id,
+            rule_id=r.id,
+            label=det.label,
+            conf=float(det.conf),
+            snapshot_b64=det.snapshot_b64,
+            extra_metadata=json.dumps(det.extra_metadata) if det.extra_metadata else None,
+            acked=False,
+        )
+        s.add(a)
+        triggered.append(a)
+    return triggered
+
+
 @app.post("/ingest/detection")
 def ingest_detection(det: DetectionIn):
     now = datetime.now(timezone.utc)
 
     with Session(engine) as s:
-        cam = None
-
-        if det.camera_id is not None:
-            cam = s.get(Camera, int(det.camera_id))
-
-        if not cam:
-            cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
-
-        if not cam:
-            # Fallback: match by hostname/IP and, when possible, channel.
-            try:
-                host = urlparse(det.camera_snapshot_url).hostname
-            except Exception:
-                host = None
-            if host:
-                channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
-                if channel_hint is not None:
-                    cam = s.exec(
-                        select(Camera)
-                        .where(Camera.ip == host)
-                        .where(Camera.channel == channel_hint)
-                    ).first()
-                if not cam:
-                    cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+        cam = _resolve_camera(s, det)
 
         if not cam:
             return {"ok": True, "triggered": []}
 
-        rules = s.exec(select(Rule).where(Rule.camera_id == cam.id).where(Rule.enabled == True)).all()  # noqa: E712
-        triggered: List[Alert] = []
-        for r in rules:
-            if r.label != det.label:
-                continue
-            if det.conf < r.min_conf:
-                continue
-            if _cooldown_hit(s, r, now):
-                continue
-            a = Alert(
-                created_at=now,
-                camera_id=cam.id,
-                rule_id=r.id,
-                label=det.label,
-                conf=float(det.conf),
-                snapshot_b64=det.snapshot_b64,
-                extra_metadata=json.dumps(det.extra_metadata) if det.extra_metadata else None,
-                acked=False,
-            )
-            s.add(a)
-            triggered.append(a)
+        triggered = _evaluate_rules(s, cam, det, now)
 
         if triggered:
             s.commit()
