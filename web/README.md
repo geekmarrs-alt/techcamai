@@ -3,7 +3,7 @@
 Future home of the TECHCAMAI product website.
 
 The operator console lives in `api/`. This directory is a placeholder.
-See `docs/PRODUCT_SHELL.md` for the full commercial-tier and website spec.
+This project is currently focused on the Windows desktop/operator application.
 
 ---
 
@@ -11,14 +11,14 @@ See `docs/PRODUCT_SHELL.md` for the full commercial-tier and website spec.
 
 ```
 web/
-├── index.html             # Landing — hero, features, CTA, Pi install one-liner
-├── features.html          # Feature breakdown (alert loop, clip capture, Pi deploy)
+├── index.html             # Landing — hero, features, CTA
+├── features.html          # Feature breakdown (alerts, playback, worker)
 ├── pricing.html           # Tier comparison (Community / Pro / Enterprise)
-├── download.html          # Community binary + Pi install script
+├── download.html          # Windows installer download page
 ├── docs/
 │   ├── index.html         # Getting started
-│   ├── pi-deployment.html # Raspberry Pi install + Watchtower update flow
-│   └── api-reference.html # /ingest/detection, /health, /api/alerts/latest
+│   ├── windows-setup.html # Windows setup flow
+│   └── api-reference.html # API references
 ├── login.html             # Hosted dashboard redirect — future, not yet built
 ├── contact.html           # Enterprise enquiry form
 └── assets/
@@ -31,11 +31,10 @@ web/
 ## Landing page content checklist
 
 - [ ] Hero: "Edge-first AI camera monitoring" + dashboard screenshot (dark mode)
-- [ ] Sub-headline: runs on a Raspberry Pi on your LAN, no cloud dependency
-- [ ] CTA 1: "Self-host free" → /download (no credit card required)
+- [ ] Sub-headline: Windows-first setup with one-click installer
+- [ ] CTA 1: "Download for Windows" → /download
 - [ ] CTA 2: "Get early access" → email capture form
-- [ ] Feature strip: alert loop · clip capture · Pi deployment · operator console
-- [ ] Pi install one-liner (from `pi/README_PI.md`)
+- [ ] Feature strip: alert loop · clip capture · operator console
 - [ ] Pricing preview: Community (free) / Pro (£X/site/mo) / Enterprise (contact)
 - [ ] Footer: GitHub, docs, contact
 
