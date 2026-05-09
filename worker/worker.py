@@ -269,6 +269,56 @@ def get_cameras() -> list[dict]:
         return r.json()
 
 
+def _process_camera(cam: dict, prev_by_url: dict[str, bytes]):
+    # Prefer RTSP for broad camera compatibility.
+    if int(S.PREFER_RTSP) == 1:
+        rtsp = _camera_rtsp_url(cam)
+        cur = fetch_rtsp_frame(rtsp)
+        key = rtsp
+    else:
+        url = _camera_snapshot_url(cam)
+        auth = _camera_auth(cam)
+        cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
+        key = url
+
+    prev = prev_by_url.get(key)
+    label, conf = motion_detect(prev, cur)
+    prev_by_url[key] = cur or prev_by_url.get(key) or b""
+
+    if conf <= 0.01:
+        return
+
+    snap_b64 = jpeg_b64(cur)
+    try:
+        res = post_detection(key, label, conf, snap_b64, cam.get("id"))
+        trig = res.get("triggered", [])
+        if trig:
+            print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
+            for alert in trig:
+                capture_alert_clip(cam, alert)
+    except Exception as e:
+        print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
+
+
+def _process_legacy_url(u: str, prev_by_url: dict[str, bytes]):
+    cur = fetch_snapshot_bytes(u)
+    prev = prev_by_url.get(u)
+    label, conf = motion_detect(prev, cur)
+    prev_by_url[u] = cur or prev_by_url.get(u) or b""
+
+    if conf <= 0.01:
+        return
+
+    snap_b64 = jpeg_b64(cur)
+    try:
+        res = post_detection(u, label, conf, snap_b64)
+        trig = res.get("triggered", [])
+        if trig:
+            print(f"[worker] Triggered {len(trig)} alert(s) for {u} label={label} conf={conf:.2f}")
+    except Exception as e:
+        print(f"[worker] Error posting detection for {u}: {e}")
+
+
 def main():
     print(f"[worker] Starting — API={S.API_BASE_URL} poll={S.POLL_INTERVAL_SEC}s clip_capture={bool(S.CLIP_CAPTURE_ENABLED)} clip_dur={S.CLIP_DURATION_SEC}s prefer_rtsp={bool(S.PREFER_RTSP)}")
     prev_by_url: dict[str, bytes] = {}
@@ -289,70 +339,16 @@ def main():
 
         # legacy env fallback
         urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
-        legacy = [{"ip": None, "snapshot_url": u} for u in urls]
 
-        if not cams and not legacy and _api_reachable:
+        if not cams and not urls and _api_reachable:
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
         for cam in cams:
-            cam_id = cam.get("id")
-            # Prefer RTSP for broad camera compatibility.
-            err = None
-            if int(S.PREFER_RTSP) == 1:
-                rtsp = _camera_rtsp_url(cam)
-                cur = fetch_rtsp_frame(rtsp)
-                key = rtsp
-                if not cur:
-                    err = "RTSP frame grab failed"
-            else:
-                url = _camera_snapshot_url(cam)
-                auth = _camera_auth(cam)
-                cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
-                key = url
-                if not cur:
-                    err = "Snapshot fetch failed"
-
-            if cam_id:
-                update_camera_status(cam_id, last_seen=datetime.now(timezone.utc) if not err else None, last_error=err)
-
-            prev = prev_by_url.get(key)
-            label, conf = motion_detect(prev, cur)
-            prev_by_url[key] = cur or prev_by_url.get(key) or b""
-
-            if conf <= 0.01:
-                continue
-
-            snap_b64 = jpeg_b64(cur)
-            try:
-                res = post_detection(key, label, conf, snap_b64, cam.get("id"))
-                trig = res.get("triggered", [])
-                if trig:
-                    print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
-                    for alert in trig:
-                        executor.submit(capture_alert_clip, cam, alert)
-            except Exception as e:
-                print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
+            _process_camera(cam, prev_by_url)
 
         # legacy URLs (no auth)
-        for legacy_cam in legacy:
-            u = legacy_cam["snapshot_url"]
-
-            cur = fetch_snapshot_bytes(u)
-            prev = prev_by_url.get(u)
-            label, conf = motion_detect(prev, cur)
-            prev_by_url[u] = cur or prev_by_url.get(u) or b""
-
-            if conf <= 0.01:
-                continue
-
-            snap_b64 = jpeg_b64(cur)
-            try:
-                res = post_detection(u, label, conf, snap_b64)
-                trig = res.get("triggered", [])
-                if trig:
-                    print(f"[worker] Triggered {len(trig)} alert(s) for {u} label={label} conf={conf:.2f}")
-            except Exception as e:
-                print(f"[worker] Error posting detection for {u}: {e}")
+        for u in urls:
+            _process_legacy_url(u, prev_by_url)
 
         _write_heartbeat()
         time.sleep(max(1, int(S.POLL_INTERVAL_SEC)))
