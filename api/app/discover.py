@@ -5,7 +5,7 @@ import ipaddress
 import json
 import subprocess
 from dataclasses import dataclass, asdict
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import httpx
 
