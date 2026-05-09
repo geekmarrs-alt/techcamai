@@ -46,6 +46,10 @@
           <div><div class="sub" id="ch-label">Channel</div><input name="channel" id="channel-input" value="1" required /></div>
           <div><div class="sub">Username</div><input name="username" value="admin" required /></div>
           <div><div class="sub">Password</div><input name="password" type="password" placeholder="Camera password" required /></div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
+            <input type="checkbox" name="verify_ssl" id="verify_ssl" checked />
+            <label for="verify_ssl" class="sub" style="margin: 0;">Verify SSL certificate</label>
+          </div>
         </div>
 
         <div id="nvr-help" class="help-box" style="display:none">

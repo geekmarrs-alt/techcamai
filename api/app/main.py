@@ -57,6 +57,7 @@ class Camera(SQLModel, table=True):
     last_error: Optional[str] = None
     local_path: Optional[str] = None  # NVR/DVR direct path
     enabled: bool = True
+    verify_ssl: bool = Field(default=True)
 
 
 class Rule(SQLModel, table=True):
@@ -138,6 +139,7 @@ class CameraCreate(BaseModel):
     channel: int = 1
     scheme: str = "https"
     auth: str = "digest"
+    verify_ssl: bool = True
 
 
 class CameraTestRequest(BaseModel):
@@ -145,6 +147,7 @@ class CameraTestRequest(BaseModel):
     username: str
     password: str
     channel: int = 1
+    verify_ssl: bool = True
 
 
 class RuleCreate(BaseModel):
@@ -167,6 +170,7 @@ class CameraUpdate(BaseModel):
     last_error: Optional[str] = None
     local_path: Optional[str] = None
     enabled: Optional[bool] = None
+    verify_ssl: Optional[bool] = None
 
 
 class AlertClipUpdate(BaseModel):
@@ -368,11 +372,31 @@ def _ensure_alert_columns() -> None:
         conn.commit()
 
 
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        wanted = {
+            "verify_ssl": "BOOLEAN NOT NULL DEFAULT 1",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE camera ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_camera_columns()
     _ensure_alert_columns()
+    _ensure_camera_columns()
 
     # MIGRATION: Encrypt existing plaintext passwords.
     with Session(engine) as s:
@@ -670,11 +694,14 @@ async def ui_add_post(request: Request):
     username = (form.get("username") or "").strip()
     password = (form.get("password") or "").strip()
     channel = int(form.get("channel") or 1)
+    verify_ssl = form.get("verify_ssl") == "on"
 
     result = None
     if form.get("action") == "test":
         try:
-            result = await test_camera(CameraTestRequest(ip=ip, username=username, password=password, channel=channel))
+            result = await test_camera(CameraTestRequest(
+                ip=ip, username=username, password=password, channel=channel, verify_ssl=verify_ssl
+            ))
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
@@ -689,6 +716,7 @@ async def ui_add_post(request: Request):
                 username=username,
                 password=encrypt_password(password),
                 local_path=(form.get("local_path") or "").strip() or None,
+                verify_ssl=verify_ssl,
             )
             s.add(c)
             s.commit()
@@ -735,7 +763,7 @@ async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     else:
         auth = httpx.DigestAuth(cam.username or "", password or "")
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=cam.verify_ssl) as client:
         last_err = None
         for u in urls:
             try:
@@ -890,6 +918,7 @@ async def ui_camera_update(camera_id: int, request: Request):
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
         local_path=(form.get("local_path") or "").strip() or None,
+        verify_ssl=(form.get("verify_ssl") == "on"),
     )
     update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
@@ -989,6 +1018,7 @@ def list_cameras():
                 "auth": c.auth,
                 "username": c.username,
                 "enabled": c.enabled,
+                "verify_ssl": c.verify_ssl,
             }
             for c in cams
         ]
@@ -1102,7 +1132,7 @@ async def test_camera(req: CameraTestRequest):
         (req.username, req.password),
     ]
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=req.verify_ssl) as client:
         last_err = None
         for auth in auth_methods:
             for u in urls:
