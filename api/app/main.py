@@ -438,15 +438,9 @@ def _as_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
-def _dashboard_context(poll: int = 0) -> dict:
-    now = datetime.now(timezone.utc)
-    with Session(engine) as s:
-        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
-        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
-        cams = {c.id: c for c in cameras}
-        rules = {r.id: r for r in s.exec(select(Rule)).all()}
-
-    enabled_cameras = [c for c in cameras if c.enabled]
+def _get_featured_assets(
+    alerts: list[Alert], cameras: list[Camera], cams: dict[int, Camera], enabled_cameras: list[Camera]
+) -> tuple[Alert | None, Camera | None]:
     unacked_alerts = [a for a in alerts if not a.acked]
     featured_alert = unacked_alerts[0] if unacked_alerts else (alerts[0] if alerts else None)
     featured_camera = None
@@ -456,11 +450,67 @@ def _dashboard_context(poll: int = 0) -> dict:
         featured_camera = enabled_cameras[0]
     if not featured_camera and cameras:
         featured_camera = cameras[0]
+    return featured_alert, featured_camera
+
+
+def _get_focus_summary(featured_camera: Camera | None, featured_alert: Alert | None) -> str:
+    if featured_alert and featured_camera:
+        return (
+            f"{featured_camera.name} is staged because it has the freshest operator-relevant activity. "
+            f"Keep this feed big, keep triage nearby, and avoid burying the incident behind menus."
+        )
+    elif featured_camera:
+        return (
+            f"{featured_camera.name} is on stage because it is the best available live feed right now. "
+            f"Once incidents start landing, the wall should pivot around them automatically."
+        )
+    else:
+        return "No featured camera yet. Add or enable a camera so the dashboard has something real to orbit around."
+
+
+def _get_dashboard_stats(
+    alerts: list[Alert], rules: dict[int, Rule], enabled_cameras: list[Camera], featured_camera: Camera | None, now: datetime
+) -> dict:
+    cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
+    clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
+    clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
+    clip_pending_count = len([a for a in alerts if getattr(a, "clip_status", None) == "pending"])
+    alerts_last_24h = len(
+        [a for a in alerts if _as_utc(a.created_at) and (now - _as_utc(a.created_at)).total_seconds() <= 86400]
+    )
+    cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
+    featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
+    featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
+
+    return {
+        "clip_ready_count": clip_ready_count,
+        "clip_failed_count": clip_failed_count,
+        "clip_pending_count": clip_pending_count,
+        "alerts_last_24h": alerts_last_24h,
+        "cameras_with_rules": cameras_with_rules,
+        "cameras_without_rules": cameras_without_rules,
+        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
+        "featured_camera_last_alert": featured_camera_last_alert,
+    }
+
+
+def _dashboard_context(poll: int = 0) -> dict:
+    now = datetime.now(timezone.utc)
+    with Session(engine) as s:
+        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
+        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
+        cams = {c.id: c for c in cameras}
+        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+
+    enabled_cameras = [c for c in cameras if c.enabled]
+    featured_alert, featured_camera = _get_featured_assets(alerts, cameras, cams, enabled_cameras)
+    focus_summary = _get_focus_summary(featured_camera, featured_alert)
+    stats = _get_dashboard_stats(alerts, rules, enabled_cameras, featured_camera, now)
 
     supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
     alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int((_as_utc(a.created_at) or now).timestamp())))
     recent_playback_alerts = [a for a in alerts if getattr(a, "clip_status", None) in {"ready", "pending", "failed"}][:5]
-
+    unacked_alerts = [a for a in alerts if not a.acked]
     cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
     clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
     clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
@@ -484,7 +534,7 @@ def _dashboard_context(poll: int = 0) -> dict:
         ai_insights.append({
             "icon": "⬡",
             "label": "Activity Summary",
-            "text": f"{len(alerts_last_24h)} alerts recorded in the last 24 hours across {len(enabled_cameras)} cameras."
+            "text": f"{alerts_last_24h} alerts recorded in the last 24 hours across {len(enabled_cameras)} cameras."
         })
 
     if featured_alert and featured_camera:
@@ -501,7 +551,7 @@ def _dashboard_context(poll: int = 0) -> dict:
         focus_summary = "No featured camera yet. Add or enable a camera so the dashboard has something real to orbit around."
 
     worker = _worker_health()
-    return {
+    ctx = {
         "active": "overview",
         "alerts": alerts,
         "cameras": cameras,
@@ -515,8 +565,6 @@ def _dashboard_context(poll: int = 0) -> dict:
         "supporting_cameras": supporting_cameras,
         "alert_feed_items": alert_feed_items,
         "recent_playback_alerts": recent_playback_alerts,
-        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
-        "featured_camera_last_alert": featured_camera_last_alert,
         "focus_summary": focus_summary,
         "now_ts": int(now.timestamp()),
         "page_title": "Command dashboard",
@@ -531,6 +579,8 @@ def _dashboard_context(poll: int = 0) -> dict:
         "cameras_without_rules": cameras_without_rules,
         "ai_insights": ai_insights,
     }
+    ctx.update(stats)
+    return ctx
 
 
 @app.get("/login", response_class=HTMLResponse)
