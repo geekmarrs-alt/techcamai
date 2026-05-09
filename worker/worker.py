@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
 
 S = Settings()
+# Global executor for background tasks like clip capture
+executor = ThreadPoolExecutor(max_workers=4)
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -185,47 +187,40 @@ def capture_alert_clip(cam: dict, alert: dict):
     if not alert_id:
         return
 
-    rel_path = _alert_clip_relpath(cam, int(alert_id), alert.get("created_at"))
-    out_path = Path(S.CLIPS_DIR) / rel_path
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    rtsp_url = _camera_rtsp_url(cam)
-    duration = str(max(1, int(S.CLIP_DURATION_SEC)))
-
-    cmd = [
-        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-        "-rtsp_transport", "tcp",
-        "-i", rtsp_url,
-        "-t", duration,
-        "-an",
-        "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        str(out_path)
-    ]
-
-    try:
-        # Give ffmpeg enough time to capture the full duration + buffer
-        capture_timeout = float(S.CLIP_DURATION_SEC) + 15.0
-        subprocess.run(
-            cmd,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=capture_timeout
-        )
-        if not out_path.exists() or out_path.stat().st_size == 0:
-            raise RuntimeError("clip file missing or empty")
-        update_alert_clip(int(alert_id), "ready", rel_path, None)
-        print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
-    except Exception as e:
+    def _do_capture():
+        rel_path = _alert_clip_relpath(cam, int(alert_id), alert.get("created_at"))
+        out_path = Path(S.CLIPS_DIR) / rel_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        rtsp_url = _camera_rtsp_url(cam)
         try:
-            if out_path.exists():
-                out_path.unlink()
-        except Exception:
-            pass
-        err = str(e)[:300]
-        update_alert_clip(int(alert_id), "failed", None, err)
-        print(f"[worker] Clip failed for alert {alert_id}: {err}")
+            duration = str(max(1, int(S.CLIP_DURATION_SEC)))
+            cmd = [
+                "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-rtsp_transport", "tcp",
+                "-i", rtsp_url,
+                "-t", duration,
+                "-an",
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                str(out_path)
+            ]
+            capture_timeout = float(S.CLIP_DURATION_SEC) + 15.0
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=capture_timeout)
+            if not out_path.exists() or out_path.stat().st_size == 0:
+                raise RuntimeError("clip file missing or empty")
+            update_alert_clip(int(alert_id), "ready", rel_path, None)
+            print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
+        except Exception as e:
+            try:
+                if out_path.exists():
+                    out_path.unlink()
+            except Exception:
+                pass
+            err = str(e)[:300]
+            update_alert_clip(int(alert_id), "failed", None, err)
+            print(f"[worker] Clip failed for alert {alert_id}: {err}")
+
+    executor.submit(_do_capture)
 
 
 def _camera_snapshot_url(cam: dict) -> str:
