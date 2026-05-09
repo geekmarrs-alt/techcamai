@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from . import shell
 from .discover import discover
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -336,6 +337,7 @@ def _dashboard_context(poll: int = 0) -> dict:
     worker = _worker_health()
     return {
         "active": "overview",
+        "edition_label": shell.edition_label(),
         "alerts": alerts,
         "cameras": cameras,
         "cams": cams,
@@ -367,17 +369,7 @@ def _dashboard_context(poll: int = 0) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, poll: int = 0):
-    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
-
-
-@app.get("/preview/dashboard-v1", response_class=HTMLResponse)
-def dashboard_v1_preview(request: Request, poll: int = 0):
     return templates.TemplateResponse(request, "dashboard.html", _dashboard_context(poll=poll))
-
-
-@app.get("/preview/dashboard-v2", response_class=HTMLResponse)
-def dashboard_v2_preview(request: Request, poll: int = 0):
-    return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
 
 
 @app.get("/ui/scan", response_class=HTMLResponse)
