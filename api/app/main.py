@@ -20,6 +20,7 @@ from .discover import discover
 from .crypto import encrypt_password, decrypt_password, is_encrypted
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from sqlalchemy import func, Integer
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 
@@ -756,16 +757,23 @@ def ui_timeline(request: Request, poll: int = 0):
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
 
-    # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+        # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+        # We use a separate SQL aggregation for performance and to ensure we count all alerts in 24h,
+        # not just the 500 retrieved for the list.
+        cutoff = now - timedelta(hours=24)
+        stats = s.execute(
+            select(
+                func.cast((func.julianday(now) - func.julianday(Alert.created_at)) * 24, Integer).label("bucket"),
+                func.count(Alert.id).label("count")
+            )
+            .where(Alert.created_at >= cutoff)
+            .group_by("bucket")
+        ).all()
+
     hourly_counts = [0] * 24
-    for a in alerts:
-        ts = a.created_at
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        age_sec = (now - ts).total_seconds()
-        bucket = int(age_sec // 3600)
+    for bucket, count in stats:
         if 0 <= bucket < 24:
-            hourly_counts[23 - bucket] += 1
+            hourly_counts[23 - bucket] = count
 
     return templates.TemplateResponse(
         request,
