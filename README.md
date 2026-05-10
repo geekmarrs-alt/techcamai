@@ -65,7 +65,36 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 
 For the blunt version, read `BETA_READINESS_2026-03-13.md`.
 
-## Quick start (dev)
+## Quick start — run on your own machine (no Docker needed)
+
+### Prerequisites
+- **Python 3.10+** — download from https://www.python.org/downloads/
+  - Windows: tick **"Add Python to PATH"** during installation
+
+### Windows
+1. Download this repo: **[Download ZIP](../../archive/refs/heads/master.zip)**
+2. Unzip the folder
+3. Double-click **`run.bat`**
+
+That's it. A browser window will open automatically at http://localhost:8000/.
+
+### Mac / Linux
+```bash
+git clone https://github.com/geekmarrs-alt/techcamai.git
+cd techcamai
+./run.sh
+```
+
+### What the scripts do
+1. Create a Python virtual environment (`venv/`)
+2. Install dependencies from `requirements.txt`
+3. Create a local `data/` folder for the SQLite database and clips
+4. Start the API server on http://localhost:8000/
+5. Open the dashboard in your browser
+
+Press **Ctrl+C** to stop the server. Run the script again to restart — it skips setup if already done.
+
+### Quick start — Docker (alternative)
 ```bash
 cp .env.example .env
 docker compose up --build
