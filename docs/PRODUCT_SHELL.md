@@ -113,15 +113,15 @@ techcamai.com/
    - Forced password change on first login
 
 4. **License key check**
-   - Validated on startup by `api/app/shell.py` (scaffold exists)
+   - Validated by `api/app/shell.py`
    - Absent key → Community edition (camera soft-limit applies)
    - Valid key → Pro or Enterprise features unlock
    - Key format: `TCAM-XXXX-XXXX-XXXX` (alpha-numeric segments)
 
 5. **Worker / ingest auth**
-   - Worker sends `X-Worker-Token: <token>` header on `/ingest/detection`
-   - Token derived from `SECRET_KEY` — avoids requiring a login session for the worker process
-   - Currently not enforced; ingest endpoint is open
+   - Worker sends `Authorization: Bearer <SECRET_KEY>` on protected worker/API endpoints
+   - Blank `SECRET_KEY` keeps legacy local-MVP behavior
+   - Non-blank `SECRET_KEY` protects `/worker/cameras`, `/ingest/detection`, and clip update routes
 
 6. **Admin provisioning UI intent**
    - Kris needs an admin-only interface in the dashboard/product shell
@@ -154,7 +154,7 @@ Features behind Enterprise (beyond Pro):
 | Fleet OTA management      | No  | Yes        |
 | M2M API access            | No  | Yes        |
 
-**Rule:** Do not add fake gates to the current MVP. Gates ship only when the license-check path in `shell.py` is real.
+**Rule:** Feature gates must use `api/app/shell.py`; do not add one-off checks elsewhere.
 
 ---
 
@@ -162,7 +162,7 @@ Features behind Enterprise (beyond Pro):
 
 Where the product shell hooks into the existing operator MVP:
 
-### `api/app/shell.py` ← scaffold exists
+### `api/app/shell.py`
 
 Central module for edition detection and feature gating.
 
@@ -174,8 +174,7 @@ from app.shell import current_edition, feature_allowed, camera_limit
 - `feature_allowed("email_alerts")` → `True / False`
 - `camera_limit()` → `int | None` (None = unlimited)
 
-When license validation is implemented, only this module changes.
-All call sites stay the same.
+License validation is implemented here. New feature gates should keep call sites using this module.
 
 ### `api/app/templates/base.html`
 
@@ -192,15 +191,15 @@ All call sites stay the same.
 
 ### `worker/worker.py`
 
-- Add `X-Worker-Token` header to all `requests` calls against the API
-- Token = `HMAC(SECRET_KEY, "worker")` or a shared static token from env
-- Currently no header is sent; ingest endpoint is open
+- Sends `Authorization: Bearer <SECRET_KEY>` when `SECRET_KEY` is set
+- Uses encrypted camera credentials returned by the API
 
 ### `.env.example`
 
 Already updated to include:
 - `SECRET_KEY` — session signing + worker token derivation
 - `TECHCAMAI_LICENSE_KEY` — Pro/Enterprise activation (blank = Community)
+- `TCAI_ENCRYPTION_KEY` / `TCAI_KEY_PATH` — camera credential encryption
 
 ---
 
@@ -229,9 +228,9 @@ Already updated to include:
 |-----------------------|-----------------------------------------------|
 | Operator console      | Real MVP, running                             |
 | Auth / login          | Not built — hook comments in place            |
-| License / billing     | Not built — `shell.py` scaffold exists        |
+| License validation    | Implemented in `shell.py`; billing UI not built |
 | Product website       | Not in this repo — `web/README.md` placeholder|
 | Email alerts          | SMTP env vars present, not wired to rules     |
 | Fleet management      | Not built                                     |
-| Edition gating        | Shell stub only — no gates enforced           |
-| Worker auth header    | Not enforced — ingest endpoint is open        |
+| Edition gating        | Central helper exists; most feature gates not wired |
+| Worker auth header    | Enforced when `SECRET_KEY` is set             |

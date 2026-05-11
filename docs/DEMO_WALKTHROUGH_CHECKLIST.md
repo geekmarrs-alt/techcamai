@@ -1,4 +1,4 @@
-# TECHCAMAI tomorrow walkthrough checklist
+# TECHCAMAI demo walkthrough checklist
 
 Use this in order. Keep it tight. Prove the loop.
 
@@ -74,7 +74,7 @@ Say:
 - the correct path is image publish → Pi pull
 - any manual tarball/source-copy step is temporary debt, not the intended system
 
-## Hard no-go areas for tomorrow
+## Hard no-go areas for the demo
 Do **not** oversell:
 - login/auth
 - billing/licensing
@@ -83,7 +83,7 @@ Do **not** oversell:
 - fleet OTA maturity
 
 ## Success definition
-Tomorrow is a success if Kris can see:
+The demo is a success if Kris can see:
 - a coherent operator product
 - one real end-to-end alert path
 - a believable playback story
