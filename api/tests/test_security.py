@@ -1,8 +1,8 @@
 import os
 import pytest
 from sqlmodel import Session, create_engine, SQLModel, select
-from api.app.main import Camera, startup, engine
-from api.app.crypto import encrypt_password, decrypt_password, is_encrypted
+from app import main
+from app.crypto import encrypt_password, decrypt_password, is_encrypted
 
 def test_encryption_decryption():
     pw = "secret_password"
@@ -19,27 +19,26 @@ def test_migration(tmp_path):
 
     # Add a camera with plaintext password
     with Session(test_engine) as session:
-        cam = Camera(name="Test Cam", ip="1.2.3.4", password="plaintext_pw")
+        cam = main.Camera(name="Test Cam", ip="1.2.3.4", password="plaintext_pw")
         session.add(cam)
         session.commit()
 
     # Mock the global engine in main.py for startup migration test
-    import api.app.main
-    original_engine = api.app.main.engine
-    api.app.main.engine = test_engine
+    original_engine = main.engine
+    main.engine = test_engine
 
     try:
         # Run startup which includes migration
-        startup()
+        main.startup()
 
         # Verify password is now encrypted
         with Session(test_engine) as session:
-            cam = session.exec(select(Camera).where(Camera.ip == "1.2.3.4")).one()
+            cam = session.exec(select(main.Camera).where(main.Camera.ip == "1.2.3.4")).one()
             assert cam.password != "plaintext_pw"
             assert is_encrypted(cam.password)
             assert decrypt_password(cam.password) == "plaintext_pw"
     finally:
-        api.app.main.engine = original_engine
+        main.engine = original_engine
 
 def test_worker_decryption():
     # Verify worker can decrypt what API encrypts
