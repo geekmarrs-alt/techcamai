@@ -135,6 +135,11 @@ class AlertClipUpdate(BaseModel):
     clip_error: Optional[str] = None
 
 
+class AssistantQuery(BaseModel):
+    query: str
+    limit: int = 8
+
+
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 app.mount("/clips", StaticFiles(directory=str(clips_dir)), name="clips")
@@ -267,6 +272,192 @@ def _ensure_safe_ip(value: str | None) -> None:
         raise HTTPException(status_code=400, detail=f"camera ip {host} is unspecified and not allowed")
     if ip.is_multicast:
         raise HTTPException(status_code=400, detail=f"camera ip {host} is multicast and not allowed")
+
+
+_ASSISTANT_LABEL_SYNONYMS = {
+    "car": "vehicle",
+    "cars": "vehicle",
+    "vehicle": "vehicle",
+    "vehicles": "vehicle",
+    "van": "vehicle",
+    "vans": "vehicle",
+    "truck": "vehicle",
+    "trucks": "vehicle",
+    "lorry": "vehicle",
+    "lorries": "vehicle",
+    "person": "person",
+    "people": "person",
+    "human": "person",
+    "humans": "person",
+    "motion": "motion",
+    "movement": "motion",
+}
+_ASSISTANT_COLOR_TERMS = {
+    "black",
+    "blue",
+    "brown",
+    "green",
+    "grey",
+    "gray",
+    "orange",
+    "red",
+    "silver",
+    "white",
+    "yellow",
+}
+_ASSISTANT_STOP_WORDS = {
+    "a",
+    "about",
+    "all",
+    "an",
+    "and",
+    "any",
+    "at",
+    "between",
+    "find",
+    "for",
+    "from",
+    "in",
+    "incident",
+    "incidents",
+    "look",
+    "me",
+    "of",
+    "on",
+    "please",
+    "previous",
+    "recording",
+    "recordings",
+    "search",
+    "show",
+    "the",
+    "to",
+}
+
+
+def _assistant_hour(raw_hour: str, suffix: Optional[str]) -> int:
+    hour = int(raw_hour)
+    marker = (suffix or "").lower()
+    if marker == "am":
+        return 0 if hour == 12 else hour
+    if marker == "pm":
+        return 12 if hour == 12 else hour + 12 if hour < 12 else hour
+    return hour
+
+
+def _assistant_minute_label(total_minutes: int) -> str:
+    total_minutes = total_minutes % (24 * 60)
+    return f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+
+
+def _assistant_time_window(query: str, now: datetime) -> Optional[dict]:
+    text = query.lower()
+    recent = re.search(r"\blast\s+(\d{1,3})\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\b", text)
+    if recent:
+        amount = int(recent.group(1))
+        unit = recent.group(2)
+        delta = timedelta(minutes=amount) if unit.startswith(("m", "min")) else timedelta(hours=amount)
+        start = now - delta
+        return {
+            "mode": "since",
+            "start": start,
+            "end": now,
+            "display": f"last {amount} {'minutes' if unit.startswith(('m', 'min')) else 'hours'}",
+        }
+
+    window = re.search(
+        r"\b(?:between|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:and|to|-)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b",
+        text,
+    )
+    if not window:
+        return None
+
+    start_suffix = window.group(3) or window.group(6)
+    end_suffix = window.group(6) or window.group(3)
+    start_hour = _assistant_hour(window.group(1), start_suffix)
+    end_hour = _assistant_hour(window.group(4), end_suffix)
+    start_minute = start_hour * 60 + int(window.group(2) or 0)
+    end_minute = end_hour * 60 + int(window.group(5) or 0)
+    return {
+        "mode": "time_of_day",
+        "start_minute": start_minute,
+        "end_minute": end_minute,
+        "display": f"{_assistant_minute_label(start_minute)}-{_assistant_minute_label(end_minute)} UTC",
+    }
+
+
+def _assistant_alert_matches_window(alert: Alert, window: Optional[dict]) -> bool:
+    if not window:
+        return True
+    created_at = _as_utc(alert.created_at)
+    if not created_at:
+        return False
+    if window["mode"] == "since":
+        return window["start"] <= created_at <= window["end"]
+    minute = created_at.hour * 60 + created_at.minute
+    start = int(window["start_minute"])
+    end = int(window["end_minute"])
+    if start <= end:
+        return start <= minute < end
+    return minute >= start or minute < end
+
+
+def _assistant_parse_terms(query: str) -> dict:
+    words = re.findall(r"[a-z0-9]+", query.lower())
+    label = None
+    for word in words:
+        if word in _ASSISTANT_LABEL_SYNONYMS:
+            label = _ASSISTANT_LABEL_SYNONYMS[word]
+            break
+    colors = [word for word in words if word in _ASSISTANT_COLOR_TERMS]
+    keywords = [
+        word
+        for word in words
+        if word not in _ASSISTANT_STOP_WORDS
+        and word not in _ASSISTANT_COLOR_TERMS
+        and word not in _ASSISTANT_LABEL_SYNONYMS
+        and not word.isdigit()
+        and not re.match(r"^\d{1,2}(am|pm)$", word)
+    ]
+    return {"label": label, "colors": colors, "keywords": keywords}
+
+
+def _assistant_alert_matches_terms(alert: Alert, camera: Optional[Camera], rule: Optional[Rule], terms: dict) -> bool:
+    label = terms["label"]
+    if label and alert.label != label:
+        return False
+    keywords = terms["keywords"]
+    if not keywords:
+        return True
+    haystack = " ".join(
+        [
+            alert.label or "",
+            camera.name if camera else "",
+            camera.ip if camera and camera.ip else "",
+            rule.name if rule else "",
+        ]
+    ).lower()
+    return all(word in haystack for word in keywords)
+
+
+def _assistant_result(alert: Alert, camera: Optional[Camera], rule: Optional[Rule]) -> dict:
+    clip_url = f"/clips/{alert.clip_path}" if alert.clip_path and alert.clip_status == "ready" else None
+    return {
+        "alert_id": alert.id,
+        "created_at": _as_utc(alert.created_at).isoformat() if _as_utc(alert.created_at) else None,
+        "camera": {
+            "id": camera.id if camera else None,
+            "name": camera.name if camera else "Unknown camera",
+            "ip": camera.ip if camera else None,
+            "channel": camera.channel if camera else None,
+        },
+        "rule": rule.name if rule else None,
+        "label": alert.label,
+        "confidence": alert.conf,
+        "acked": alert.acked,
+        "clip_status": alert.clip_status,
+        "clip_url": clip_url,
+    }
 
 
 class DiscoverRequest(BaseModel):
@@ -485,6 +676,7 @@ async def ui_add_post(request: Request):
     password = (form.get("password") or "").strip()
     channel = int(form.get("channel") or 1)
     verify_ssl = form.get("verify_ssl") == "on"
+    name_prefix = (form.get("name_prefix") or f"NVR {ip}").strip()
 
     result = None
     if form.get("action") == "test":
@@ -512,6 +704,33 @@ async def ui_add_post(request: Request):
                 s.add(c)
                 s.commit()
             result = {"ok": True, "saved": True}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
+
+    if form.get("action") == "bulk_save":
+        try:
+            _ensure_safe_ip(ip)
+            start_channel = max(1, int(form.get("channel_start") or 1))
+            end_channel = max(start_channel, int(form.get("channel_end") or start_channel))
+            if end_channel - start_channel > 63:
+                result = {"ok": False, "error": "Bulk add is limited to 64 channels at a time"}
+            else:
+                with Session(engine) as s:
+                    for nvr_channel in range(start_channel, end_channel + 1):
+                        s.add(
+                            Camera(
+                                name=f"{name_prefix} ch {nvr_channel}",
+                                ip=ip,
+                                channel=nvr_channel,
+                                scheme="https",
+                                auth="digest",
+                                username=username,
+                                password=encrypt_password(password),
+                                verify_ssl=verify_ssl,
+                            )
+                        )
+                    s.commit()
+                result = {"ok": True, "bulk_saved": True, "count": end_channel - start_channel + 1}
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
@@ -765,6 +984,69 @@ def api_alerts_latest(since: int = 0, limit: int = 50, unacked_only: int = 1):
             }
             for a in alerts
         ],
+    }
+
+
+@app.post("/api/assistant/query")
+def api_assistant_query(payload: AssistantQuery):
+    query = payload.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query required")
+
+    now = datetime.now(timezone.utc)
+    limit = max(1, min(int(payload.limit or 8), 25))
+    terms = _assistant_parse_terms(query)
+    window = _assistant_time_window(query, now)
+
+    with Session(engine) as s:
+        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(1000)).all()
+        cameras = {c.id: c for c in s.exec(select(Camera)).all()}
+        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+
+    matches = []
+    for alert in alerts:
+        camera = cameras.get(alert.camera_id)
+        rule = rules.get(alert.rule_id)
+        if not _assistant_alert_matches_window(alert, window):
+            continue
+        if not _assistant_alert_matches_terms(alert, camera, rule, terms):
+            continue
+        matches.append(_assistant_result(alert, camera, rule))
+        if len(matches) >= limit:
+            break
+
+    limitations = []
+    if terms["colors"]:
+        limitations.append(
+            "Colour terms are recognised, but this build only stores alert labels and clip links; scene-colour indexing needs the vision metadata pipeline."
+        )
+
+    label_copy = terms["label"] or "alerts"
+    time_copy = f" during {window['display']}" if window else ""
+    if matches:
+        ready_count = len([item for item in matches if item["clip_url"]])
+        answer = (
+            f"Found {len(matches)} indexed {label_copy} match"
+            f"{'' if len(matches) == 1 else 'es'}{time_copy}. "
+            f"{ready_count} result{'' if ready_count == 1 else 's'} include playable clips."
+        )
+    else:
+        answer = f"No indexed {label_copy} matches found{time_copy}."
+
+    return {
+        "ok": True,
+        "query": query,
+        "answer": answer,
+        "parsed": {
+            "label": terms["label"],
+            "colors": terms["colors"],
+            "keywords": terms["keywords"],
+            "time_window": window["display"] if window else None,
+        },
+        "searched_alerts": len(alerts),
+        "count": len(matches),
+        "results": matches,
+        "limitations": limitations,
     }
 
 

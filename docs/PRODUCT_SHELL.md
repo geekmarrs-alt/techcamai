@@ -8,20 +8,21 @@
 
 ## Product positioning
 
-TECHCAMAI is an edge-first AI camera monitoring platform for operators.
-It runs on a Raspberry Pi on your LAN, processes camera streams locally,
+TECHCAMAI is a Windows-first AI camera monitoring platform for operators.
+It runs locally on a Windows workstation, processes camera streams on the LAN,
 and surfaces real-time alerts with clip evidence in a premium operator console.
 
 **Key differentiators:**
+- **Windows desktop native** — install path, desktop launcher, and operator workflow are designed around a local Windows workstation.
 - **Edge-native** — AI inference and clip capture happen on-site. No cloud dependency for the core loop.
 - **Operator-focused** — The console is built for security operators, not IT admins or end customers.
 - **Evidence-forward** — Every alert carries a clip. Operators see what triggered the alert.
-- **Lightweight deployment** — Docker Compose on a Pi. No Kubernetes, no cloud agents.
+- **Lightweight deployment** — Docker Compose behind a Windows desktop launcher. No Kubernetes, no cloud agents.
 
 **Audience (priority order):**
 1. Security-conscious SMBs deploying IP cameras on-prem
 2. Integrators and resellers adding monitoring to Hikvision/IP camera installs
-3. Solo operators building their own CCTV back-end
+3. Solo operators building their own Windows CCTV back-end
 
 **Non-audience right now:**
 - Enterprise fleet operators expecting SOC integrations
@@ -76,8 +77,8 @@ techcamai.com/
 ├── /                    # Landing — hero, feature highlights, CTA
 ├── /features            # Feature breakdown (alert loop, clip capture, Pi deploy)
 ├── /pricing             # Tier comparison (Community / Pro / Enterprise)
-├── /docs                # Getting started, Pi deployment, API reference
-├── /download            # Controlled-access Pi installer / customer onboarding
+├── /docs                # Getting started, Windows/Pi deployment, API reference
+├── /download            # Controlled-access Windows/Pi installer onboarding
 ├── /login               # Hosted dashboard redirect (future — not yet built)
 └── /contact             # Enterprise enquiry form
 ```
@@ -86,7 +87,7 @@ techcamai.com/
 - Dashboard screenshot (operator console, dark mode)
 - "Edge-first AI camera monitoring" as primary value prop
 - "Request access" entry point prominently — no public download until licensing is real
-- Pi install one-liner
+- Windows desktop and Pi install flows after approved access
 - Email capture for early access / beta list
 
 ---
@@ -205,17 +206,18 @@ Already updated to include:
 
 ## Deployment model
 
-### Community / self-hosted (current)
+### Windows desktop / self-hosted (current)
 
-- `docker compose up` locally or Pi Docker Compose stack
+- `windows/install.ps1` for download, install, desktop shortcut, and local startup
+- `docker compose up` remains the runtime behind the Windows launcher
 - No phone-home, no license server call in Community mode
 - Current Developer Preview access remains proprietary and owner-approved
-- Future: signed installer, single binary distribution, or compiled Pi image with explicit licence terms
+- Future: signed Windows installer, single binary distribution, or compiled Pi image with explicit licence terms
 
 ### Hosted (future consideration)
 
 - Operator console served from cloud
-- Cameras remain on LAN; Pi acts as edge agent posting ingest data to hosted API
+- Cameras remain on LAN; Windows workstation acts as edge agent posting ingest data to hosted API
 - Auth mandatory in this model
 - Not a current priority — self-hosted is the core motion
 

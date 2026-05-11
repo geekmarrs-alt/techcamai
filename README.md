@@ -1,6 +1,6 @@
 # TECHCAMAI
 
-Edge-first camera monitoring MVP.
+Windows-first, edge-local camera monitoring MVP.
 
 ## Ownership / proprietary notice
 
@@ -30,6 +30,14 @@ This repo is **not** the finished product website yet. It is the current operato
 
 If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
 
+## Windows desktop path
+- Quick download page: `web/download.html`
+- Installer: `windows/install.ps1`
+- Desktop launcher: `windows/launch-techcamai.ps1`
+- Structure notes: `docs/WINDOWS_DESKTOP_STRUCTURE.md`
+
+The Windows installer downloads TECHCAMAI, creates a desktop shortcut, starts the local Docker Compose stack when Docker Desktop is available, and opens the command dashboard.
+
 ## Current surfaces
 ### Operator UI
 - `/` — dashboard v2 preview (current default)
@@ -38,6 +46,7 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 - `/ui/scan` — LAN scan
 - `/ui/add` — test/save camera
 - `/cameras/manage` — camera inventory and editing
+- `/api/assistant/query` — local assistant search across indexed alerts/clips
 - `/live` — live wall
 - `/alerts` — alert inbox
 - `/timeline` — event flow
@@ -51,6 +60,7 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 - `/rules`
 - `/ingest/detection`
 - `/api/alerts/latest`
+- `/api/assistant/query`
 - `/alerts/{id}/clip`
 - `/alerts/{id}/ack`
 

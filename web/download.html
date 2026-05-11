@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Request TECHCAMAI for Windows</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        color: #f5f8ff;
+        background: radial-gradient(circle at top left, rgba(83, 182, 255, .22), transparent 36%),
+          linear-gradient(180deg, #07111f, #0b1629);
+      }
+      main {
+        width: min(920px, calc(100% - 32px));
+        padding: 34px;
+        border: 1px solid rgba(130, 164, 220, .18);
+        border-radius: 28px;
+        background: rgba(10, 19, 37, .86);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .36);
+      }
+      h1 { margin: 0; font-size: clamp(34px, 6vw, 64px); letter-spacing: -.05em; }
+      p { color: rgba(200, 214, 236, .78); font-size: 17px; line-height: 1.6; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 13px 18px;
+        border-radius: 16px;
+        color: #fff;
+        text-decoration: none;
+        background: linear-gradient(135deg, #53b6ff, #7c5cff);
+        font-weight: 700;
+      }
+      code {
+        display: block;
+        white-space: pre-wrap;
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 16px;
+        color: rgba(245, 248, 255, .92);
+        background: rgba(0, 0, 0, .28);
+        border: 1px solid rgba(130, 164, 220, .16);
+      }
+      .note { font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>TECHCAMAI for Windows</p>
+      <h1>Request approved desktop access.</h1>
+      <p>TECHCAMAI desktop builds are proprietary. Approved users receive a private installer or signed Windows artifact, then launch the local CCTV command center from their desktop.</p>
+      <div class="actions">
+        <a class="button" href="mailto:access@techcamai.com?subject=TECHCAMAI%20desktop%20access">Request access</a>
+      </div>
+      <code>Approved install:
+powershell -ExecutionPolicy Bypass -File .\windows\install.ps1 -RepoZipUrl "https://approved-private-package-url/techcamai.zip"</code>
+      <p class="note">Requires Windows 10/11. Docker Desktop is required for the compose launcher; the packaged `.exe` is built by the private Windows workflow.</p>
+    </main>
+  </body>
+</html>
