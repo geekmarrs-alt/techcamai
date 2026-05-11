@@ -317,30 +317,32 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
     return None
 
 
-def _ensure_safe_ip(ip_str: str) -> None:
-    """Validate that the provided IP/hostname is safe for outgoing requests.
-    Blocks loopback, link-local (metadata), unspecified, and multicast addresses.
-    """
-    if not ip_str:
+def _ensure_safe_ip(value: str | None) -> None:
+    raw = (value or "").strip()
+    if not raw:
         return
+    if "://" in raw or "/" in raw or "@" in raw:
+        raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
 
-    # Block common dangerous hostnames explicitly
-    if ip_str.lower() in ("localhost", "127.0.0.1", "::1"):
-        raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is not allowed")
-
+    host = raw
     try:
-        ip = ipaddress.ip_address(ip_str)
-        if ip.is_loopback:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a loopback address")
-        if ip.is_link_local:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a link-local address")
-        if ip.is_unspecified:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is an unspecified address")
-        if ip.is_multicast:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a multicast address")
+        ip = ipaddress.ip_address(host)
     except ValueError:
-        # Not a valid IP address, treat as hostname.
-        pass
+        parsed = urlparse(f"//{raw}")
+        host = parsed.hostname or raw
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
+
+    if ip.is_loopback:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is not allowed")
+    if ip.is_link_local:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is link-local and not allowed")
+    if ip.is_unspecified:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is unspecified and not allowed")
+    if ip.is_multicast:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is multicast and not allowed")
 
 
 _ASSISTANT_LABEL_SYNONYMS = {
@@ -910,51 +912,57 @@ async def ui_add_post(request: Request):
             result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "save":
-        with Session(engine) as s:
-            c = Camera(
-                name=f"Cam {ip}",
-                ip=ip,
-                channel=channel,
-                scheme="https",
-                auth="digest",
-                username=username,
-                password=encrypt_password(password),
-                local_path=(form.get("local_path") or "").strip() or None,
-                verify_ssl=verify_ssl,
-            )
-            s.add(c)
-            s.commit()
-            s.refresh(c)
-            # Automate default motion rule creation
-            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
-            s.add(r)
-            s.commit()
-            s.refresh(c)
-        result = {"ok": True, "saved": True}
+        try:
+            _ensure_safe_ip(ip)
+            with Session(engine) as s:
+                c = Camera(
+                    name=f"Cam {ip}",
+                    ip=ip,
+                    channel=channel,
+                    scheme="https",
+                    auth="digest",
+                    username=username,
+                    password=encrypt_password(password),
+                    local_path=(form.get("local_path") or "").strip() or None,
+                    verify_ssl=verify_ssl,
+                )
+                s.add(c)
+                s.commit()
+                s.refresh(c)
+                r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+                s.add(r)
+                s.commit()
+            result = {"ok": True, "saved": True}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "bulk_save":
-        start_channel = max(1, int(form.get("channel_start") or 1))
-        end_channel = max(start_channel, int(form.get("channel_end") or start_channel))
-        if end_channel - start_channel > 63:
-            result = {"ok": False, "error": "Bulk add is limited to 64 channels at a time"}
-        else:
-            with Session(engine) as s:
-                for nvr_channel in range(start_channel, end_channel + 1):
-                    s.add(
-                        Camera(
-                            name=f"{name_prefix} ch {nvr_channel}",
-                            ip=ip,
-                            channel=nvr_channel,
-                            scheme="https",
-                            auth="digest",
-                            username=username,
-                            password=encrypt_password(password),
-                            local_path=(form.get("local_path") or "").strip() or None,
-                            verify_ssl=verify_ssl,
+        try:
+            _ensure_safe_ip(ip)
+            start_channel = max(1, int(form.get("channel_start") or 1))
+            end_channel = max(start_channel, int(form.get("channel_end") or start_channel))
+            if end_channel - start_channel > 63:
+                result = {"ok": False, "error": "Bulk add is limited to 64 channels at a time"}
+            else:
+                with Session(engine) as s:
+                    for nvr_channel in range(start_channel, end_channel + 1):
+                        s.add(
+                            Camera(
+                                name=f"{name_prefix} ch {nvr_channel}",
+                                ip=ip,
+                                channel=nvr_channel,
+                                scheme="https",
+                                auth="digest",
+                                username=username,
+                                password=encrypt_password(password),
+                                local_path=(form.get("local_path") or "").strip() or None,
+                                verify_ssl=verify_ssl,
+                            )
                         )
-                    )
-                s.commit()
-            result = {"ok": True, "bulk_saved": True, "count": end_channel - start_channel + 1}
+                    s.commit()
+                result = {"ok": True, "bulk_saved": True, "count": end_channel - start_channel + 1}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
 
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
 
@@ -1299,20 +1307,21 @@ def list_cameras():
     # public-safe list (no passwords)
     with Session(engine) as s:
         cams = s.exec(select(Camera)).all()
-        return [
-            {
-                "id": c.id,
-                "name": c.name,
-                "ip": c.ip,
-                "channel": c.channel,
-                "scheme": c.scheme,
-                "auth": c.auth,
-                "username": c.username,
-                "enabled": c.enabled,
-                "verify_ssl": c.verify_ssl,
-            }
-            for c in cams
-        ]
+        return [_public_camera(c) for c in cams]
+
+
+def _public_camera(c: Camera) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "ip": c.ip,
+        "channel": c.channel,
+        "scheme": c.scheme,
+        "auth": c.auth,
+        "username": c.username,
+        "enabled": c.enabled,
+        "verify_ssl": c.verify_ssl,
+    }
 
 
 @app.get("/worker/cameras", dependencies=[Depends(verify_worker_token)])
@@ -1344,19 +1353,18 @@ def create_camera(cam: CameraCreate):
             auth=cam.auth,
             username=cam.username,
             password=encrypt_password(cam.password),
+            verify_ssl=cam.verify_ssl,
         )
         s.add(c)
         s.commit()
         s.refresh(c)
-        # Automate default motion rule creation
-        # First check if one already exists for this label (prevents double-creation in tests)
         exists = s.exec(select(Rule).where(Rule.camera_id == c.id).where(Rule.label == "motion")).first()
         if not exists:
             r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
             s.add(r)
         s.commit()
         s.refresh(c)
-        return c
+        return _public_camera(c)
 
 
 @app.put("/cameras/{camera_id}/status")
