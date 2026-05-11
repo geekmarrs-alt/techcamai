@@ -1,135 +1,108 @@
 # TECHCAMAI
 
-Edge-first camera monitoring MVP.
+**Edge-first AI camera monitoring for Windows.**
 
-This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
+Download, double-click, done. No installers, no dependencies, no terminal.
 
-## What this repo is good for right now
-- Local/LAN camera onboarding
-- Snapshot polling via worker
-- Rule-based motion alert creation
-- Alert inbox + timeline
-- Post-trigger clip capture/playback MVP
-- Raspberry Pi deployment path via Docker/GHCR
-- Dashboard direction work for the operator UI
+---
 
-## What it is not yet
-- Public customer-facing product site
-- Login / auth / roles
-- Licence or billing system
-- Multi-tenant backend
-- Hardened production fleet management
+## Download
 
-If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
+Go to **[Releases](../../releases/latest)** and download **`TECHCAMAI.exe`**.
 
-## Current surfaces
-### Operator UI
-- `/` — dashboard v2 preview (current default)
-- `/preview/dashboard-v1` — simpler fallback overview
-- `/preview/dashboard-v2` — explicit preview route
-- `/ui/scan` — LAN scan
-- `/ui/add` — test/save camera
-- `/cameras/manage` — camera inventory and editing
-- `/live` — live wall
-- `/alerts` — alert inbox
-- `/timeline` — event flow
+That's it. Double-click the file and the operator dashboard opens in your browser.
 
-### API / integration endpoints
-- `/health`
-- `/discover`
-- `/cameras`
-- `/cameras/test`
-- `/worker/cameras`
-- `/rules`
-- `/ingest/detection`
-- `/api/alerts/latest`
-- `/alerts/{id}/clip`
-- `/alerts/{id}/ack`
+> **Windows SmartScreen** may show a warning the first time — click *More info* → *Run anyway*. This is normal for unsigned executables and will be resolved with code signing in a future release.
 
-## Beta-readiness snapshot
-### Near enough for a real beta walkthrough
-- Recovered FastAPI app boots
-- Dashboard is no longer the broken/truncated template from the earlier recovery state
-- Alert playback fields exist in the API model
-- Worker has clip capture path using `ffmpeg`
-- Docker Compose mounts shared `/data` volume for API + worker
-- GitHub Actions workflow exists to publish multi-arch images to GHCR on `master`
+---
 
-### Still needs beta validation in a live environment
-- Real RTSP clip capture against live camera streams
-- Browser playback on the actual Pi deployment
-- End-to-end ingest on the real camera/rule set
-- Clear proof that every enabled camera has a valid rule
-- Failure visibility for bad creds / unreachable cameras / slow snapshots
-- Fresh image publish + pull on Pi from the real source-of-truth repo
+## What it does
 
-For the blunt version, read `BETA_READINESS_2026-03-13.md`.
+TECHCAMAI turns IP cameras on your local network into a monitored security system.
 
-## Quick start — Windows native (no install needed)
+| Feature | What you get |
+|---|---|
+| **LAN camera discovery** | Scans your network for Hikvision and ONVIF-compatible cameras |
+| **Camera management** | Add, edit, test, enable/disable cameras from the dashboard |
+| **Motion detection** | Automatic frame-by-frame motion detection on all enabled cameras |
+| **Alert inbox** | Every detection becomes an alert you can review and acknowledge |
+| **Clip capture** | Triggered alerts record a short video clip from the camera |
+| **Live wall** | Real-time snapshot view of all your cameras at once |
+| **Timeline** | Chronological event view with 24-hour activity strip |
+| **Operator dashboard** | Dark-themed command centre designed for fast triage |
 
-1. Go to the **[Releases page](../../releases/latest)**
-2. Download **`TECHCAMAI.exe`**
-3. Double-click it
+### Planned features (shown in dashboard, not yet active)
+- AI-powered scene summaries
+- Voice control / natural language queries
+- Smart alert triage and clustering
+- Person / vehicle detection via ML model
 
-That's it. The dashboard opens in your browser at http://localhost:8000/. LAN camera scanning works out of the box. Close the small status window to stop.
+---
 
-> **Note:** Windows SmartScreen may show a warning the first time — click "More info" → "Run anyway". This is normal for unsigned executables.
+## How it works
 
-### How it works
-- Everything is bundled into one `.exe` — no Python, no terminal, no dependencies to install
-- Your camera database and clips are stored in a `data/` folder next to the `.exe`
-- LAN scan at `/ui/scan` detects cameras on your local network
-- Windows Firewall may prompt on first run — click "Allow" so the server can accept browser connections
+When you launch `TECHCAMAI.exe`:
 
-### Building the .exe yourself
-If you want to build from source rather than downloading the release:
-```bash
-pip install -r requirements.txt psutil pyinstaller
-pyinstaller techcamai.spec
-# Output: dist/TECHCAMAI.exe
-```
+1. A small status window appears confirming the app is running
+2. Your default browser opens to the operator dashboard at `http://localhost:8000`
+3. A `data/` folder is created next to the `.exe` to store your camera database and clips
+4. The LAN scanner detects cameras on your local network via the `/ui/scan` page
 
-## Quick start — from source (Mac / Linux / Windows with Python)
+### Firewall
+Windows Firewall will prompt on first run — click **Allow** so the dashboard can load in your browser.
 
-### Prerequisites
-- **Python 3.10+** — download from https://www.python.org/downloads/
+### Stopping
+Close the status window or click **Stop & Exit** to shut down.
 
-### Windows (from source)
-1. Download this repo: **[Download ZIP](../../archive/refs/heads/master.zip)**
-2. Unzip the folder
-3. Double-click **`run.bat`**
+### Your data
+Everything is stored locally in the `data/` folder next to the `.exe`:
+- `techcamai.db` — camera config, rules, and alerts (SQLite)
+- `clips/` — captured video clips
 
-### Mac / Linux
-```bash
-git clone https://github.com/geekmarrs-alt/techcamai.git
-cd techcamai
-./run.sh
-```
+Move the `.exe` and `data/` folder together to keep your setup portable.
 
-Press **Ctrl+C** to stop the server. Run again to restart — setup is skipped if already done.
+---
 
-### Quick start — Docker (alternative)
-```bash
-cp .env.example .env
-docker compose up --build
-```
+## Operator console pages
 
-Then open:
-- Dashboard: http://localhost:8000/
-- API docs: http://localhost:8000/docs
+| Page | URL | What it does |
+|---|---|---|
+| Dashboard | `/` | Command centre with camera wall, alert feed, system pulse |
+| Live wall | `/live` | Real-time snapshot grid of all enabled cameras |
+| Alerts | `/alerts` | Alert inbox — review, play clips, acknowledge |
+| Timeline | `/timeline` | Chronological event flow with 24h activity strip |
+| Cameras | `/cameras/manage` | Camera inventory — edit config, enable/disable, delete |
+| LAN scan | `/ui/scan` | Scan your network for cameras |
+| Add camera | `/ui/add` | Test connection and save a new camera |
+| API docs | `/docs` | Auto-generated REST API reference |
 
-## Raspberry Pi path
-Read:
+---
+
+## Raspberry Pi deployment
+
+For headless deployment on a Pi, see:
 - `pi/README_PI.md`
 - `pi/UPDATE_STRATEGY.md`
 
-Short version:
-1. Push code to the real GitHub-backed repo
-2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
+This uses Docker Compose with images published to GHCR via GitHub Actions.
 
-## Recommended demo order
-Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
+---
 
-## Known product truth
-TECHCAMAI currently looks like a serious operator MVP, not a finished commercial control plane. That is still useful. Just present it honestly.
+## Building from source
+
+If you want to build the `.exe` yourself:
+
+```
+pip install -r requirements.txt psutil pyinstaller
+pyinstaller techcamai.spec
+```
+
+Output: `dist/TECHCAMAI.exe`
+
+The GitHub Actions workflow `build-windows-exe` does this automatically on Windows when you push a version tag (e.g. `v0.1.0`) or trigger it manually from the Actions tab.
+
+---
+
+## Current state
+
+This is an operator MVP, not a finished commercial product. It is useful for real camera monitoring on a local network. The AI and voice features shown in the dashboard are planned — the placeholders are there so the UI is ready when the backend catches up.
