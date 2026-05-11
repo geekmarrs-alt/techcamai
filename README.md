@@ -65,18 +65,39 @@ If anyone says this is launch-ready as a commercial SaaS today, they are chattin
 
 For the blunt version, read `BETA_READINESS_2026-03-13.md`.
 
-## Quick start — run on your own machine (no Docker needed)
+## Quick start — Windows native (no install needed)
+
+1. Go to the **[Releases page](../../releases/latest)**
+2. Download **`TECHCAMAI.exe`**
+3. Double-click it
+
+That's it. The dashboard opens in your browser at http://localhost:8000/. LAN camera scanning works out of the box. Close the small status window to stop.
+
+> **Note:** Windows SmartScreen may show a warning the first time — click "More info" → "Run anyway". This is normal for unsigned executables.
+
+### How it works
+- Everything is bundled into one `.exe` — no Python, no terminal, no dependencies to install
+- Your camera database and clips are stored in a `data/` folder next to the `.exe`
+- LAN scan at `/ui/scan` detects cameras on your local network
+- Windows Firewall may prompt on first run — click "Allow" so the server can accept browser connections
+
+### Building the .exe yourself
+If you want to build from source rather than downloading the release:
+```bash
+pip install -r requirements.txt psutil pyinstaller
+pyinstaller techcamai.spec
+# Output: dist/TECHCAMAI.exe
+```
+
+## Quick start — from source (Mac / Linux / Windows with Python)
 
 ### Prerequisites
 - **Python 3.10+** — download from https://www.python.org/downloads/
-  - Windows: tick **"Add Python to PATH"** during installation
 
-### Windows
+### Windows (from source)
 1. Download this repo: **[Download ZIP](../../archive/refs/heads/master.zip)**
 2. Unzip the folder
 3. Double-click **`run.bat`**
-
-That's it. A browser window will open automatically at http://localhost:8000/.
 
 ### Mac / Linux
 ```bash
@@ -85,14 +106,7 @@ cd techcamai
 ./run.sh
 ```
 
-### What the scripts do
-1. Create a Python virtual environment (`venv/`)
-2. Install dependencies from `requirements.txt`
-3. Create a local `data/` folder for the SQLite database and clips
-4. Start the API server on http://localhost:8000/
-5. Open the dashboard in your browser
-
-Press **Ctrl+C** to stop the server. Run the script again to restart — it skips setup if already done.
+Press **Ctrl+C** to stop the server. Run again to restart — setup is skipped if already done.
 
 ### Quick start — Docker (alternative)
 ```bash
