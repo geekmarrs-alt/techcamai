@@ -21,11 +21,11 @@
     <form method="post" action="/ui/add" class="stack">
       <div class="camera-admin-form-grid">
         <div><div class="sub">IP</div><input name="ip" value="{{ ip }}" placeholder="192.168.0.84" /></div>
-        <div><div class="sub">Channel / NVR slot</div><input name="channel" value="1" /></div>
-        <div><div class="sub">Username</div><input name="username" value="admin" /></div>
+        <div><div class="sub">Channel / NVR slot</div><input name="channel" value="{{ channel }}" /></div>
+        <div><div class="sub">Username</div><input name="username" value="{{ username }}" /></div>
         <div><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Camera password" /></div>
         <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
-          <input type="checkbox" name="verify_ssl" id="verify_ssl" checked />
+          <input type="checkbox" name="verify_ssl" id="verify_ssl" {% if verify_ssl %}checked{% endif %} />
           <label for="verify_ssl" class="sub" style="margin: 0;">Verify SSL certificate</label>
         </div>
       </div>
@@ -34,9 +34,9 @@
         <div class="eyebrow">NVR / DVR quick add</div>
         <div class="sub" style="margin:8px 0 10px;">Use the same recorder credentials and create one saved camera per channel for fast setup of a full CCTV unit.</div>
         <div class="camera-admin-form-grid">
-          <div><div class="sub">Name prefix</div><input name="name_prefix" value="NVR {{ ip or 'unit' }}" /></div>
-          <div><div class="sub">First channel</div><input name="channel_start" value="1" /></div>
-          <div><div class="sub">Last channel</div><input name="channel_end" value="8" /></div>
+          <div><div class="sub">Name prefix</div><input name="name_prefix" value="{{ name_prefix }}" /></div>
+          <div><div class="sub">First channel</div><input name="channel_start" value="{{ channel_start }}" /></div>
+          <div><div class="sub">Last channel</div><input name="channel_end" value="{{ channel_end }}" /></div>
         </div>
       </div>
 

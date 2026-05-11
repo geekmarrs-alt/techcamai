@@ -665,7 +665,21 @@ class UiTestForm(BaseModel):
 
 @app.get("/ui/add", response_class=HTMLResponse)
 def ui_add_get(request: Request, ip: str = ""):
-    return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": None})
+    return templates.TemplateResponse(
+        request,
+        "add_camera.html",
+        {
+            "active": "add",
+            "ip": ip,
+            "username": "admin",
+            "channel": 1,
+            "verify_ssl": True,
+            "name_prefix": f"NVR {ip or 'unit'}",
+            "channel_start": 1,
+            "channel_end": 8,
+            "result": None,
+        },
+    )
 
 
 @app.post("/ui/add", response_class=HTMLResponse)
@@ -677,6 +691,8 @@ async def ui_add_post(request: Request):
     channel = int(form.get("channel") or 1)
     verify_ssl = form.get("verify_ssl") == "on"
     name_prefix = (form.get("name_prefix") or f"NVR {ip}").strip()
+    channel_start = max(1, int(form.get("channel_start") or 1))
+    channel_end = max(channel_start, int(form.get("channel_end") or channel_start))
 
     result = None
     if form.get("action") == "test":
@@ -710,13 +726,11 @@ async def ui_add_post(request: Request):
     if form.get("action") == "bulk_save":
         try:
             _ensure_safe_ip(ip)
-            start_channel = max(1, int(form.get("channel_start") or 1))
-            end_channel = max(start_channel, int(form.get("channel_end") or start_channel))
-            if end_channel - start_channel > 63:
+            if channel_end - channel_start > 63:
                 result = {"ok": False, "error": "Bulk add is limited to 64 channels at a time"}
             else:
                 with Session(engine) as s:
-                    for nvr_channel in range(start_channel, end_channel + 1):
+                    for nvr_channel in range(channel_start, channel_end + 1):
                         s.add(
                             Camera(
                                 name=f"{name_prefix} ch {nvr_channel}",
@@ -730,11 +744,25 @@ async def ui_add_post(request: Request):
                             )
                         )
                     s.commit()
-                result = {"ok": True, "bulk_saved": True, "count": end_channel - start_channel + 1}
+                result = {"ok": True, "bulk_saved": True, "count": channel_end - channel_start + 1}
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
-    return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
+    return templates.TemplateResponse(
+        request,
+        "add_camera.html",
+        {
+            "active": "add",
+            "ip": ip,
+            "username": username or "admin",
+            "channel": channel,
+            "verify_ssl": verify_ssl,
+            "name_prefix": name_prefix,
+            "channel_start": channel_start,
+            "channel_end": channel_end,
+            "result": result,
+        },
+    )
 
 
 def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
