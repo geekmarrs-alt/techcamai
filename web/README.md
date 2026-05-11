@@ -14,7 +14,7 @@ web/
 ├── index.html             # Landing — hero, features, CTA, Pi install one-liner
 ├── features.html          # Feature breakdown (alert loop, clip capture, Pi deploy)
 ├── pricing.html           # Tier comparison (Community / Pro / Enterprise)
-├── download.html          # Community binary + Pi install script
+├── download.html          # Controlled-access installer request / Pi onboarding
 ├── docs/
 │   ├── index.html         # Getting started
 │   ├── pi-deployment.html # Raspberry Pi install + Watchtower update flow
@@ -32,12 +32,12 @@ web/
 
 - [ ] Hero: "Edge-first AI camera monitoring" + dashboard screenshot (dark mode)
 - [ ] Sub-headline: runs on a Raspberry Pi on your LAN, no cloud dependency
-- [ ] CTA 1: "Self-host free" → /download (no credit card required)
+- [ ] CTA 1: "Request access" → /download or /contact
 - [ ] CTA 2: "Get early access" → email capture form
 - [ ] Feature strip: alert loop · clip capture · Pi deployment · operator console
-- [ ] Pi install one-liner (from `pi/README_PI.md`)
-- [ ] Pricing preview: Community (free) / Pro (£X/site/mo) / Enterprise (contact)
-- [ ] Footer: GitHub, docs, contact
+- [ ] Pi install one-liner shown only after approved access
+- [ ] Pricing preview: Developer Preview (approved access) / Pro (£X/site/mo) / Enterprise (contact)
+- [ ] Footer: docs, contact, legal
 
 ---
 
@@ -61,3 +61,7 @@ Copy from `api/app/static/`:
 ## Domain
 
 Placeholder: techcamai.com (not confirmed at time of writing).
+
+## Distribution note
+
+Do not publish public downloads, source archives, desktop builds, or GitHub links from the marketing site until the release has written licence terms and an approved distribution channel. The current repository is proprietary; see `../LICENSE`.

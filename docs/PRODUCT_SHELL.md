@@ -38,9 +38,9 @@ and surfaces real-time alerts with clip evidence in a premium operator console.
 - Self-hosted, single-site deployment
 - All current MVP features: LAN scan, camera management, alert inbox, clip capture, dashboard
 - No auth, no license key required
-- Free — open-source or free binary distribution
+- Developer Preview only — no open-source, public binary, resale, or redistribution grant
 - Camera soft-limit: 4 (honour system; not enforced in MVP)
-- Support: community / GitHub issues
+- Support: direct owner-managed access while the product shell is being built
 
 ### Operator Pro (planned)
 
@@ -77,7 +77,7 @@ techcamai.com/
 ├── /features            # Feature breakdown (alert loop, clip capture, Pi deploy)
 ├── /pricing             # Tier comparison (Community / Pro / Enterprise)
 ├── /docs                # Getting started, Pi deployment, API reference
-├── /download            # Community binary / Pi install one-liner
+├── /download            # Controlled-access Pi installer / customer onboarding
 ├── /login               # Hosted dashboard redirect (future — not yet built)
 └── /contact             # Enterprise enquiry form
 ```
@@ -85,7 +85,7 @@ techcamai.com/
 **Landing page must-haves:**
 - Dashboard screenshot (operator console, dark mode)
 - "Edge-first AI camera monitoring" as primary value prop
-- "Self-host free" entry point prominently — no credit card
+- "Request access" entry point prominently — no public download until licensing is real
 - Pi install one-liner
 - Email capture for early access / beta list
 
@@ -209,7 +209,8 @@ Already updated to include:
 
 - `docker compose up` locally or Pi Docker Compose stack
 - No phone-home, no license server call in Community mode
-- Future: single binary distribution via PyInstaller or compiled Pi image
+- Current Developer Preview access remains proprietary and owner-approved
+- Future: signed installer, single binary distribution, or compiled Pi image with explicit licence terms
 
 ### Hosted (future consideration)
 
