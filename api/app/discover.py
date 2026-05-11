@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import json
+import socket
 import subprocess
 from dataclasses import dataclass, asdict
 from typing import Iterable, List, Optional
@@ -19,12 +20,45 @@ class DiscoveredDevice:
     onvif_hint: bool = False
 
 
-def _local_ipv4_networks() -> List[ipaddress.IPv4Network]:
-    """Best-effort: derive directly-connected IPv4 networks from `ip -j addr`.
+def _local_ipv4_networks_psutil() -> List[ipaddress.IPv4Network]:
+    """Cross-platform detection using psutil (Windows, Mac, Linux)."""
+    try:
+        import psutil
+    except ImportError:
+        return []
 
-    We intentionally avoid default-route guessing. Only networks actually configured
-    on interfaces are returned.
-    """
+    nets: List[ipaddress.IPv4Network] = []
+    for _name, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family != socket.AF_INET:
+                continue
+            try:
+                ip = ipaddress.IPv4Address(addr.address)
+            except Exception:
+                continue
+            if ip.is_loopback or ip.is_link_local:
+                continue
+            if not addr.netmask:
+                continue
+            try:
+                net = ipaddress.IPv4Network(f"{addr.address}/{addr.netmask}", strict=False)
+            except Exception:
+                continue
+            if net.prefixlen == 32:
+                continue
+            nets.append(net)
+
+    seen: set[str] = set()
+    uniq: List[ipaddress.IPv4Network] = []
+    for n in nets:
+        if n.with_prefixlen not in seen:
+            seen.add(n.with_prefixlen)
+            uniq.append(n)
+    return uniq
+
+
+def _local_ipv4_networks_linux() -> List[ipaddress.IPv4Network]:
+    """Linux-only fallback using `ip -j addr` (for Docker/Pi where psutil may be absent)."""
     try:
         out = subprocess.check_output(["ip", "-j", "addr"], text=True)
         data = json.loads(out)
@@ -41,24 +75,28 @@ def _local_ipv4_networks() -> List[ipaddress.IPv4Network]:
             if not local or prefixlen is None:
                 continue
             ip = ipaddress.IPv4Address(local)
-            # skip loopback/link-local
             if ip.is_loopback or ip.is_link_local:
                 continue
             net = ipaddress.IPv4Network(f"{local}/{prefixlen}", strict=False)
-            # skip /32 host routes
             if net.prefixlen == 32:
                 continue
             nets.append(net)
 
-    # de-dupe
-    uniq = []
-    seen = set()
+    seen: set[str] = set()
+    uniq: List[ipaddress.IPv4Network] = []
     for n in nets:
-        if n.with_prefixlen in seen:
-            continue
-        seen.add(n.with_prefixlen)
-        uniq.append(n)
+        if n.with_prefixlen not in seen:
+            seen.add(n.with_prefixlen)
+            uniq.append(n)
     return uniq
+
+
+def _local_ipv4_networks() -> List[ipaddress.IPv4Network]:
+    """Detect local IPv4 networks. Uses psutil (cross-platform) first, falls back to Linux ip command."""
+    nets = _local_ipv4_networks_psutil()
+    if nets:
+        return nets
+    return _local_ipv4_networks_linux()
 
 
 async def _tcp_connect(ip: str, port: int, timeout: float) -> bool:

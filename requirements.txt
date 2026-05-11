@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+httpx
+pydantic-settings
+jinja2
+python-multipart
+psutil
+cryptography
+pytest
+pyinstaller
