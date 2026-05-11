@@ -4,6 +4,16 @@
 
 ![Dashboard](api/app/static/techcamai-logo-512.png)
 
+## Ownership / proprietary notice
+
+TECHCAMAI is proprietary software. Copyright (c) 2026 TECHCAMAI. All rights reserved.
+
+This repository, source code, documentation, UI designs, brand assets, Windows desktop builds, archives, and generated binaries are not open source and are not licensed for copying, redistribution, publication, resale, or production use without written permission from the owner.
+
+Access to the repository or a build artifact does not grant a licence to fork, clone for reuse, rebrand, package, sell, or deploy TECHCAMAI as another product. See `LICENSE` for the canonical repository terms.
+
+This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
+
 ---
 
 ## Download & install (30 seconds)

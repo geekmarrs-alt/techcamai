@@ -7,7 +7,7 @@ Goal: one command on the Pi to install + run TECHCAMAI.
 - Network: Ethernet recommended for first test (Wi‑Fi ok later)
 
 ## Install (one-liner)
-Host provides 2 files over HTTP:
+An authorised host provides 2 files over private HTTP:
 - `install.sh`
 - `techcamai.tgz`
 
@@ -31,7 +31,9 @@ For a proper image-based release instead of manual source copying:
 
 1. Commit changes to the repo that owns the GitHub remote.
 2. Push to `master` so `.github/workflows/docker.yml` publishes fresh `:stable` images to GHCR.
-3. On the Pi, let Watchtower update automatically or run a manual pull + restart.
+3. On the Pi, authenticate to the approved registry account, then let Watchtower update automatically or run a manual pull + restart.
+
+`techcamai.tgz`, Pi bundles, container images, and any desktop installers are proprietary artifacts. Keep them off public download links and distribute them only to approved users under written permission.
 
 Helper scripts:
 
