@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -22,18 +22,23 @@ class PlaybackCoherenceTests(unittest.TestCase):
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
         cls.main = importlib.import_module('app.main')
+        cls.db_path = Path(cls.main.db_path)
+        cls.clips_dir = Path(cls.main.clips_dir)
+        from sqlmodel import SQLModel
+        SQLModel.metadata.create_all(cls.main.engine)
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.tempdir, ignore_errors=True)
 
     def setUp(self):
-        shutil.rmtree(self.tempdir / 'clips', ignore_errors=True)
+        shutil.rmtree(self.clips_dir, ignore_errors=True)
 
         self.client_cm = TestClient(self.main.app)
         self.client = self.client_cm.__enter__()
+        self.client.cookies.set("tcai_session", "admin-session-demo")
 
-        with sqlite3.connect(self.tempdir / 'techcamai.db') as conn:
+        with sqlite3.connect(self.db_path) as conn:
             conn.execute('DELETE FROM alert')
             conn.execute('DELETE FROM rule')
             conn.execute('DELETE FROM camera')
@@ -75,8 +80,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
     def test_ingest_prefers_explicit_camera_id(self):
         cam1 = self._create_camera('Yard ch1', '10.0.0.50', 1)
         cam2 = self._create_camera('Yard ch2', '10.0.0.50', 2)
-        self._create_rule(cam1['id'])
-        self._create_rule(cam2['id'])
+        # Rules are now auto-created by /cameras POST
 
         res = self.client.post(
             '/ingest/detection',
@@ -96,8 +100,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
     def test_ingest_falls_back_to_channel_hint_when_ip_is_shared(self):
         cam1 = self._create_camera('Shared ch1', '10.0.0.60', 1)
         cam2 = self._create_camera('Shared ch2', '10.0.0.60', 2)
-        self._create_rule(cam1['id'])
-        self._create_rule(cam2['id'])
+        # Rules are now auto-created by /cameras POST
 
         res = self.client.post(
             '/ingest/detection',
@@ -115,7 +118,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
 
     def test_clip_updates_validate_and_render_cleanly(self):
         cam = self._create_camera('Playback cam', '10.0.0.70', 1)
-        self._create_rule(cam['id'])
+        # Rule is auto-created
         created = self.client.post(
             '/ingest/detection',
             json={

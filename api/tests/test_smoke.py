@@ -10,6 +10,8 @@ so they never touch /data.  No cameras, workers, or real RTSP streams needed.
 
 import os
 import tempfile
+from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,12 +26,15 @@ os.makedirs(_tmp_clips, exist_ok=True)
 os.environ["DB_PATH"] = _tmp_db
 os.environ["CLIPS_DIR"] = _tmp_clips
 
-from app.main import app  # noqa: E402 — must be after env setup
+from sqlmodel import Session  # noqa: E402
+
+from app.main import Alert, app, engine  # noqa: E402 — must be after env setup
 
 
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app, raise_server_exceptions=True) as c:
+        c.cookies.set("tcai_session", "admin-session-demo")
         yield c
 
 
@@ -80,6 +85,25 @@ def test_add_camera_get(client):
     assert r.status_code == 200
 
 
+def test_ui_add_bulk_nvr_channels(client):
+    r = client.post("/ui/add", data={
+        "action": "bulk_save",
+        "ip": "192.168.50.10",
+        "username": "admin",
+        "password": "secret",
+        "name_prefix": "Front NVR",
+        "channel_start": "1",
+        "channel_end": "3",
+    })
+    assert r.status_code == 200
+    assert "3 recorder channels saved" in r.text
+
+    cameras = client.get("/cameras").json()
+    created = [cam for cam in cameras if cam["ip"] == "192.168.50.10"]
+    created = sorted(created, key=lambda cam: cam["channel"])
+    assert [cam["channel"] for cam in created] == [1, 2, 3]
+
+
 # ── API / health ──────────────────────────────────────────────────────────────
 
 def test_health(client):
@@ -118,6 +142,36 @@ def test_api_alerts_latest_since(client):
     assert r.status_code == 200
 
 
+def test_assistant_query_finds_vehicle_clip_by_time_and_synonym(client):
+    cam_r = client.post("/cameras", json={"name": "Car Park NVR ch 2", "ip": "10.20.0.10", "username": "u", "password": "p", "channel": 2})
+    cam_id = cam_r.json()["id"]
+    rule = client.post("/rules", json={"name": "Vehicle search", "camera_id": cam_id, "label": "vehicle", "min_conf": 0.1, "cooldown_sec": 0}).json()
+
+    with Session(engine) as s:
+        alert = Alert(
+            created_at=datetime(2026, 5, 11, 2, 30, tzinfo=timezone.utc),
+            camera_id=cam_id,
+            rule_id=rule["id"],
+            label="vehicle",
+            conf=0.93,
+            clip_path=f"{cam_id}/vehicle-0230.mp4",
+            clip_status="ready",
+        )
+        s.add(alert)
+        s.commit()
+
+    r = client.post("/api/assistant/query", json={"query": "search recordings between 2am and 3am for a red car", "limit": 5})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["parsed"]["label"] == "vehicle"
+    assert body["parsed"]["colors"] == ["red"]
+    assert body["count"] >= 1
+    assert body["results"][0]["camera"]["name"] == "Car Park NVR ch 2"
+    assert body["results"][0]["clip_url"] == f"/clips/{cam_id}/vehicle-0230.mp4"
+    assert body["limitations"]
+
+
 # ── Camera CRUD ───────────────────────────────────────────────────────────────
 
 def test_create_camera(client):
@@ -129,12 +183,30 @@ def test_create_camera(client):
     assert cam["name"] == "Test Cam"
     assert cam["channel"] == 1
 
+
+def test_create_camera_response_no_password(client):
+    """POST /cameras returns the same public-safe shape as GET /cameras."""
+    payload = {"name": "Secret Cam", "ip": "192.168.1.101", "username": "admin", "password": "super-secret"}
+    r = client.post("/cameras", json=payload)
+    assert r.status_code == 200
+    assert "password" not in r.json()
+
+
 def test_list_cameras_no_passwords(client):
     """GET /cameras (public list) must never include passwords."""
     r = client.get("/cameras")
     assert r.status_code == 200
     for cam in r.json():
         assert "password" not in cam
+
+
+def test_test_camera_rejects_loopback_with_port_before_fetch(client):
+    with patch("app.main.httpx.AsyncClient") as mock_client:
+        r = client.post("/cameras/test", json={"ip": "127.0.0.1:9999", "username": "u", "password": "p"})
+
+    assert r.status_code == 400
+    assert "not allowed" in r.text
+    mock_client.assert_not_called()
 
 
 def test_update_camera(client):
@@ -194,7 +266,8 @@ def test_ingest_triggers_alert(client):
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert len(body["triggered"]) == 1
+    # Two rules: the automated "Default Motion" and the manual "Ingest motion"
+    assert len(body["triggered"]) == 2
 
 
 # ── Alert clip updates ────────────────────────────────────────────────────────

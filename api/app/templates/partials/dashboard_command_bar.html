@@ -9,7 +9,7 @@
     <span class="pill {% if unacked_alerts %}bad{% endif %}">{{ unacked_alerts }} unacked</span>
     <span class="pill {% if clip_pending_count %}warn{% endif %}">{{ clip_pending_count }} clips pending</span>
     {% if worker_stale == true %}
-    <span class="pill bad" title="No worker heartbeat in >90s — detections may have stopped. Check `docker compose logs worker`.">WORKER STALE</span>
+    <span class="pill bad" title="No worker heartbeat in >90s — detections may have stopped. Restart TECHCAMAI from the Windows app window.">WORKER STALE</span>
     {% elif worker_stale == false %}
     <span class="pill ok" title="Worker is running and checking in normally">WORKER OK</span>
     {% else %}

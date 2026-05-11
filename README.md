@@ -1,92 +1,165 @@
 # TECHCAMAI
 
-Edge-first camera monitoring MVP.
+**Windows-only AI camera monitoring for a local mini PC.**
+
+![Dashboard](api/app/static/techcamai-logo-512.png)
+
+## Ownership / proprietary notice
+
+TECHCAMAI is proprietary software. Copyright (c) 2026 TECHCAMAI. All rights reserved.
+
+This repository, source code, documentation, UI designs, brand assets, Windows desktop builds, archives, and generated binaries are not open source and are not licensed for copying, redistribution, publication, resale, or production use without written permission from the owner.
+
+Access to the repository or a build artifact does not grant a licence to fork, clone for reuse, rebrand, package, sell, or deploy TECHCAMAI as another product. See `LICENSE` for the canonical repository terms.
 
 This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
 
-## What this repo is good for right now
-- Local/LAN camera onboarding
-- Snapshot polling via worker
-- Rule-based motion alert creation
-- Alert inbox + timeline
-- Post-trigger clip capture/playback MVP
-- Raspberry Pi deployment path via Docker/GHCR
-- Dashboard direction work for the operator UI
+---
 
-## What it is not yet
-- Public customer-facing product site
-- Login / auth / roles
-- Licence or billing system
-- Multi-tenant backend
-- Hardened production fleet management
+## Download & install (30 seconds)
 
-If anyone says this is launch-ready as a commercial SaaS today, they are chatting shit.
+1. Go to the **[Releases page](../../releases/latest)**
+2. Download **`TECHCAMAI.exe`** (one file, ~30 MB)
+3. Put it anywhere on your PC (Desktop, Documents, wherever you like)
+4. Double-click it
 
-## Current surfaces
-### Operator UI
-- `/` — dashboard v2 preview (current default)
-- `/preview/dashboard-v1` — simpler fallback overview
-- `/preview/dashboard-v2` — explicit preview route
-- `/ui/scan` — LAN scan
-- `/ui/add` — test/save camera
-- `/cameras/manage` — camera inventory and editing
-- `/live` — live wall
-- `/alerts` — alert inbox
-- `/timeline` — event flow
+Your browser opens automatically to the operator dashboard. That's it — no installer, no setup wizard, no dependencies.
 
-### API / integration endpoints
-- `/health`
-- `/discover`
-- `/cameras`
-- `/cameras/test`
-- `/worker/cameras`
-- `/rules`
-- `/ingest/detection`
-- `/api/alerts/latest`
-- `/alerts/{id}/clip`
-- `/alerts/{id}/ack`
+Quick repo bootstrap: download **`TECHCAMAI_Quick_Install.bat`** from
+`https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/TECHCAMAI_Quick_Install.bat`
+and double-click it.
 
-## Beta-readiness snapshot
-### Near enough for a real beta walkthrough
-- Recovered FastAPI app boots
-- Dashboard is no longer the broken/truncated template from the earlier recovery state
-- Alert playback fields exist in the API model
-- Worker has clip capture path using `ffmpeg`
-- Docker Compose mounts shared `/data` volume for API + worker
-- GitHub Actions workflow exists to publish multi-arch images to GHCR on `master`
+End users do not install Python, open Terminal, or run command-line setup.
 
-### Still needs beta validation in a live environment
-- Real RTSP clip capture against live camera streams
-- Browser playback on the actual Pi deployment
-- End-to-end ingest on the real camera/rule set
-- Clear proof that every enabled camera has a valid rule
-- Failure visibility for bad creds / unreachable cameras / slow snapshots
-- Fresh image publish + pull on Pi from the real source-of-truth repo
+> **First-run notes:**
+> - **Windows SmartScreen** may show a warning — click *More info* → *Run anyway*. This is normal for unsigned apps.
+> - **Windows Firewall** will ask to allow network access — click *Allow*. This lets the dashboard load in your browser and enables LAN camera scanning.
 
-For the blunt version, read `BETA_READINESS_2026-03-13.md`.
+---
 
-## Quick start (dev)
-```bash
-cp .env.example .env
-docker compose up --build
-```
+## Quick-start walkthrough
 
-Then open:
-- Dashboard: http://localhost:8000/
-- API docs: http://localhost:8000/docs
+Once the app is running, here's how to get your cameras monitored in under 2 minutes:
 
-## Raspberry Pi path
-Read:
-- `pi/README_PI.md`
-- `pi/UPDATE_STRATEGY.md`
+### 1. Open the dashboard
 
-Short version:
-1. Push code to the real GitHub-backed repo
-2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
+After double-clicking `TECHCAMAI.exe`, two things appear:
+- A small **status window** confirming the app is running
+- Your **browser** opens to the command dashboard at `http://localhost:8000`
 
-## Recommended demo order
-Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
+The sidebar on the left is your main navigation. Everything is one click away.
 
-## Known product truth
-TECHCAMAI currently looks like a serious operator MVP, not a finished commercial control plane. That is still useful. Just present it honestly.
+### 2. Scan your network for cameras
+
+Click **LAN scan** in the sidebar. TECHCAMAI scans your local network and lists any IP cameras it finds (Hikvision cameras are detected automatically). Click **Add / test** next to any camera to onboard it.
+
+### 3. Add a camera manually
+
+If your camera wasn't found by the scan, click **Add / test** in the sidebar:
+- Enter the camera's **IP address** (e.g. `192.168.1.100`)
+- Enter the **username** and **password**
+- Set the **channel** (usually `1`)
+- Click **Test snapshot** to verify the connection
+- Click **Save camera** to add it
+- For an NVR/DVR, switch to **NVR / DVR System** and use **Quick Add NVR Channels**
+
+### 4. Monitor
+
+Once cameras are saved, TECHCAMAI monitors them automatically:
+- **Live wall** — click **Live** in the sidebar to see all camera feeds updating in real time
+- **Motion detection** — the system compares frames and triggers alerts when motion is detected
+- **Alert inbox** — click **Alerts** to see every detection with timestamp, camera name, and confidence score
+
+### 5. Respond to alerts
+
+When an alert appears:
+- Open the **Alerts** inbox
+- Review the detection details
+- If a clip was captured, click **Play clip** to watch the footage
+- Click **Acknowledge** to mark the alert as reviewed
+- The dashboard counter updates to show how many alerts still need attention
+
+### 6. Manage your cameras
+
+Click **Cameras** in the sidebar to:
+- Edit camera names, IP addresses, and credentials
+- Enable or disable individual cameras
+- Delete cameras you no longer need
+- Check which cameras have detection rules assigned
+
+---
+
+## Dashboard pages
+
+| Sidebar link | What it does |
+|---|---|
+| **Overview** | Command dashboard — camera wall, alert feed, system pulse, quick stats |
+| **Live** | Snapshot wall showing all enabled cameras with auto-refresh |
+| **Alerts** | Alert inbox — review detections, play clips, acknowledge |
+| **Timeline** | Chronological event flow with 24-hour activity strip |
+| **Cameras** | Camera inventory — edit settings, enable/disable, delete |
+| **LAN scan** | Scan your local network to discover IP cameras |
+| **Add / test** | Manually add a camera by IP and test the connection |
+
+The local API documentation is available at `/docs` for Windows desktop integration and automation.
+
+---
+
+## Your data
+
+Everything is stored locally in a `data/` folder created next to the `.exe`:
+
+| File | What it stores |
+|---|---|
+| `data/techcamai.db` | Camera config, detection rules, alerts (SQLite database) |
+| `data/clips/` | Captured video clips from triggered alerts |
+
+**Portable:** move the `.exe` and the `data/` folder together to any other PC and your entire setup comes with you.
+
+**Fresh start:** delete the `data/` folder and relaunch — the app creates a clean database automatically.
+
+---
+
+## Stopping the app
+
+Close the small status window, or click **Stop & Exit** on it. The server shuts down and the dashboard becomes unavailable until you launch again.
+
+---
+
+## Planned features
+
+These are visible in the dashboard as planned panels:
+
+- **AI scene summaries** — per-camera description of the last detection window
+- **Voice control** — ask about cameras, incidents, or coverage by voice or text
+- **Smart triage** — auto-cluster incidents by proximity and confidence
+- **Person / vehicle detection** — ML model for object classification beyond motion
+
+---
+
+## Windows build
+
+The maintained build output is `TECHCAMAI.exe` from the GitHub Actions Windows workflow.
+The released app is the supported customer path; source builds are for maintainers only.
+
+---
+
+## System requirements
+
+- **Windows 10 or later** (64-bit)
+- A modern web browser (Chrome, Edge, Firefox)
+- IP cameras on the same local network (Hikvision recommended, any ONVIF/RTSP camera should work)
+
+---
+
+## Repository policy
+
+- One unified Windows product branch is the source of truth.
+- Raspberry Pi, Linux fleet, Docker-first, and terminal-first setup paths are retired.
+- Windows release artifacts are the preferred download path.
+
+---
+
+## Current state
+
+TECHCAMAI is a working operator MVP for local camera monitoring. It is not a finished commercial product — there is no login, no multi-tenant support, and no billing. The AI and voice features shown in the dashboard are planned. The core monitoring, alerting, and camera management features are fully functional.

@@ -208,13 +208,7 @@ Recommended derived fields:
 - `alert_feed_items`
 
 ### Recommended server-side helper shape
-Use a light dashboard view-model function in `main.py` later, e.g.:
-
-```python
-build_dashboard_view(cameras, alerts, rules) -> dict
-```
-
-That keeps Jinja cleaner and future React/Vue extraction easier if TECHCAMAI grows out of templates later.
+Use a light dashboard view-model helper in `main.py` later. That keeps Jinja cleaner and future React/Vue extraction easier if TECHCAMAI grows out of templates later.
 
 ## 8. Camera wall behaviour
 

@@ -14,11 +14,12 @@
   .v2-focus-header{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
   .v2-focus-image, .v2-camera-mini-image, .v2-incident-thumb{ overflow:hidden; border-radius:18px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.25); }
   .v2-focus-image{ position:relative; }
-  .v2-focus-image img{ display:block; width:100%; height:500px; object-fit:cover; }
-  .v2-focus-overlay{ position:absolute; inset:auto 16px 16px 16px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px; padding:14px 16px; border-radius:18px; background:linear-gradient(180deg, rgba(5,9,18,.08), rgba(5,9,18,.84)); backdrop-filter:blur(10px); }
-  .v2-focus-overlay-title{ margin-top:4px; font-size:22px; font-weight:800; letter-spacing:-.03em; }
-  .v2-focus-detail-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
-  .v2-focus-detail-card, .v2-focus-meta-card, .v2-side-panel, .v2-camera-mini, .v2-incident-card, .v2-playback-row, .v2-empty-panel{ padding:14px; border-radius:18px; border:1px solid var(--border); background:rgba(255,255,255,.04); }
+  .v2-focus-image img{ display:block; width:100%; height:560px; object-fit:cover; }
+  .v2-focus-overlay{ position:absolute; inset:auto 16px 16px 16px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px; padding:18px 22px; border-radius:20px; background:linear-gradient(180deg, rgba(5,9,18,.02), rgba(5,9,18,.92)); backdrop-filter:blur(12px); border: 1px solid rgba(255,255,255,0.06); }
+  .v2-focus-overlay-title{ margin-top:4px; font-size:26px; font-weight:900; letter-spacing:-.04em; }
+  .v2-focus-detail-grid{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
+  .v2-focus-detail-card, .v2-focus-meta-card, .v2-side-panel, .v2-camera-mini, .v2-incident-card, .v2-playback-row, .v2-empty-panel{ padding:18px; border-radius:22px; border:1px solid var(--border); background:rgba(255,255,255,.05); transition: background .2s ease; }
+  .v2-focus-detail-card:hover, .v2-focus-meta-card:hover, .v2-camera-mini:hover, .v2-incident-card:hover { background: rgba(255,255,255,0.08); }
   .v2-focus-detail-card strong, .v2-focus-meta-card strong{ display:block; margin-top:8px; font-size:20px; letter-spacing:-.03em; }
   .v2-focus-actions{ display:flex; gap:10px; flex-wrap:wrap; }
   .v2-stage-side-stack, .v2-stage-sidebar, .v2-supporting-cameras, .v2-rail-stack, .v2-incident-list, .v2-playback-list, .v2-action-stack{ display:grid; gap:12px; }
@@ -169,6 +170,31 @@
     line-height:1;
     margin-top:2px;
   }
+  .v2-ai-form{ display:grid; gap:10px; }
+  .v2-ai-query-row{ display:flex; gap:8px; align-items:center; }
+  .v2-ai-query-row input{ min-width:0; }
+  .v2-ai-mic{ width:42px; height:42px; padding:0; flex-shrink:0; }
+  .v2-ai-mic.listening{ border-color:rgba(55,211,154,.52); background:rgba(55,211,154,.14); }
+  .v2-ai-status{ min-height:18px; color:var(--muted); font-size:12px; }
+  .v2-ai-answer{
+    display:none;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(124,92,255,.18);
+    background:rgba(0,0,0,.18);
+  }
+  .v2-ai-answer.is-visible{ display:block; }
+  .v2-ai-result-list{ display:grid; gap:8px; margin-top:10px; }
+  .v2-ai-result{
+    display:grid;
+    gap:6px;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.03);
+  }
+  .v2-ai-result-title{ display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:13px; }
+  .v2-ai-limit{ margin-top:8px; color:var(--warn); font-size:12px; line-height:1.45; }
 
   /* ─── Responsive ─────────────────────────────────────────────── */
   @media (max-width: 1200px){
@@ -192,7 +218,7 @@
 
   {% if worker_stale == true %}
   <div style="padding:12px 16px; border-radius:16px; border:1px solid rgba(239,68,68,.3); background:rgba(239,68,68,.08); color:var(--bad); font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
-    <span><strong>Worker appears stale</strong> — no heartbeat for more than 90 seconds. Detections have likely stopped.{% if worker_last_seen %} Last seen: {{ worker_last_seen }}.{% endif %} Run <code style="background:rgba(255,255,255,.08); padding:1px 6px; border-radius:5px;">docker compose logs worker</code> to diagnose.</span>
+    <span><strong>Worker appears stale</strong> — no heartbeat for more than 90 seconds. Detections have likely stopped.{% if worker_last_seen %} Last seen: {{ worker_last_seen }}.{% endif %} Restart TECHCAMAI from the Windows app window to recover.</span>
   </div>
   {% endif %}
 
