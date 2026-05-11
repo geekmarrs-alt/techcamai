@@ -20,6 +20,7 @@ from app.main import app # noqa: E402
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app, raise_server_exceptions=True) as c:
+        c.cookies.set("tcai_session", "admin-session-demo")
         yield c
 
 def test_ingest_detection_malformed_url(client):
@@ -55,16 +56,6 @@ def test_ingest_detection_fallback_match(client):
     r_cam = client.post("/cameras", json=cam_payload)
     cam_id = r_cam.json()["id"]
 
-    # Create a rule for this camera
-    rule_payload = {
-        "name": "Motion Rule",
-        "camera_id": cam_id,
-        "label": "motion",
-        "min_conf": 0.5,
-        "cooldown_sec": 0
-    }
-    client.post("/rules", json=rule_payload)
-
     # Send a detection with a different snapshot_url but same host and channel hint
     # /Streaming/Channels/201 implies channel 2
     snapshot_url = "http://10.0.0.50/Streaming/Channels/201/picture"
@@ -95,16 +86,6 @@ def test_ingest_detection_fallback_match_host_only(client):
     }
     r_cam = client.post("/cameras", json=cam_payload)
     cam_id = r_cam.json()["id"]
-
-    # Create a rule for this camera
-    rule_payload = {
-        "name": "Motion Rule",
-        "camera_id": cam_id,
-        "label": "motion",
-        "min_conf": 0.5,
-        "cooldown_sec": 0
-    }
-    client.post("/rules", json=rule_payload)
 
     # URL with no channel hint
     snapshot_url = "http://10.0.0.60/some/other/path"

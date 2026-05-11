@@ -1,11 +1,11 @@
 import pytest
 import ipaddress
+import asyncio
 import json
 from unittest.mock import patch, AsyncMock
 from app.discover import discover, _parse_ip_addr_output
 
-@pytest.mark.asyncio
-async def test_discover_basic():
+def test_discover_basic():
     # Mocking _local_ipv4_networks to return a small network
     # Mocking _tcp_connect to simulate open ports
     # Mocking _probe_hik_isapi to simulate Hikvision detection
@@ -33,7 +33,7 @@ async def test_discover_basic():
 
         mock_probe.side_effect = mock_probe_side_effect
 
-        results = await discover(timeout_sec=5)
+        results = asyncio.run(discover(timeout_sec=5))
 
         assert len(results) == 2
         # Sort order: Hikvision first, then by IP

@@ -34,6 +34,7 @@ from app.main import Alert, app, engine  # noqa: E402 — must be after env setu
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app, raise_server_exceptions=True) as c:
+        c.cookies.set("tcai_session", "admin-session-demo")
         yield c
 
 
