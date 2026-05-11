@@ -1,8 +1,10 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.pyc
 *.pyo
 .venv/
+venv/
 *.egg-info/
 
 # Environment
@@ -25,8 +27,25 @@ Thumbs.db
 # Docker
 techcamai.tgz
 
-# Backups
+# Build / release artifacts
+dist/
+build/
+release/
+*.exe
+*.dmg
+*.msi
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.whl
+*.zip
+*.7z
+*.rar
+
+# Backups / generated review files
 *.tgz
 *.tar.gz
 *.diff
 *.patch
+*.save

@@ -2,6 +2,14 @@
 
 Edge-first camera monitoring MVP.
 
+## Ownership / proprietary notice
+
+TECHCAMAI is proprietary software. Copyright (c) 2026 TECHCAMAI. All rights reserved.
+
+This repository, source code, documentation, UI designs, brand assets, Docker images, Pi bundles, desktop builds, archives, and generated binaries are not open source and are not licensed for copying, redistribution, publication, resale, or production use without written permission from the owner.
+
+Access to the repository or a build artifact does not grant a licence to fork, clone for reuse, rebrand, package, sell, or deploy TECHCAMAI as another product. See `LICENSE` for the canonical repository terms.
+
 This repo is **not** the finished product website yet. It is the current operator-facing stack: scan cameras, save cameras, run worker polling, create alerts, and review alert playback when clip capture succeeds.
 
 ## What this repo is good for right now
@@ -83,7 +91,9 @@ Read:
 Short version:
 1. Push code to the real GitHub-backed repo
 2. Let GitHub Actions publish fresh GHCR images
-3. On the Pi, pull and restart the compose stack
+3. On the Pi, pull and restart the compose stack from an authorised account
+
+Do not publish source tarballs, Pi bundles, desktop installers, or container images publicly unless a separate written release decision says they are cleared for distribution.
 
 ## Recommended demo order
 Use `TOMORROW_WALKTHROUGH_CHECKLIST.md`.
