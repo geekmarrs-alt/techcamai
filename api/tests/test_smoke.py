@@ -15,6 +15,7 @@ import sqlite3
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,12 +151,30 @@ def test_create_camera(client):
     assert cam["name"] == "Test Cam"
     assert cam["channel"] == 1
 
+
+def test_create_camera_response_no_password(client):
+    """POST /cameras returns the same public-safe shape as GET /cameras."""
+    payload = {"name": "Secret Cam", "ip": "192.168.1.101", "username": "admin", "password": "super-secret"}
+    r = client.post("/cameras", json=payload)
+    assert r.status_code == 200
+    assert "password" not in r.json()
+
+
 def test_list_cameras_no_passwords(client):
     """GET /cameras (public list) must never include passwords."""
     r = client.get("/cameras")
     assert r.status_code == 200
     for cam in r.json():
         assert "password" not in cam
+
+
+def test_test_camera_rejects_loopback_with_port_before_fetch(client):
+    with patch("app.main.httpx.AsyncClient") as mock_client:
+        r = client.post("/cameras/test", json={"ip": "127.0.0.1:9999", "username": "u", "password": "p"})
+
+    assert r.status_code == 400
+    assert "not allowed" in r.text
+    mock_client.assert_not_called()
 
 
 def test_update_camera(client):

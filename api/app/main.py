@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import ipaddress
 import json
 import re
 import sqlite3
@@ -223,6 +224,34 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
     return None
 
 
+def _ensure_safe_ip(value: str | None) -> None:
+    raw = (value or "").strip()
+    if not raw:
+        return
+    if "://" in raw or "/" in raw or "@" in raw:
+        raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
+
+    host = raw
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        parsed = urlparse(f"//{raw}")
+        host = parsed.hostname or raw
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
+
+    if ip.is_loopback:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is not allowed")
+    if ip.is_link_local:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is link-local and not allowed")
+    if ip.is_unspecified:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is unspecified and not allowed")
+    if ip.is_multicast:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is multicast and not allowed")
+
+
 class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
@@ -415,19 +444,23 @@ async def ui_add_post(request: Request):
             result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "save":
-        with Session(engine) as s:
-            c = Camera(
-                name=f"Cam {ip}",
-                ip=ip,
-                channel=channel,
-                scheme="https",
-                auth="digest",
-                username=username,
-                password=password,
-            )
-            s.add(c)
-            s.commit()
-        result = {"ok": True, "saved": True}
+        try:
+            _ensure_safe_ip(ip)
+            with Session(engine) as s:
+                c = Camera(
+                    name=f"Cam {ip}",
+                    ip=ip,
+                    channel=channel,
+                    scheme="https",
+                    auth="digest",
+                    username=username,
+                    password=password,
+                )
+                s.add(c)
+                s.commit()
+            result = {"ok": True, "saved": True}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
 
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
 
@@ -452,6 +485,7 @@ def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
 async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     if not cam.ip:
         raise HTTPException(status_code=400, detail="camera has no ip")
+    _ensure_safe_ip(cam.ip)
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
@@ -691,19 +725,20 @@ def list_cameras():
     # public-safe list (no passwords)
     with Session(engine) as s:
         cams = s.exec(select(Camera)).all()
-        return [
-            {
-                "id": c.id,
-                "name": c.name,
-                "ip": c.ip,
-                "channel": c.channel,
-                "scheme": c.scheme,
-                "auth": c.auth,
-                "username": c.username,
-                "enabled": c.enabled,
-            }
-            for c in cams
-        ]
+        return [_public_camera(c) for c in cams]
+
+
+def _public_camera(c: Camera) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "ip": c.ip,
+        "channel": c.channel,
+        "scheme": c.scheme,
+        "auth": c.auth,
+        "username": c.username,
+        "enabled": c.enabled,
+    }
 
 
 @app.get("/worker/cameras")
@@ -725,6 +760,7 @@ def worker_cameras():
 def create_camera(cam: CameraCreate):
     if not cam.ip:
         raise HTTPException(status_code=400, detail="ip required")
+    _ensure_safe_ip(cam.ip)
     with Session(engine) as s:
         c = Camera(
             name=cam.name,
@@ -738,11 +774,13 @@ def create_camera(cam: CameraCreate):
         s.add(c)
         s.commit()
         s.refresh(c)
-        return c
+        return _public_camera(c)
 
 
 @app.put("/cameras/{camera_id}")
 def update_camera(camera_id: int, patch: CameraUpdate):
+    if patch.ip is not None:
+        _ensure_safe_ip(patch.ip)
     with Session(engine) as s:
         c = s.get(Camera, camera_id)
         if not c:
@@ -764,6 +802,7 @@ def update_camera(camera_id: int, patch: CameraUpdate):
 
 @app.post("/cameras/test")
 async def test_camera(req: CameraTestRequest):
+    _ensure_safe_ip(req.ip)
     # Hikvision-first: try common snapshot endpoints.
     # Return base64 jpeg so UI can preview.
     # Many Hikvision devices use channel numbering like 101 for channel 1 main stream.
