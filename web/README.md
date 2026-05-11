@@ -1,6 +1,6 @@
 # web/
 
-Future home of the TECHCAMAI product website.
+Windows download page and future home of the TECHCAMAI product website.
 
 The operator console lives in `api/`. This directory is a placeholder.
 See `docs/PRODUCT_SHELL.md` for the full commercial-tier and website spec.
@@ -11,14 +11,14 @@ See `docs/PRODUCT_SHELL.md` for the full commercial-tier and website spec.
 
 ```
 web/
-├── index.html             # Landing — hero, features, CTA, Pi install one-liner
-├── features.html          # Feature breakdown (alert loop, clip capture, Pi deploy)
-├── pricing.html           # Tier comparison (Community / Pro / Enterprise)
-├── download.html          # Community binary + Pi install script
+├── index.html             # Landing — hero, features, CTA, Windows download
+├── features.html          # Feature breakdown (alert loop, clip capture, Windows launcher)
+├── pricing.html           # Tier comparison (Developer Preview / Pro / Enterprise)
+├── download.html          # Controlled-access installer request / desktop/Pi onboarding
 ├── docs/
 │   ├── index.html         # Getting started
-│   ├── pi-deployment.html # Raspberry Pi install + Watchtower update flow
-│   └── api-reference.html # /ingest/detection, /health, /api/alerts/latest
+│   ├── windows-install.html # Windows install + desktop shortcut flow
+│   └── api-reference.html # /ingest/detection, /health, /api/assistant/query
 ├── login.html             # Hosted dashboard redirect — future, not yet built
 ├── contact.html           # Enterprise enquiry form
 └── assets/
@@ -31,13 +31,13 @@ web/
 ## Landing page content checklist
 
 - [ ] Hero: "Edge-first AI camera monitoring" + dashboard screenshot (dark mode)
-- [ ] Sub-headline: runs on a Raspberry Pi on your LAN, no cloud dependency
-- [ ] CTA 1: "Self-host free" → /download (no credit card required)
+- [ ] Sub-headline: runs locally on Windows or a Raspberry Pi on your LAN, no cloud dependency for the core loop
+- [ ] CTA 1: "Request access" → /download or /contact
 - [ ] CTA 2: "Get early access" → email capture form
-- [ ] Feature strip: alert loop · clip capture · Pi deployment · operator console
-- [ ] Pi install one-liner (from `pi/README_PI.md`)
-- [ ] Pricing preview: Community (free) / Pro (£X/site/mo) / Enterprise (contact)
-- [ ] Footer: GitHub, docs, contact
+- [ ] Feature strip: alert loop · clip capture · Windows desktop · Pi deployment · operator console
+- [ ] Windows/Pi install instructions shown only after approved access
+- [ ] Pricing preview: Developer Preview (approved access) / Pro (£X/site/mo) / Enterprise (contact)
+- [ ] Footer: docs, contact, legal
 
 ---
 
@@ -61,3 +61,7 @@ Copy from `api/app/static/`:
 ## Domain
 
 Placeholder: techcamai.com (not confirmed at time of writing).
+
+## Distribution note
+
+Do not publish public downloads, source archives, desktop builds, or GitHub links from the marketing site until the release has written licence terms and an approved distribution channel. The current repository is proprietary; see `../LICENSE`.

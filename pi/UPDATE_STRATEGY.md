@@ -11,7 +11,7 @@ Goal: reliable, low-touch updates across deployed Raspberry Pi units, without br
 
 ### How it works
 1. Build/push images:
-   - `techcamai-api` and `techcamai-worker` to a registry (GHCR recommended).
+   - `techcamai-api` and `techcamai-worker` to a private registry (GHCR recommended).
 2. Each Pi runs `docker-compose.pi.yml`.
 3. Watchtower checks for newer images on a schedule and restarts updated services.
 
@@ -38,4 +38,10 @@ We can build that once the demo is stable.
 ## Management / access
 Recommended for any fleet:
 - Tailscale on each Pi (remote SSH, metrics, emergency fixes)
+
+## Distribution controls
+
+- Keep registries, bundles, and installers private unless a written release decision approves public distribution.
+- Treat image pull credentials as customer-specific deployment access, not a licence to copy or repackage the product.
+- Prefer signed update manifests before distributing desktop or Pi builds beyond trusted beta users.
 

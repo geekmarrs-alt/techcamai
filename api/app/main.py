@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import ipaddress
 import json
 import re
 import sqlite3
@@ -10,12 +11,13 @@ from typing import Optional, List
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .discover import discover
+from .crypto import encrypt_password, decrypt_password, is_encrypted
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from sqlmodel import SQLModel, Field, Session, create_engine, select
@@ -24,6 +26,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: Optional[str] = None
 
 
 settings = Settings()
@@ -45,12 +48,13 @@ class Camera(SQLModel, table=True):
     scheme: str = "https"  # http|https
     auth: str = "digest"   # digest|basic
     username: Optional[str] = None
-    password: Optional[str] = None  # MVP: stored local plaintext on Pi
+    password: Optional[str] = None  # Stored encrypted at rest when a value is present.
 
     # legacy (kept for now)
     snapshot_url: str = ""
 
     enabled: bool = True
+    verify_ssl: bool = Field(default=True)
 
 
 class Rule(SQLModel, table=True):
@@ -94,6 +98,7 @@ class CameraCreate(BaseModel):
     channel: int = 1
     scheme: str = "https"
     auth: str = "digest"
+    verify_ssl: bool = True
 
 
 class CameraTestRequest(BaseModel):
@@ -101,6 +106,7 @@ class CameraTestRequest(BaseModel):
     username: str
     password: str
     channel: int = 1
+    verify_ssl: bool = True
 
 
 class RuleCreate(BaseModel):
@@ -120,12 +126,18 @@ class CameraUpdate(BaseModel):
     scheme: Optional[str] = None
     auth: Optional[str] = None
     enabled: Optional[bool] = None
+    verify_ssl: Optional[bool] = None
 
 
 class AlertClipUpdate(BaseModel):
     clip_path: Optional[str] = None
     clip_status: str
     clip_error: Optional[str] = None
+
+
+class AssistantQuery(BaseModel):
+    query: str
+    limit: int = 8
 
 
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
@@ -196,6 +208,17 @@ def _normalize_clip_status(status: Optional[str]) -> str:
     return value
 
 
+def verify_worker_token(request: Request):
+    if not settings.SECRET_KEY:
+        return
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = auth_header.split(" ")[1]
+    if token != settings.SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
@@ -223,6 +246,220 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
     return None
 
 
+def _ensure_safe_ip(value: str | None) -> None:
+    raw = (value or "").strip()
+    if not raw:
+        return
+    if "://" in raw or "/" in raw or "@" in raw:
+        raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
+
+    host = raw
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        parsed = urlparse(f"//{raw}")
+        host = parsed.hostname or raw
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="camera ip must be a literal IPv4 or IPv6 address")
+
+    if ip.is_loopback:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is not allowed")
+    if ip.is_link_local:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is link-local and not allowed")
+    if ip.is_unspecified:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is unspecified and not allowed")
+    if ip.is_multicast:
+        raise HTTPException(status_code=400, detail=f"camera ip {host} is multicast and not allowed")
+
+
+_ASSISTANT_LABEL_SYNONYMS = {
+    "car": "vehicle",
+    "cars": "vehicle",
+    "vehicle": "vehicle",
+    "vehicles": "vehicle",
+    "van": "vehicle",
+    "vans": "vehicle",
+    "truck": "vehicle",
+    "trucks": "vehicle",
+    "lorry": "vehicle",
+    "lorries": "vehicle",
+    "person": "person",
+    "people": "person",
+    "human": "person",
+    "humans": "person",
+    "motion": "motion",
+    "movement": "motion",
+}
+_ASSISTANT_COLOR_TERMS = {
+    "black",
+    "blue",
+    "brown",
+    "green",
+    "grey",
+    "gray",
+    "orange",
+    "red",
+    "silver",
+    "white",
+    "yellow",
+}
+_ASSISTANT_STOP_WORDS = {
+    "a",
+    "about",
+    "all",
+    "an",
+    "and",
+    "any",
+    "at",
+    "between",
+    "find",
+    "for",
+    "from",
+    "in",
+    "incident",
+    "incidents",
+    "look",
+    "me",
+    "of",
+    "on",
+    "please",
+    "previous",
+    "recording",
+    "recordings",
+    "search",
+    "show",
+    "the",
+    "to",
+}
+
+
+def _assistant_hour(raw_hour: str, suffix: Optional[str]) -> int:
+    hour = int(raw_hour)
+    marker = (suffix or "").lower()
+    if marker == "am":
+        return 0 if hour == 12 else hour
+    if marker == "pm":
+        return 12 if hour == 12 else hour + 12 if hour < 12 else hour
+    return hour
+
+
+def _assistant_minute_label(total_minutes: int) -> str:
+    total_minutes = total_minutes % (24 * 60)
+    return f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+
+
+def _assistant_time_window(query: str, now: datetime) -> Optional[dict]:
+    text = query.lower()
+    recent = re.search(r"\blast\s+(\d{1,3})\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\b", text)
+    if recent:
+        amount = int(recent.group(1))
+        unit = recent.group(2)
+        delta = timedelta(minutes=amount) if unit.startswith(("m", "min")) else timedelta(hours=amount)
+        start = now - delta
+        return {
+            "mode": "since",
+            "start": start,
+            "end": now,
+            "display": f"last {amount} {'minutes' if unit.startswith(('m', 'min')) else 'hours'}",
+        }
+
+    window = re.search(
+        r"\b(?:between|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:and|to|-)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b",
+        text,
+    )
+    if not window:
+        return None
+
+    start_suffix = window.group(3) or window.group(6)
+    end_suffix = window.group(6) or window.group(3)
+    start_hour = _assistant_hour(window.group(1), start_suffix)
+    end_hour = _assistant_hour(window.group(4), end_suffix)
+    start_minute = start_hour * 60 + int(window.group(2) or 0)
+    end_minute = end_hour * 60 + int(window.group(5) or 0)
+    return {
+        "mode": "time_of_day",
+        "start_minute": start_minute,
+        "end_minute": end_minute,
+        "display": f"{_assistant_minute_label(start_minute)}-{_assistant_minute_label(end_minute)} UTC",
+    }
+
+
+def _assistant_alert_matches_window(alert: Alert, window: Optional[dict]) -> bool:
+    if not window:
+        return True
+    created_at = _as_utc(alert.created_at)
+    if not created_at:
+        return False
+    if window["mode"] == "since":
+        return window["start"] <= created_at <= window["end"]
+    minute = created_at.hour * 60 + created_at.minute
+    start = int(window["start_minute"])
+    end = int(window["end_minute"])
+    if start <= end:
+        return start <= minute < end
+    return minute >= start or minute < end
+
+
+def _assistant_parse_terms(query: str) -> dict:
+    words = re.findall(r"[a-z0-9]+", query.lower())
+    label = None
+    for word in words:
+        if word in _ASSISTANT_LABEL_SYNONYMS:
+            label = _ASSISTANT_LABEL_SYNONYMS[word]
+            break
+    colors = [word for word in words if word in _ASSISTANT_COLOR_TERMS]
+    keywords = [
+        word
+        for word in words
+        if word not in _ASSISTANT_STOP_WORDS
+        and word not in _ASSISTANT_COLOR_TERMS
+        and word not in _ASSISTANT_LABEL_SYNONYMS
+        and not word.isdigit()
+        and not re.match(r"^\d{1,2}(am|pm)$", word)
+    ]
+    return {"label": label, "colors": colors, "keywords": keywords}
+
+
+def _assistant_alert_matches_terms(alert: Alert, camera: Optional[Camera], rule: Optional[Rule], terms: dict) -> bool:
+    label = terms["label"]
+    if label and alert.label != label:
+        return False
+    keywords = terms["keywords"]
+    if not keywords:
+        return True
+    haystack = " ".join(
+        [
+            alert.label or "",
+            camera.name if camera else "",
+            camera.ip if camera and camera.ip else "",
+            rule.name if rule else "",
+        ]
+    ).lower()
+    return all(word in haystack for word in keywords)
+
+
+def _assistant_result(alert: Alert, camera: Optional[Camera], rule: Optional[Rule]) -> dict:
+    clip_url = f"/clips/{alert.clip_path}" if alert.clip_path and alert.clip_status == "ready" else None
+    return {
+        "alert_id": alert.id,
+        "created_at": _as_utc(alert.created_at).isoformat() if _as_utc(alert.created_at) else None,
+        "camera": {
+            "id": camera.id if camera else None,
+            "name": camera.name if camera else "Unknown camera",
+            "ip": camera.ip if camera else None,
+            "channel": camera.channel if camera else None,
+        },
+        "rule": rule.name if rule else None,
+        "label": alert.label,
+        "confidence": alert.conf,
+        "acked": alert.acked,
+        "clip_status": alert.clip_status,
+        "clip_url": clip_url,
+    }
+
+
 class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
@@ -248,10 +485,42 @@ def _ensure_alert_columns() -> None:
         conn.commit()
 
 
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        wanted = {
+            "verify_ssl": "BOOLEAN NOT NULL DEFAULT 1",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE camera ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_alert_columns()
+    _ensure_camera_columns()
+
+    # MIGRATION: Encrypt existing plaintext passwords.
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        any_changed = False
+        for c in cams:
+            if c.password and not is_encrypted(c.password):
+                c.password = encrypt_password(c.password)
+                s.add(c)
+                any_changed = True
+        if any_changed:
+            s.commit()
 
     # seed minimal defaults if empty
     with Session(engine) as s:
@@ -396,7 +665,21 @@ class UiTestForm(BaseModel):
 
 @app.get("/ui/add", response_class=HTMLResponse)
 def ui_add_get(request: Request, ip: str = ""):
-    return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": None})
+    return templates.TemplateResponse(
+        request,
+        "add_camera.html",
+        {
+            "active": "add",
+            "ip": ip,
+            "username": "admin",
+            "channel": 1,
+            "verify_ssl": True,
+            "name_prefix": f"NVR {ip or 'unit'}",
+            "channel_start": 1,
+            "channel_end": 8,
+            "result": None,
+        },
+    )
 
 
 @app.post("/ui/add", response_class=HTMLResponse)
@@ -406,30 +689,80 @@ async def ui_add_post(request: Request):
     username = (form.get("username") or "").strip()
     password = (form.get("password") or "").strip()
     channel = int(form.get("channel") or 1)
+    verify_ssl = form.get("verify_ssl") == "on"
+    name_prefix = (form.get("name_prefix") or f"NVR {ip}").strip()
+    channel_start = max(1, int(form.get("channel_start") or 1))
+    channel_end = max(channel_start, int(form.get("channel_end") or channel_start))
 
     result = None
     if form.get("action") == "test":
         try:
-            result = await test_camera(CameraTestRequest(ip=ip, username=username, password=password, channel=channel))
+            result = await test_camera(CameraTestRequest(
+                ip=ip, username=username, password=password, channel=channel, verify_ssl=verify_ssl
+            ))
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "save":
-        with Session(engine) as s:
-            c = Camera(
-                name=f"Cam {ip}",
-                ip=ip,
-                channel=channel,
-                scheme="https",
-                auth="digest",
-                username=username,
-                password=password,
-            )
-            s.add(c)
-            s.commit()
-        result = {"ok": True, "saved": True}
+        try:
+            _ensure_safe_ip(ip)
+            with Session(engine) as s:
+                c = Camera(
+                    name=f"Cam {ip}",
+                    ip=ip,
+                    channel=channel,
+                    scheme="https",
+                    auth="digest",
+                    username=username,
+                    password=encrypt_password(password),
+                    verify_ssl=verify_ssl,
+                )
+                s.add(c)
+                s.commit()
+            result = {"ok": True, "saved": True}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
 
-    return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
+    if form.get("action") == "bulk_save":
+        try:
+            _ensure_safe_ip(ip)
+            if channel_end - channel_start > 63:
+                result = {"ok": False, "error": "Bulk add is limited to 64 channels at a time"}
+            else:
+                with Session(engine) as s:
+                    for nvr_channel in range(channel_start, channel_end + 1):
+                        s.add(
+                            Camera(
+                                name=f"{name_prefix} ch {nvr_channel}",
+                                ip=ip,
+                                channel=nvr_channel,
+                                scheme="https",
+                                auth="digest",
+                                username=username,
+                                password=encrypt_password(password),
+                                verify_ssl=verify_ssl,
+                            )
+                        )
+                    s.commit()
+                result = {"ok": True, "bulk_saved": True, "count": channel_end - channel_start + 1}
+        except HTTPException as e:
+            result = {"ok": False, "error": str(e.detail)}
+
+    return templates.TemplateResponse(
+        request,
+        "add_camera.html",
+        {
+            "active": "add",
+            "ip": ip,
+            "username": username or "admin",
+            "channel": channel,
+            "verify_ssl": verify_ssl,
+            "name_prefix": name_prefix,
+            "channel_start": channel_start,
+            "channel_end": channel_end,
+            "result": result,
+        },
+    )
 
 
 def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
@@ -452,16 +785,19 @@ def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
 async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     if not cam.ip:
         raise HTTPException(status_code=400, detail="camera has no ip")
+    _ensure_safe_ip(cam.ip)
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
+    password = decrypt_password(cam.password)
+
     auth = None
     if (cam.auth or "digest").lower() == "basic":
-        auth = (cam.username or "", cam.password or "")
+        auth = (cam.username or "", password or "")
     else:
-        auth = httpx.DigestAuth(cam.username or "", cam.password or "")
+        auth = httpx.DigestAuth(cam.username or "", password or "")
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=cam.verify_ssl) as client:
         last_err = None
         for u in urls:
             try:
@@ -602,6 +938,7 @@ async def ui_camera_update(camera_id: int, request: Request):
         channel=int(form.get("channel") or 1),
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
+        verify_ssl=(form.get("verify_ssl") == "on"),
     )
     update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
@@ -678,6 +1015,70 @@ def api_alerts_latest(since: int = 0, limit: int = 50, unacked_only: int = 1):
     }
 
 
+@app.post("/api/assistant/query")
+def api_assistant_query(payload: AssistantQuery):
+    query = payload.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query required")
+
+    now = datetime.now(timezone.utc)
+    limit = max(1, min(int(payload.limit or 8), 25))
+    terms = _assistant_parse_terms(query)
+    window = _assistant_time_window(query, now)
+
+    with Session(engine) as s:
+        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(1000)).all()
+        cameras = {c.id: c for c in s.exec(select(Camera)).all()}
+        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+
+    matches = []
+    for alert in alerts:
+        camera = cameras.get(alert.camera_id)
+        rule = rules.get(alert.rule_id)
+        if not _assistant_alert_matches_window(alert, window):
+            continue
+        if not _assistant_alert_matches_terms(alert, camera, rule, terms):
+            continue
+        matches.append(_assistant_result(alert, camera, rule))
+        if len(matches) >= limit:
+            break
+
+    limitations = []
+    if terms["colors"]:
+        limitations.append(
+            "Colour terms are recognised, but this build only stores alert labels and clip links; scene-colour indexing needs the vision metadata pipeline."
+        )
+
+    label_copy = terms["label"] or "alerts"
+    time_copy = f" during {window['display']}" if window else ""
+    if matches:
+        ready_count = len([item for item in matches if item["clip_url"]])
+        answer = (
+            f"Found {len(matches)} indexed {label_copy} match"
+            f"{'' if len(matches) == 1 else 'es'}{time_copy}. "
+            f"{ready_count} result{'' if ready_count == 1 else 's'} "
+            f"{'includes' if ready_count == 1 else 'include'} playable clips."
+        )
+    else:
+        answer = f"No indexed {label_copy} matches found{time_copy}."
+
+    return {
+        "ok": True,
+        "query": query,
+        "answer": answer,
+        "parsed": {
+            "label": terms["label"],
+            "colors": terms["colors"],
+            "keywords": terms["keywords"],
+            "time_window": window["display"] if window else None,
+        },
+        "searched_alerts": len(alerts),
+        "count": len(matches),
+        "results": matches,
+        "limitations": limitations,
+    }
+
+
 @app.post("/discover")
 async def discover_cameras(req: DiscoverRequest):
     # 2 minutes default, local subnets only
@@ -691,22 +1092,24 @@ def list_cameras():
     # public-safe list (no passwords)
     with Session(engine) as s:
         cams = s.exec(select(Camera)).all()
-        return [
-            {
-                "id": c.id,
-                "name": c.name,
-                "ip": c.ip,
-                "channel": c.channel,
-                "scheme": c.scheme,
-                "auth": c.auth,
-                "username": c.username,
-                "enabled": c.enabled,
-            }
-            for c in cams
-        ]
+        return [_public_camera(c) for c in cams]
 
 
-@app.get("/worker/cameras")
+def _public_camera(c: Camera) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "ip": c.ip,
+        "channel": c.channel,
+        "scheme": c.scheme,
+        "auth": c.auth,
+        "username": c.username,
+        "enabled": c.enabled,
+        "verify_ssl": c.verify_ssl,
+    }
+
+
+@app.get("/worker/cameras", dependencies=[Depends(verify_worker_token)])
 def worker_cameras():
     # MVP: worker runs on same box, so we return creds.
     # Filter out auto-created junk rows.
@@ -725,6 +1128,7 @@ def worker_cameras():
 def create_camera(cam: CameraCreate):
     if not cam.ip:
         raise HTTPException(status_code=400, detail="ip required")
+    _ensure_safe_ip(cam.ip)
     with Session(engine) as s:
         c = Camera(
             name=cam.name,
@@ -733,16 +1137,18 @@ def create_camera(cam: CameraCreate):
             scheme=cam.scheme,
             auth=cam.auth,
             username=cam.username,
-            password=cam.password,
+            password=encrypt_password(cam.password),
         )
         s.add(c)
         s.commit()
         s.refresh(c)
-        return c
+        return _public_camera(c)
 
 
 @app.put("/cameras/{camera_id}")
 def update_camera(camera_id: int, patch: CameraUpdate):
+    if patch.ip is not None:
+        _ensure_safe_ip(patch.ip)
     with Session(engine) as s:
         c = s.get(Camera, camera_id)
         if not c:
@@ -752,6 +1158,8 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         # SECURITY: empty password means "keep existing".
         if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
             data.pop("password", None)
+        elif "password" in data:
+            data["password"] = encrypt_password(data["password"])
 
         for k, v in data.items():
             setattr(c, k, v)
@@ -764,6 +1172,7 @@ def update_camera(camera_id: int, patch: CameraUpdate):
 
 @app.post("/cameras/test")
 async def test_camera(req: CameraTestRequest):
+    _ensure_safe_ip(req.ip)
     # Hikvision-first: try common snapshot endpoints.
     # Return base64 jpeg so UI can preview.
     # Many Hikvision devices use channel numbering like 101 for channel 1 main stream.
@@ -782,7 +1191,7 @@ async def test_camera(req: CameraTestRequest):
     # Hikvision often uses Digest auth; try digest first.
     digest = httpx.DigestAuth(req.username, req.password)
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=req.verify_ssl) as client:
         last_err = None
         for u in urls:
             try:
@@ -840,7 +1249,7 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
     return last is not None
 
 
-@app.post("/ingest/detection")
+@app.post("/ingest/detection", dependencies=[Depends(verify_worker_token)])
 def ingest_detection(det: DetectionIn):
     now = datetime.now(timezone.utc)
 
@@ -899,7 +1308,7 @@ def ingest_detection(det: DetectionIn):
         return {"ok": True, "triggered": triggered}
 
 
-@app.put("/alerts/{alert_id}/clip")
+@app.put("/alerts/{alert_id}/clip", dependencies=[Depends(verify_worker_token)])
 def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)

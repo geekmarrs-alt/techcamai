@@ -5,8 +5,8 @@
   <div class="topbar">
     <div>
       <div class="eyebrow">Onboarding</div>
-      <h1>Add / test camera</h1>
-      <div class="sub">Hikvision-friendly defaults: HTTPS plus Digest. Test first, then save once the feed actually responds.</div>
+      <h1>Add camera / NVR channel</h1>
+      <div class="sub">Add one IP camera directly, or add each NVR/DVR channel using the recorder IP plus the camera channel number.</div>
     </div>
     <div class="row">
       <a class="btn" href="/ui/scan">Back to scan</a>
@@ -21,16 +21,31 @@
     <form method="post" action="/ui/add" class="stack">
       <div class="camera-admin-form-grid">
         <div><div class="sub">IP</div><input name="ip" value="{{ ip }}" placeholder="192.168.0.84" /></div>
-        <div><div class="sub">Channel</div><input name="channel" value="1" /></div>
-        <div><div class="sub">Username</div><input name="username" value="admin" /></div>
+        <div><div class="sub">Channel / NVR slot</div><input name="channel" value="{{ channel }}" /></div>
+        <div><div class="sub">Username</div><input name="username" value="{{ username }}" /></div>
         <div><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Camera password" /></div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 14px;">
+          <input type="checkbox" name="verify_ssl" id="verify_ssl" {% if verify_ssl %}checked{% endif %} />
+          <label for="verify_ssl" class="sub" style="margin: 0;">Verify SSL certificate</label>
+        </div>
+      </div>
+
+      <div class="surface">
+        <div class="eyebrow">NVR / DVR quick add</div>
+        <div class="sub" style="margin:8px 0 10px;">Use the same recorder credentials and create one saved camera per channel for fast setup of a full CCTV unit.</div>
+        <div class="camera-admin-form-grid">
+          <div><div class="sub">Name prefix</div><input name="name_prefix" value="{{ name_prefix }}" /></div>
+          <div><div class="sub">First channel</div><input name="channel_start" value="{{ channel_start }}" /></div>
+          <div><div class="sub">Last channel</div><input name="channel_end" value="{{ channel_end }}" /></div>
+        </div>
       </div>
 
       <div class="camera-admin-actions">
-        <div class="sub">Save now stores the full camera entry, including creds, so the worker and live wall can actually use it.</div>
+        <div class="sub">For an NVR/DVR, save one entry per channel. The same recorder IP can be reused with channel 1, 2, 3, and so on.</div>
         <div class="row">
           <button class="btn primary" name="action" value="test" type="submit">Test snapshot</button>
           <button class="btn" name="action" value="save" type="submit">Save camera</button>
+          <button class="btn" name="action" value="bulk_save" type="submit">Quick add NVR channels</button>
         </div>
       </div>
     </form>
@@ -41,6 +56,7 @@
           <span class="pill ok">OK</span>
           {% if result.url %}<div class="sub" style="margin-top:8px">Resolved URL: <span class="mono">{{ result.url }}</span></div>{% endif %}
           {% if result.saved %}<div class="sub" style="margin-top:8px">Camera saved. Next move: open the live wall or fine-tune the name in camera inventory.</div>{% endif %}
+          {% if result.bulk_saved %}<div class="sub" style="margin-top:8px">{{ result.count }} recorder channels saved. Next move: open camera inventory and name the key views.</div>{% endif %}
         {% else %}
           <span class="pill bad">FAILED</span>
           <div class="sub" style="margin-top:8px">{{ result.error }}</div>
@@ -63,8 +79,8 @@
     </div>
 
     <div class="surface">
-      <div class="eyebrow">Operator note</div>
-      <div class="sub" style="margin-top:8px">If a camera refuses the first attempt, it is usually auth mode, transport, or just the device being a diva. Test before assuming the network is cursed.</div>
+      <div class="eyebrow">Quick recorder setup</div>
+      <div class="sub" style="margin-top:8px">Connect a full CCTV unit by entering the NVR/DVR address, testing channel 1, saving it, then repeating for the remaining channels. Saved channels get their own alerts, live tiles, and playback links.</div>
     </div>
   </aside>
 </div>

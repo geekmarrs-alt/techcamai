@@ -13,6 +13,7 @@ from typing import List
 from urllib.parse import quote
 
 import httpx
+from crypto import decrypt_password
 from pydantic_settings import BaseSettings
 
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: str | None = None
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
 
@@ -36,7 +38,7 @@ def parse_urls(raw: str) -> List[str]:
     return [u for u in urls if u]
 
 
-def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = False) -> bytes | None:
+def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = True) -> bytes | None:
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True, verify=verify) as c:
             r = c.get(url, auth=auth)
@@ -115,6 +117,13 @@ def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str,
     return "motion", conf
 
 
+def _worker_headers() -> dict:
+    headers = {}
+    if S.SECRET_KEY:
+        headers["Authorization"] = f"Bearer {S.SECRET_KEY}"
+    return headers
+
+
 def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None, camera_id: int | None = None):
     payload = {
         "camera_snapshot_url": snapshot_url,
@@ -124,7 +133,7 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -136,7 +145,7 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -204,13 +213,13 @@ def _camera_rtsp_url(cam: dict) -> str:
     if ch < 100:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    pw = decrypt_password(cam.get("password")) or ""
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
     user = cam.get("username")
-    pw = cam.get("password")
+    pw = decrypt_password(cam.get("password"))
     if not user or not pw:
         return None
     auth = (cam.get("auth") or "digest").lower()
@@ -231,7 +240,7 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -269,7 +278,7 @@ def main():
             else:
                 url = _camera_snapshot_url(cam)
                 auth = _camera_auth(cam)
-                cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
+                cur = fetch_snapshot_bytes(url, auth=auth, verify=cam.get("verify_ssl", True))
                 key = url
 
             prev = prev_by_url.get(key)

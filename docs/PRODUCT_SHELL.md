@@ -8,20 +8,21 @@
 
 ## Product positioning
 
-TECHCAMAI is an edge-first AI camera monitoring platform for operators.
-It runs on a Raspberry Pi on your LAN, processes camera streams locally,
+TECHCAMAI is a Windows-first AI camera monitoring platform for operators.
+It runs locally on a Windows workstation, processes camera streams on the LAN,
 and surfaces real-time alerts with clip evidence in a premium operator console.
 
 **Key differentiators:**
+- **Windows desktop native** — install path, desktop launcher, and operator workflow are designed around a local Windows workstation.
 - **Edge-native** — AI inference and clip capture happen on-site. No cloud dependency for the core loop.
 - **Operator-focused** — The console is built for security operators, not IT admins or end customers.
 - **Evidence-forward** — Every alert carries a clip. Operators see what triggered the alert.
-- **Lightweight deployment** — Docker Compose on a Pi. No Kubernetes, no cloud agents.
+- **Lightweight deployment** — Docker Compose behind a Windows desktop launcher. No Kubernetes, no cloud agents.
 
 **Audience (priority order):**
 1. Security-conscious SMBs deploying IP cameras on-prem
 2. Integrators and resellers adding monitoring to Hikvision/IP camera installs
-3. Solo operators building their own CCTV back-end
+3. Solo operators building their own Windows CCTV back-end
 
 **Non-audience right now:**
 - Enterprise fleet operators expecting SOC integrations
@@ -38,9 +39,9 @@ and surfaces real-time alerts with clip evidence in a premium operator console.
 - Self-hosted, single-site deployment
 - All current MVP features: LAN scan, camera management, alert inbox, clip capture, dashboard
 - No auth, no license key required
-- Free — open-source or free binary distribution
+- Developer Preview only — no open-source, public binary, resale, or redistribution grant
 - Camera soft-limit: 4 (honour system; not enforced in MVP)
-- Support: community / GitHub issues
+- Support: direct owner-managed access while the product shell is being built
 
 ### Operator Pro (planned)
 
@@ -76,8 +77,8 @@ techcamai.com/
 ├── /                    # Landing — hero, feature highlights, CTA
 ├── /features            # Feature breakdown (alert loop, clip capture, Pi deploy)
 ├── /pricing             # Tier comparison (Community / Pro / Enterprise)
-├── /docs                # Getting started, Pi deployment, API reference
-├── /download            # Community binary / Pi install one-liner
+├── /docs                # Getting started, Windows/Pi deployment, API reference
+├── /download            # Controlled-access Windows/Pi installer onboarding
 ├── /login               # Hosted dashboard redirect (future — not yet built)
 └── /contact             # Enterprise enquiry form
 ```
@@ -85,8 +86,8 @@ techcamai.com/
 **Landing page must-haves:**
 - Dashboard screenshot (operator console, dark mode)
 - "Edge-first AI camera monitoring" as primary value prop
-- "Self-host free" entry point prominently — no credit card
-- Pi install one-liner
+- "Request access" entry point prominently — no public download until licensing is real
+- Windows desktop and Pi install flows after approved access
 - Email capture for early access / beta list
 
 ---
@@ -112,15 +113,15 @@ techcamai.com/
    - Forced password change on first login
 
 4. **License key check**
-   - Validated on startup by `api/app/shell.py` (scaffold exists)
+   - Validated by `api/app/shell.py`
    - Absent key → Community edition (camera soft-limit applies)
    - Valid key → Pro or Enterprise features unlock
    - Key format: `TCAM-XXXX-XXXX-XXXX` (alpha-numeric segments)
 
 5. **Worker / ingest auth**
-   - Worker sends `X-Worker-Token: <token>` header on `/ingest/detection`
-   - Token derived from `SECRET_KEY` — avoids requiring a login session for the worker process
-   - Currently not enforced; ingest endpoint is open
+   - Worker sends `Authorization: Bearer <SECRET_KEY>` on protected worker/API endpoints
+   - Blank `SECRET_KEY` keeps legacy local-MVP behavior
+   - Non-blank `SECRET_KEY` protects `/worker/cameras`, `/ingest/detection`, and clip update routes
 
 6. **Admin provisioning UI intent**
    - Kris needs an admin-only interface in the dashboard/product shell
@@ -153,7 +154,7 @@ Features behind Enterprise (beyond Pro):
 | Fleet OTA management      | No  | Yes        |
 | M2M API access            | No  | Yes        |
 
-**Rule:** Do not add fake gates to the current MVP. Gates ship only when the license-check path in `shell.py` is real.
+**Rule:** Feature gates must use `api/app/shell.py`; do not add one-off checks elsewhere.
 
 ---
 
@@ -161,7 +162,7 @@ Features behind Enterprise (beyond Pro):
 
 Where the product shell hooks into the existing operator MVP:
 
-### `api/app/shell.py` ← scaffold exists
+### `api/app/shell.py`
 
 Central module for edition detection and feature gating.
 
@@ -173,8 +174,7 @@ from app.shell import current_edition, feature_allowed, camera_limit
 - `feature_allowed("email_alerts")` → `True / False`
 - `camera_limit()` → `int | None` (None = unlimited)
 
-When license validation is implemented, only this module changes.
-All call sites stay the same.
+License validation is implemented here. New feature gates should keep call sites using this module.
 
 ### `api/app/templates/base.html`
 
@@ -191,30 +191,32 @@ All call sites stay the same.
 
 ### `worker/worker.py`
 
-- Add `X-Worker-Token` header to all `requests` calls against the API
-- Token = `HMAC(SECRET_KEY, "worker")` or a shared static token from env
-- Currently no header is sent; ingest endpoint is open
+- Sends `Authorization: Bearer <SECRET_KEY>` when `SECRET_KEY` is set
+- Uses encrypted camera credentials returned by the API
 
 ### `.env.example`
 
 Already updated to include:
 - `SECRET_KEY` — session signing + worker token derivation
 - `TECHCAMAI_LICENSE_KEY` — Pro/Enterprise activation (blank = Community)
+- `TCAI_ENCRYPTION_KEY` / `TCAI_KEY_PATH` — camera credential encryption
 
 ---
 
 ## Deployment model
 
-### Community / self-hosted (current)
+### Windows desktop / self-hosted (current)
 
-- `docker compose up` locally or Pi Docker Compose stack
+- `windows/install.ps1` for download, install, desktop shortcut, and local startup
+- `docker compose up` remains the runtime behind the Windows launcher
 - No phone-home, no license server call in Community mode
-- Future: single binary distribution via PyInstaller or compiled Pi image
+- Current Developer Preview access remains proprietary and owner-approved
+- Future: signed Windows installer, single binary distribution, or compiled Pi image with explicit licence terms
 
 ### Hosted (future consideration)
 
 - Operator console served from cloud
-- Cameras remain on LAN; Pi acts as edge agent posting ingest data to hosted API
+- Cameras remain on LAN; Windows workstation acts as edge agent posting ingest data to hosted API
 - Auth mandatory in this model
 - Not a current priority — self-hosted is the core motion
 
@@ -226,9 +228,9 @@ Already updated to include:
 |-----------------------|-----------------------------------------------|
 | Operator console      | Real MVP, running                             |
 | Auth / login          | Not built — hook comments in place            |
-| License / billing     | Not built — `shell.py` scaffold exists        |
+| License validation    | Implemented in `shell.py`; billing UI not built |
 | Product website       | Not in this repo — `web/README.md` placeholder|
 | Email alerts          | SMTP env vars present, not wired to rules     |
 | Fleet management      | Not built                                     |
-| Edition gating        | Shell stub only — no gates enforced           |
-| Worker auth header    | Not enforced — ingest endpoint is open        |
+| Edition gating        | Central helper exists; most feature gates not wired |
+| Worker auth header    | Enforced when `SECRET_KEY` is set             |
