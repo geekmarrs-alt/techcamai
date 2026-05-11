@@ -4,15 +4,24 @@ Lightweight smoke tests for TECHCAMAI operator API.
 Run from the repo root with:
     pytest api/tests/test_smoke.py -v
 
-Tests use an in-memory SQLite database (DB_PATH=:memory:) and a temp clips dir
-so they never touch /data.  No cameras, workers, or real RTSP streams needed.
+Tests use a temp SQLite database and a temp clips dir, so they never touch
+/data. No cameras, workers, or real RTSP streams needed.
 """
 
+import atexit
 import os
+import shutil
+import sqlite3
+import sys
 import tempfile
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+API_ROOT = Path(__file__).resolve().parents[1]
+if str(API_ROOT) not in sys.path:
+    sys.path.insert(0, str(API_ROOT))
 
 # Point DB and clips at safe temp locations before importing app.
 # Use a real temp file, not :memory:, because SQLAlchemy opens multiple
@@ -23,13 +32,25 @@ _tmp_clips = os.path.join(_tmp_dir, "clips")
 os.makedirs(_tmp_clips, exist_ok=True)
 os.environ["DB_PATH"] = _tmp_db
 os.environ["CLIPS_DIR"] = _tmp_clips
+atexit.register(shutil.rmtree, _tmp_dir, ignore_errors=True)
 
-from app.main import app  # noqa: E402 — must be after env setup
+from app import main  # noqa: E402 — must be after env setup
 
 
-@pytest.fixture(scope="module")
+def _reset_state():
+    shutil.rmtree(main.clips_dir, ignore_errors=True)
+    main.clips_dir.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(main.db_path) as conn:
+        conn.execute("DELETE FROM alert")
+        conn.execute("DELETE FROM rule")
+        conn.execute("DELETE FROM camera")
+        conn.commit()
+
+
+@pytest.fixture()
 def client():
-    with TestClient(app, raise_server_exceptions=True) as c:
+    with TestClient(main.app, raise_server_exceptions=True) as c:
+        _reset_state()
         yield c
 
 

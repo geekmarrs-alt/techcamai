@@ -1,3 +1,4 @@
+import atexit
 import importlib
 import os
 import shutil
@@ -24,6 +25,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
         cls.main = importlib.import_module('app.main')
         cls.db_path = Path(cls.main.db_path)
         cls.clips_dir = Path(cls.main.clips_dir)
+        atexit.register(shutil.rmtree, cls.tempdir, ignore_errors=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -31,6 +33,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
 
     def setUp(self):
         shutil.rmtree(self.clips_dir, ignore_errors=True)
+        self.clips_dir.mkdir(parents=True, exist_ok=True)
 
         self.client_cm = TestClient(self.main.app)
         self.client = self.client_cm.__enter__()
