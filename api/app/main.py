@@ -933,7 +933,8 @@ def api_assistant_query(payload: AssistantQuery):
         answer = (
             f"Found {len(matches)} indexed {label_copy} match"
             f"{'' if len(matches) == 1 else 'es'}{time_copy}. "
-            f"{ready_count} result{'' if ready_count == 1 else 's'} include playable clips."
+            f"{ready_count} result{'' if ready_count == 1 else 's'} "
+            f"{'includes' if ready_count == 1 else 'include'} playable clips."
         )
     else:
         answer = f"No indexed {label_copy} matches found{time_copy}."
