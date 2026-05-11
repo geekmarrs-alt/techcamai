@@ -27,7 +27,7 @@
 {% if cams_no_rules %}
 <div style="margin-bottom:16px; padding:12px 16px; border-radius:16px; border:1px solid rgba(248,191,76,.28); background:rgba(248,191,76,.08); color:var(--warn); font-size:13px;">
   <strong>{{ cams_no_rules|length }} enabled camera{% if cams_no_rules|length != 1 %}s{% endif %} have no rules:</strong>
-  {% for c in cams_no_rules %}<a href="#cam-{{ c.id }}" style="color:var(--warn); text-decoration:underline; text-underline-offset:2px; margin-left:8px;">{{ c.name }}</a>{% endfor %} — worker will poll but never fire alerts.
+  {% for c in cams_no_rules %}{% if not loop.first %}, {% endif %}<a href="#cam-{{ c.id }}" style="color:var(--warn); text-decoration:underline; text-underline-offset:2px;">{{ c.name }}</a>{% endfor %} — worker will poll but never fire alerts.
 </div>
 {% endif %}
 
