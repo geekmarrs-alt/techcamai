@@ -1,3 +1,4 @@
+import atexit
 import importlib
 import os
 import shutil
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -22,18 +23,16 @@ class PlaybackCoherenceTests(unittest.TestCase):
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
         cls.main = importlib.import_module('app.main')
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tempdir, ignore_errors=True)
+        atexit.register(shutil.rmtree, cls.tempdir, ignore_errors=True)
 
     def setUp(self):
-        shutil.rmtree(self.tempdir / 'clips', ignore_errors=True)
+        shutil.rmtree(self.main.clips_dir, ignore_errors=True)
+        self.main.clips_dir.mkdir(parents=True, exist_ok=True)
 
         self.client_cm = TestClient(self.main.app)
         self.client = self.client_cm.__enter__()
 
-        with sqlite3.connect(self.tempdir / 'techcamai.db') as conn:
+        with sqlite3.connect(self.main.db_path) as conn:
             conn.execute('DELETE FROM alert')
             conn.execute('DELETE FROM rule')
             conn.execute('DELETE FROM camera')
