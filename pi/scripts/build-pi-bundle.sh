@@ -23,11 +23,22 @@ mkdir -p "$STAGE_DIR"
 
 ( cd "$ROOT_DIR" && tar \
     --exclude='.git' \
+    --exclude='.pytest_cache' \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.DS_Store' \
+    --exclude='.env' \
     --exclude='techcamai.tgz' \
+    --exclude='*.tgz' \
+    --exclude='*.tar.gz' \
+    --exclude='*.bak.*' \
+    --exclude='*.save' \
     --exclude='node_modules' \
+    --exclude='venv' \
+    --exclude='.venv' \
+    --exclude='dist' \
+    --exclude='build' \
+    --exclude='release' \
     -cf - . ) | ( cd "$STAGE_DIR" && tar -xf - )
 
 tar -czf "$OUT_PATH" -C "$TMP_PARENT" techcamai
