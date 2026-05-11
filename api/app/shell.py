@@ -11,7 +11,9 @@ All call sites stay the same; only this module changes.
 See docs/PRODUCT_SHELL.md for the full commercial-tier spec.
 """
 
+import hashlib
 import os
+import re
 from enum import Enum
 
 
@@ -43,18 +45,49 @@ _EDITION_RANK: dict[Edition, int] = {
 CAMERA_LIMIT_COMMUNITY = 4
 
 
+_LICENSE_SALT = "TECHCAMAI-LICENSE-SALT-2026"
+_DEMO_KEY = "TCAI-DEMO-2026"
+
+
+def _validate_license_key(key: str) -> Edition:
+    """Internal validator for TCAM license keys."""
+    if key == _DEMO_KEY:
+        return Edition.PRO
+
+    # Format: TCAM-XXXX-XXXX-XXXX
+    pattern = r"^TCAM-([A-Z0-9]{4})-([A-Z0-9]{4})-([A-Z0-9]{4})$"
+    match = re.match(pattern, key)
+    if not match:
+        return Edition.COMMUNITY
+
+    s2, s3, s4 = match.groups()
+
+    # Checksum is S4. It's derived from the first three segments + a salt.
+    payload = f"TCAM-{s2}-{s3}{_LICENSE_SALT}"
+    expected_checksum = hashlib.sha256(payload.encode()).hexdigest()[:4].upper()
+
+    if s4 != expected_checksum:
+        return Edition.COMMUNITY
+
+    # Edition differentiation based on the second segment prefix.
+    if s2.startswith("PRO"):
+        return Edition.PRO
+    if s2.startswith("ENT"):
+        return Edition.ENTERPRISE
+
+    return Edition.COMMUNITY
+
+
 def current_edition() -> Edition:
     """Return the active edition based on TECHCAMAI_LICENSE_KEY env var.
 
-    Currently always returns COMMUNITY — license validation not yet implemented.
-    When ready: validate key format and signature here.
+    Validates key format and signature.
     Key format: TCAM-XXXX-XXXX-XXXX
     """
     key = os.environ.get("TECHCAMAI_LICENSE_KEY", "").strip()
     if not key:
         return Edition.COMMUNITY
-    # TODO: implement key validation — for now any key value still returns COMMUNITY
-    return Edition.COMMUNITY
+    return _validate_license_key(key)
 
 
 def feature_allowed(feature: str) -> bool:

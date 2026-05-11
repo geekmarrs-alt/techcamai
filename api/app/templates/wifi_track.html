@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Wi-Fi Tracking · TECHCAMAI{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Intelligence</div>
+      <h1>Wi-Fi Movement Tracking</h1>
+      <div class="sub">Map site activity using device signal strength and link it to camera zones.</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="stack">
+    <div class="card">
+      <h3>Active Signals</h3>
+      <div class="sub" style="margin-bottom:14px;">Recent devices detected via infrastructure RSSI triangulation.</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Device MAC</th>
+            <th>Last Seen</th>
+            <th>Signal (RSSI)</th>
+            <th>Zone / Camera</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in devices %}
+          <tr>
+            <td class="mono">{{ d.mac }}</td>
+            <td>{{ d.last_seen|relative_time }}</td>
+            <td>
+              <div class="row" style="gap:6px;">
+                <span class="pill {% if d.rssi > -60 %}ok{% elif d.rssi > -80 %}warn{% else %}bad{% endif %}">{{ d.rssi }} dBm</span>
+              </div>
+            </td>
+            <td>
+              {% set zone = zones.get(d.zone_id) %}
+              {% if zone %}
+                <strong>{{ zone.name }}</strong>
+                {% if zone.camera_id and cams.get(zone.camera_id) %}
+                  <div class="sub">Linked: {{ cams.get(zone.camera_id).name }}</div>
+                {% endif %}
+              {% else %}
+                <span class="muted">Unknown zone</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not devices %}
+          <tr>
+            <td colspan="4" style="text-align:center; padding:40px;">
+              <div class="sub">No tracking data available. Connect a site bridge to start mapping signals.</div>
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card v2-ai-rail" style="border-color:var(--accent3);">
+      <div class="eyebrow" style="color:var(--accent3)">Configuration</div>
+      <h3 style="margin:6px 0 4px; color:var(--text); text-transform:none;">Zone Mapping</h3>
+      <p class="sub">Linking Wi-Fi access points to cameras allows the AI to "pre-stage" feeds as movement is detected nearby.</p>
+
+      <div class="divider"></div>
+
+      <div style="margin-top:14px;">
+        <a class="btn primary full" style="width:100%;" href="#">Add Tracking Zone</a>
+      </div>
+    </div>
+
+    <div class="surface">
+      <div class="tilename">Why Wi-Fi?</div>
+      <div class="sub" style="margin-top:8px;">
+        Cameras provide the "What," but signal triangulation provides the "Where" even when targets are obscured by walls or distance. This layer deepens the site security feel by predicting movement before it enters a frame.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

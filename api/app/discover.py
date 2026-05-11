@@ -5,7 +5,7 @@ import ipaddress
 import json
 import subprocess
 from dataclasses import dataclass, asdict
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import httpx
 
@@ -31,6 +31,11 @@ def _local_ipv4_networks() -> List[ipaddress.IPv4Network]:
     except Exception:
         return []
 
+    return _parse_ip_addr_output(data)
+
+
+def _parse_ip_addr_output(data: List[dict]) -> List[ipaddress.IPv4Network]:
+    """Parse the JSON output of `ip -j addr` into a list of IPv4 networks."""
     nets: List[ipaddress.IPv4Network] = []
     for iface in data:
         for a in iface.get("addr_info", []) or []:
@@ -95,6 +100,17 @@ async def _probe_hik_isapi(client: httpx.AsyncClient, ip: str) -> bool:
     return False
 
 
+def _derive_hosts(nets: List[ipaddress.IPv4Network], max_hosts: int) -> List[str]:
+    """Flatten networks into a list of host IP strings, capped at max_hosts."""
+    hosts: List[str] = []
+    for n in nets:
+        for h in n.hosts():
+            hosts.append(str(h))
+            if len(hosts) >= max_hosts:
+                return hosts
+    return hosts
+
+
 async def discover(timeout_sec: int = 120, max_hosts: int = 2048) -> List[DiscoveredDevice]:
     """Zero-config discovery.
 
@@ -110,45 +126,17 @@ async def discover(timeout_sec: int = 120, max_hosts: int = 2048) -> List[Discov
     if not nets:
         return []
 
-    # Flatten hosts (cap to max_hosts to avoid melting /16s)
-    hosts: List[str] = []
-    for n in nets:
-        for h in n.hosts():
-            hosts.append(str(h))
-            if len(hosts) >= max_hosts:
-                break
-        if len(hosts) >= max_hosts:
-            break
+    hosts = _derive_hosts(nets, max_hosts)
 
     ports_to_check = [80, 443, 554, 8000]
     per_connect_timeout = 0.35
+    sem = asyncio.Semaphore(500)
 
     async with httpx.AsyncClient(timeout=2.0, follow_redirects=True) as client:
-        sem = asyncio.Semaphore(500)
-
-        async def scan_host(ip: str) -> Optional[DiscoveredDevice]:
-            async with sem:
-                open_ports = []
-                for p in ports_to_check:
-                    if await _tcp_connect(ip, p, per_connect_timeout):
-                        open_ports.append(p)
-
-                if not open_ports:
-                    return None
-
-                dev = DiscoveredDevice(ip=ip, ports=open_ports)
-                if 80 in open_ports or 8000 in open_ports:
-                    dev.hikvision_isapi = await _probe_hik_isapi(client, ip)
-                    if dev.hikvision_isapi:
-                        dev.vendor_hint = "hikvision"
-
-                # crude ONVIF hint: RTSP open often correlates, but not definitive
-                if 554 in open_ports:
-                    dev.onvif_hint = True
-
-                return dev
-
-        tasks = [scan_host(ip) for ip in hosts]
+        tasks = [
+            _scan_host(ip, ports_to_check, per_connect_timeout, sem, client)
+            for ip in hosts
+        ]
         results: List[DiscoveredDevice] = []
 
         try:
@@ -162,6 +150,35 @@ async def discover(timeout_sec: int = 120, max_hosts: int = 2048) -> List[Discov
     # Sort: Hikvision first, then by IP
     results.sort(key=lambda d: (0 if d.vendor_hint == "hikvision" else 1, d.ip))
     return results
+
+
+async def _scan_host(
+    ip: str,
+    ports_to_check: List[int],
+    timeout: float,
+    sem: asyncio.Semaphore,
+    client: httpx.AsyncClient,
+) -> Optional[DiscoveredDevice]:
+    async with sem:
+        open_ports = []
+        for p in ports_to_check:
+            if await _tcp_connect(ip, p, timeout):
+                open_ports.append(p)
+
+        if not open_ports:
+            return None
+
+        dev = DiscoveredDevice(ip=ip, ports=open_ports)
+        if 80 in open_ports or 8000 in open_ports:
+            dev.hikvision_isapi = await _probe_hik_isapi(client, ip)
+            if dev.hikvision_isapi:
+                dev.vendor_hint = "hikvision"
+
+        # crude ONVIF hint: RTSP open often correlates, but not definitive
+        if 554 in open_ports:
+            dev.onvif_hint = True
+
+        return dev
 
 
 def discover_sync(timeout_sec: int = 120) -> List[dict]:

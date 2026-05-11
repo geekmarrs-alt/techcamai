@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import ipaddress
 import json
 import re
 import sqlite3
@@ -10,20 +11,23 @@ from typing import Optional, List
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .discover import discover
+from .crypto import encrypt_password, decrypt_password, is_encrypted
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from sqlalchemy import func, Integer
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: Optional[str] = None
 
 
 settings = Settings()
@@ -50,7 +54,11 @@ class Camera(SQLModel, table=True):
     # legacy (kept for now)
     snapshot_url: str = ""
 
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+    local_path: Optional[str] = None  # NVR/DVR direct path
     enabled: bool = True
+    verify_ssl: bool = Field(default=True)
 
 
 class Rule(SQLModel, table=True):
@@ -64,6 +72,42 @@ class Rule(SQLModel, table=True):
     enabled: bool = True
 
 
+class WifiZone(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    ap_mac: str = Field(index=True)
+    camera_id: Optional[int] = None
+
+
+class WifiDevice(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    mac: str = Field(index=True)
+    last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    rssi: int
+    zone_id: Optional[int] = None
+
+
+class License(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(index=True)
+    active: bool = True
+
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True)
+    password_hash: str
+
+
+class ErrorLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    component: str  # api|worker|camera
+    level: str  # error|warning
+    message: str
+    details: Optional[str] = None
+
+
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(index=True)
@@ -72,6 +116,7 @@ class Alert(SQLModel, table=True):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[str] = None
     clip_path: Optional[str] = None
     clip_status: str = "pending"
     clip_error: Optional[str] = None
@@ -84,6 +129,7 @@ class DetectionIn(BaseModel):
     label: str
     conf: float
     snapshot_b64: Optional[str] = None
+    extra_metadata: Optional[dict] = None
 
 
 class CameraCreate(BaseModel):
@@ -94,6 +140,7 @@ class CameraCreate(BaseModel):
     channel: int = 1
     scheme: str = "https"
     auth: str = "digest"
+    verify_ssl: bool = True
 
 
 class CameraTestRequest(BaseModel):
@@ -101,6 +148,7 @@ class CameraTestRequest(BaseModel):
     username: str
     password: str
     channel: int = 1
+    verify_ssl: bool = True
 
 
 class RuleCreate(BaseModel):
@@ -119,7 +167,11 @@ class CameraUpdate(BaseModel):
     channel: Optional[int] = None
     scheme: Optional[str] = None
     auth: Optional[str] = None
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+    local_path: Optional[str] = None
     enabled: Optional[bool] = None
+    verify_ssl: Optional[bool] = None
 
 
 class AlertClipUpdate(BaseModel):
@@ -128,7 +180,33 @@ class AlertClipUpdate(BaseModel):
     clip_error: Optional[str] = None
 
 
+class CameraStatusUpdate(BaseModel):
+    last_seen: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
+
+# Security middleware
+@app.middleware("http")
+async def license_check_middleware(request: Request, call_next):
+    # Skip for static, login, and health
+    if request.url.path in ["/login", "/health", "/api/license/activate"] or request.url.path.startswith(("/static", "/clips")):
+        return await call_next(request)
+
+    # Allow localhost (worker) to bypass
+    if request.client and request.client.host in ("127.0.0.1", "localhost"):
+        return await call_next(request)
+
+    # Check session/cookie for auth
+    auth_token = request.cookies.get("tcai_session")
+    if auth_token == "admin-session-demo": # Simple MVP session check
+        return await call_next(request)
+
+    # If no session, redirect to login (the "Splash Page" / License wall)
+    # This ensures the user is prompted to login or activate
+    return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 app.mount("/clips", StaticFiles(directory=str(clips_dir)), name="clips")
 
@@ -196,6 +274,17 @@ def _normalize_clip_status(status: Optional[str]) -> str:
     return value
 
 
+def verify_worker_token(request: Request):
+    if not settings.SECRET_KEY:
+        return
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = auth_header.split(" ")[1]
+    if token != settings.SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
@@ -223,8 +312,55 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
     return None
 
 
+def _ensure_safe_ip(ip_str: str) -> None:
+    """Validate that the provided IP/hostname is safe for outgoing requests.
+    Blocks loopback, link-local (metadata), unspecified, and multicast addresses.
+    """
+    if not ip_str:
+        return
+
+    # Block common dangerous hostnames explicitly
+    if ip_str.lower() in ("localhost", "127.0.0.1", "::1"):
+        raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is not allowed")
+
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if ip.is_loopback:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a loopback address")
+        if ip.is_link_local:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a link-local address")
+        if ip.is_unspecified:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is an unspecified address")
+        if ip.is_multicast:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str} is a multicast address")
+    except ValueError:
+        # Not a valid IP address, treat as hostname.
+        pass
+
+
 class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
+
+
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        wanted = {
+            "last_seen": "TEXT",
+            "last_error": "TEXT",
+            "local_path": "TEXT",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE camera ADD COLUMN {name} {ddl}")
+        conn.commit()
 
 
 def _ensure_alert_columns() -> None:
@@ -248,10 +384,43 @@ def _ensure_alert_columns() -> None:
         conn.commit()
 
 
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        wanted = {
+            "verify_ssl": "BOOLEAN NOT NULL DEFAULT 1",
+        }
+        for name, ddl in wanted.items():
+            if name not in cols:
+                cur.execute(f"ALTER TABLE camera ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
+    _ensure_camera_columns()
     _ensure_alert_columns()
+    _ensure_camera_columns()
+
+    # MIGRATION: Encrypt existing plaintext passwords.
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        any_changed = False
+        for c in cams:
+            if c.password and not is_encrypted(c.password):
+                c.password = encrypt_password(c.password)
+                s.add(c)
+                any_changed = True
+        if any_changed:
+            s.commit()
 
     # seed minimal defaults if empty
     with Session(engine) as s:
@@ -263,6 +432,23 @@ def startup() -> None:
             s.refresh(demo)
             r = Rule(name="Motion", camera_id=demo.id, label="motion", min_conf=0.35, cooldown_sec=10)
             s.add(r)
+
+            # Seed demo Wi-Fi data
+            z = WifiZone(name="Front Gate Zone", ap_mac="AA:BB:CC:DD:EE:01", camera_id=demo.id)
+            s.add(z)
+            s.commit()
+            s.refresh(z)
+            d = WifiDevice(mac="DE:AD:BE:EF:00:01", rssi=-55, zone_id=z.id)
+            s.add(d)
+
+            # Seed demo user
+            admin = User(username="admin", password_hash="techcamai123")
+            s.add(admin)
+
+            # Seed demo license
+            demo_license = License(key="TCAI-DEMO-2026", active=True)
+            s.add(demo_license)
+
             s.commit()
 
 
@@ -288,15 +474,9 @@ def _as_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
-def _dashboard_context(poll: int = 0) -> dict:
-    now = datetime.now(timezone.utc)
-    with Session(engine) as s:
-        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
-        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
-        cams = {c.id: c for c in cameras}
-        rules = {r.id: r for r in s.exec(select(Rule)).all()}
-
-    enabled_cameras = [c for c in cameras if c.enabled]
+def _get_featured_assets(
+    alerts: list[Alert], cameras: list[Camera], cams: dict[int, Camera], enabled_cameras: list[Camera]
+) -> tuple[Alert | None, Camera | None]:
     unacked_alerts = [a for a in alerts if not a.acked]
     featured_alert = unacked_alerts[0] if unacked_alerts else (alerts[0] if alerts else None)
     featured_camera = None
@@ -306,11 +486,67 @@ def _dashboard_context(poll: int = 0) -> dict:
         featured_camera = enabled_cameras[0]
     if not featured_camera and cameras:
         featured_camera = cameras[0]
+    return featured_alert, featured_camera
+
+
+def _get_focus_summary(featured_camera: Camera | None, featured_alert: Alert | None) -> str:
+    if featured_alert and featured_camera:
+        return (
+            f"{featured_camera.name} is staged because it has the freshest operator-relevant activity. "
+            f"Keep this feed big, keep triage nearby, and avoid burying the incident behind menus."
+        )
+    elif featured_camera:
+        return (
+            f"{featured_camera.name} is on stage because it is the best available live feed right now. "
+            f"Once incidents start landing, the wall should pivot around them automatically."
+        )
+    else:
+        return "No featured camera yet. Add or enable a camera so the dashboard has something real to orbit around."
+
+
+def _get_dashboard_stats(
+    alerts: list[Alert], rules: dict[int, Rule], enabled_cameras: list[Camera], featured_camera: Camera | None, now: datetime
+) -> dict:
+    cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
+    clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
+    clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
+    clip_pending_count = len([a for a in alerts if getattr(a, "clip_status", None) == "pending"])
+    alerts_last_24h = len(
+        [a for a in alerts if _as_utc(a.created_at) and (now - _as_utc(a.created_at)).total_seconds() <= 86400]
+    )
+    cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
+    featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
+    featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
+
+    return {
+        "clip_ready_count": clip_ready_count,
+        "clip_failed_count": clip_failed_count,
+        "clip_pending_count": clip_pending_count,
+        "alerts_last_24h": alerts_last_24h,
+        "cameras_with_rules": cameras_with_rules,
+        "cameras_without_rules": cameras_without_rules,
+        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
+        "featured_camera_last_alert": featured_camera_last_alert,
+    }
+
+
+def _dashboard_context(poll: int = 0) -> dict:
+    now = datetime.now(timezone.utc)
+    with Session(engine) as s:
+        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
+        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
+        cams = {c.id: c for c in cameras}
+        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+
+    enabled_cameras = [c for c in cameras if c.enabled]
+    featured_alert, featured_camera = _get_featured_assets(alerts, cameras, cams, enabled_cameras)
+    focus_summary = _get_focus_summary(featured_camera, featured_alert)
+    stats = _get_dashboard_stats(alerts, rules, enabled_cameras, featured_camera, now)
 
     supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
     alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int((_as_utc(a.created_at) or now).timestamp())))
     recent_playback_alerts = [a for a in alerts if getattr(a, "clip_status", None) in {"ready", "pending", "failed"}][:5]
-
+    unacked_alerts = [a for a in alerts if not a.acked]
     cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
     clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
     clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
@@ -319,6 +555,23 @@ def _dashboard_context(poll: int = 0) -> dict:
     cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
     featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
     featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
+
+    # AI Rail "Recent Insights"
+    ai_insights = []
+    high_conf_alerts = [a for a in alerts if a.conf > 0.8][:3]
+    for a in high_conf_alerts:
+        cam_name = cams[a.camera_id].name if a.camera_id in cams else f"Cam #{a.camera_id}"
+        ai_insights.append({
+            "icon": "◈",
+            "label": f"High Confidence {a.label.title()}",
+            "text": f"Detected on {cam_name} with {int(a.conf*100)}% confidence."
+        })
+    if not ai_insights and alerts:
+        ai_insights.append({
+            "icon": "⬡",
+            "label": "Activity Summary",
+            "text": f"{alerts_last_24h} alerts recorded in the last 24 hours across {len(enabled_cameras)} cameras."
+        })
 
     if featured_alert and featured_camera:
         focus_summary = (
@@ -334,7 +587,7 @@ def _dashboard_context(poll: int = 0) -> dict:
         focus_summary = "No featured camera yet. Add or enable a camera so the dashboard has something real to orbit around."
 
     worker = _worker_health()
-    return {
+    ctx = {
         "active": "overview",
         "alerts": alerts,
         "cameras": cameras,
@@ -348,8 +601,6 @@ def _dashboard_context(poll: int = 0) -> dict:
         "supporting_cameras": supporting_cameras,
         "alert_feed_items": alert_feed_items,
         "recent_playback_alerts": recent_playback_alerts,
-        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
-        "featured_camera_last_alert": featured_camera_last_alert,
         "focus_summary": focus_summary,
         "now_ts": int(now.timestamp()),
         "page_title": "Command dashboard",
@@ -362,7 +613,38 @@ def _dashboard_context(poll: int = 0) -> dict:
         "alerts_last_24h": alerts_last_24h,
         "cameras_with_rules": cameras_with_rules,
         "cameras_without_rules": cameras_without_rules,
+        "ai_insights": ai_insights,
     }
+    ctx.update(stats)
+    return ctx
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_get(request: Request):
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request):
+    form = await request.form()
+    identity = (form.get("identity") or "").strip()
+    password = (form.get("password") or "").strip()
+
+    # Admin check
+    if identity == "admin" and password == "techcamai123":
+        resp = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+        resp.set_cookie(key="tcai_session", value="admin-session-demo", httponly=True)
+        return resp
+
+    # License check
+    with Session(engine) as s:
+        lic = s.exec(select(License).where(License.key == identity).where(License.active == True)).first()
+        if lic:
+            resp = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+            resp.set_cookie(key="tcai_session", value="admin-session-demo", httponly=True)
+            return resp
+
+    return templates.TemplateResponse(request, "login.html", {"error": "Invalid license key or admin credentials."})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -378,6 +660,24 @@ def dashboard_v1_preview(request: Request, poll: int = 0):
 @app.get("/preview/dashboard-v2", response_class=HTMLResponse)
 def dashboard_v2_preview(request: Request, poll: int = 0):
     return templates.TemplateResponse(request, "dashboard_v2_preview.html", _dashboard_context(poll=poll))
+
+
+@app.get("/ui/ai-widgets", response_class=HTMLResponse)
+def ui_ai_widgets(request: Request):
+    return templates.TemplateResponse(request, "ai_widgets.html", {"active": "ai_widgets"})
+
+
+@app.get("/ui/wifi", response_class=HTMLResponse)
+def ui_wifi(request: Request):
+    with Session(engine) as s:
+        devices = s.exec(select(WifiDevice).order_by(WifiDevice.last_seen.desc()).limit(50)).all()
+        zones = {z.id: z for z in s.exec(select(WifiZone)).all()}
+        cams = {c.id: c for c in s.exec(select(Camera)).all()}
+    return templates.TemplateResponse(
+        request,
+        "wifi_track.html",
+        {"active": "wifi", "devices": devices, "zones": zones, "cams": cams},
+    )
 
 
 @app.get("/ui/scan", response_class=HTMLResponse)
@@ -406,11 +706,14 @@ async def ui_add_post(request: Request):
     username = (form.get("username") or "").strip()
     password = (form.get("password") or "").strip()
     channel = int(form.get("channel") or 1)
+    verify_ssl = form.get("verify_ssl") == "on"
 
     result = None
     if form.get("action") == "test":
         try:
-            result = await test_camera(CameraTestRequest(ip=ip, username=username, password=password, channel=channel))
+            result = await test_camera(CameraTestRequest(
+                ip=ip, username=username, password=password, channel=channel, verify_ssl=verify_ssl
+            ))
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
@@ -423,10 +726,18 @@ async def ui_add_post(request: Request):
                 scheme="https",
                 auth="digest",
                 username=username,
-                password=password,
+                password=encrypt_password(password),
+                local_path=(form.get("local_path") or "").strip() or None,
+                verify_ssl=verify_ssl,
             )
             s.add(c)
             s.commit()
+            s.refresh(c)
+            # Automate default motion rule creation
+            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+            s.add(r)
+            s.commit()
+            s.refresh(c)
         result = {"ok": True, "saved": True}
 
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
@@ -452,16 +763,19 @@ def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
 async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     if not cam.ip:
         raise HTTPException(status_code=400, detail="camera has no ip")
+    _ensure_safe_ip(cam.ip)
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
+    password = decrypt_password(cam.password)
+
     auth = None
     if (cam.auth or "digest").lower() == "basic":
-        auth = (cam.username or "", cam.password or "")
+        auth = (cam.username or "", password or "")
     else:
-        auth = httpx.DigestAuth(cam.username or "", cam.password or "")
+        auth = httpx.DigestAuth(cam.username or "", password or "")
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=cam.verify_ssl) as client:
         last_err = None
         for u in urls:
             try:
@@ -504,12 +818,18 @@ def ui_live(request: Request):
 
 
 @app.get("/alerts", response_class=HTMLResponse)
-def ui_alerts(request: Request, show: str = "unacked", poll: int = 0):
+def ui_alerts(request: Request, show: str = "unacked", poll: int = 0, q: Optional[str] = None):
     with Session(engine) as s:
-        q = select(Alert).order_by(Alert.created_at.desc()).limit(200)
+        sql_q = select(Alert).order_by(Alert.created_at.desc()).limit(200)
         if show != "all":
-            q = q.where(Alert.acked == False)  # noqa: E712
-        alerts = s.exec(q).all()
+            sql_q = sql_q.where(Alert.acked == False)  # noqa: E712
+
+        if q:
+            term = f"%{q}%"
+            # Simple keyword search on label
+            sql_q = sql_q.where(Alert.label.like(term))
+
+        alerts = s.exec(sql_q).all()
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
     return templates.TemplateResponse(
@@ -527,16 +847,23 @@ def ui_timeline(request: Request, poll: int = 0):
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
 
-    # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+        # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+        # We use a separate SQL aggregation for performance and to ensure we count all alerts in 24h,
+        # not just the 500 retrieved for the list.
+        cutoff = now - timedelta(hours=24)
+        stats = s.execute(
+            select(
+                func.cast((func.julianday(now) - func.julianday(Alert.created_at)) * 24, Integer).label("bucket"),
+                func.count(Alert.id).label("count")
+            )
+            .where(Alert.created_at >= cutoff)
+            .group_by("bucket")
+        ).all()
+
     hourly_counts = [0] * 24
-    for a in alerts:
-        ts = a.created_at
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        age_sec = (now - ts).total_seconds()
-        bucket = int(age_sec // 3600)
+    for bucket, count in stats:
         if 0 <= bucket < 24:
-            hourly_counts[23 - bucket] += 1
+            hourly_counts[23 - bucket] = count
 
     return templates.TemplateResponse(
         request,
@@ -602,6 +929,8 @@ async def ui_camera_update(camera_id: int, request: Request):
         channel=int(form.get("channel") or 1),
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
+        local_path=(form.get("local_path") or "").strip() or None,
+        verify_ssl=(form.get("verify_ssl") == "on"),
     )
     update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
@@ -701,12 +1030,13 @@ def list_cameras():
                 "auth": c.auth,
                 "username": c.username,
                 "enabled": c.enabled,
+                "verify_ssl": c.verify_ssl,
             }
             for c in cams
         ]
 
 
-@app.get("/worker/cameras")
+@app.get("/worker/cameras", dependencies=[Depends(verify_worker_token)])
 def worker_cameras():
     # MVP: worker runs on same box, so we return creds.
     # Filter out auto-created junk rows.
@@ -725,6 +1055,7 @@ def worker_cameras():
 def create_camera(cam: CameraCreate):
     if not cam.ip:
         raise HTTPException(status_code=400, detail="ip required")
+    _ensure_safe_ip(cam.ip)
     with Session(engine) as s:
         c = Camera(
             name=cam.name,
@@ -733,16 +1064,41 @@ def create_camera(cam: CameraCreate):
             scheme=cam.scheme,
             auth=cam.auth,
             username=cam.username,
-            password=cam.password,
+            password=encrypt_password(cam.password),
         )
         s.add(c)
+        s.commit()
+        s.refresh(c)
+        # Automate default motion rule creation
+        # First check if one already exists for this label (prevents double-creation in tests)
+        exists = s.exec(select(Rule).where(Rule.camera_id == c.id).where(Rule.label == "motion")).first()
+        if not exists:
+            r = Rule(name="Default Motion", camera_id=c.id, label="motion", min_conf=0.35, cooldown_sec=120)
+            s.add(r)
         s.commit()
         s.refresh(c)
         return c
 
 
+@app.put("/cameras/{camera_id}/status")
+def update_camera_status(camera_id: int, status: CameraStatusUpdate):
+    with Session(engine) as s:
+        c = s.get(Camera, camera_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="camera not found")
+        if status.last_seen:
+            c.last_seen = status.last_seen
+        if status.last_error is not None:
+            c.last_error = status.last_error if status.last_error else None
+        s.add(c)
+        s.commit()
+        return {"ok": True}
+
+
 @app.put("/cameras/{camera_id}")
 def update_camera(camera_id: int, patch: CameraUpdate):
+    if patch.ip is not None:
+        _ensure_safe_ip(patch.ip)
     with Session(engine) as s:
         c = s.get(Camera, camera_id)
         if not c:
@@ -752,6 +1108,8 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         # SECURITY: empty password means "keep existing".
         if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
             data.pop("password", None)
+        elif "password" in data:
+            data["password"] = encrypt_password(data["password"])
 
         for k, v in data.items():
             setattr(c, k, v)
@@ -764,6 +1122,7 @@ def update_camera(camera_id: int, patch: CameraUpdate):
 
 @app.post("/cameras/test")
 async def test_camera(req: CameraTestRequest):
+    _ensure_safe_ip(req.ip)
     # Hikvision-first: try common snapshot endpoints.
     # Return base64 jpeg so UI can preview.
     # Many Hikvision devices use channel numbering like 101 for channel 1 main stream.
@@ -779,28 +1138,39 @@ async def test_camera(req: CameraTestRequest):
             f"https://{req.ip}/Streaming/channels/{ch}/picture",
             f"http://{req.ip}/Streaming/channels/{ch}/picture",
         ]
-    # Hikvision often uses Digest auth; try digest first.
-    digest = httpx.DigestAuth(req.username, req.password)
+    # Try Digest first (Hikvision default), then Basic auth.
+    auth_methods = [
+        httpx.DigestAuth(req.username, req.password),
+        (req.username, req.password),
+    ]
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=req.verify_ssl) as client:
         last_err = None
-        for u in urls:
-            try:
-                r = await client.get(u, auth=digest)
-                if r.status_code != 200:
-                    last_err = f"{u} -> HTTP {r.status_code}"
-                    continue
-                if not r.content:
-                    last_err = f"{u} -> empty body"
-                    continue
-                # assume jpeg
-                b64 = base64.b64encode(r.content).decode("ascii")
-                return {"ok": True, "url": u, "jpeg_b64": b64}
-            except Exception as e:
-                last_err = f"{u} -> {e}"
-                continue
+        for auth in auth_methods:
+            for u in urls:
+                try:
+                    r = await client.get(u, auth=auth)
+                    if r.status_code == 401:
+                        # try next auth method
+                        continue
+                    if r.status_code != 200:
+                        last_err = f"{u} -> HTTP {r.status_code}"
+                        continue
+                    if not r.content:
+                        last_err = f"{u} -> empty body"
+                        continue
+                    # verify jpeg magic bytes
+                    if not r.content.startswith(b"\xff\xd8"):
+                        last_err = f"{u} -> not a valid JPEG"
+                        continue
 
-    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}")
+                    b64 = base64.b64encode(r.content).decode("ascii")
+                    return {"ok": True, "url": u, "jpeg_b64": b64, "auth_used": "digest" if isinstance(auth, httpx.DigestAuth) else "basic"}
+                except Exception as e:
+                    last_err = f"{u} -> {e}"
+                    continue
+
+    raise HTTPException(status_code=400, detail=f"Snapshot test failed: {last_err}. Check your credentials and IP connectivity.")
 
 
 @app.get("/rules")
@@ -840,66 +1210,81 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
     return last is not None
 
 
-@app.post("/ingest/detection")
+def _resolve_camera(s: Session, det: DetectionIn) -> Optional[Camera]:
+    cam = None
+
+    if det.camera_id is not None:
+        cam = s.get(Camera, int(det.camera_id))
+
+    if not cam:
+        cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
+
+    if not cam:
+        # Fallback: match by hostname/IP and, when possible, channel.
+        try:
+            host = urlparse(det.camera_snapshot_url).hostname
+        except Exception:
+            host = None
+        if host:
+            channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
+            if channel_hint is not None:
+                cam = s.exec(
+                    select(Camera)
+                    .where(Camera.ip == host)
+                    .where(Camera.channel == channel_hint)
+                ).first()
+            if not cam:
+                cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+
+    return cam
+
+
+def _evaluate_rules(s: Session, cam: Camera, det: DetectionIn, now: datetime) -> List[Alert]:
+    rules = s.exec(select(Rule).where(Rule.camera_id == cam.id).where(Rule.enabled == True)).all()  # noqa: E712
+    triggered: List[Alert] = []
+    for r in rules:
+        if r.label != det.label:
+            continue
+        if det.conf < r.min_conf:
+            continue
+        if _cooldown_hit(s, r, now):
+            continue
+        a = Alert(
+            created_at=now,
+            camera_id=cam.id,
+            rule_id=r.id,
+            label=det.label,
+            conf=float(det.conf),
+            snapshot_b64=det.snapshot_b64,
+            extra_metadata=json.dumps(det.extra_metadata) if det.extra_metadata else None,
+            acked=False,
+        )
+        s.add(a)
+        triggered.append(a)
+    return triggered
+
+
+@app.post("/ingest/detection", dependencies=[Depends(verify_worker_token)])
 def ingest_detection(det: DetectionIn):
     now = datetime.now(timezone.utc)
 
     with Session(engine) as s:
-        cam = None
-
-        if det.camera_id is not None:
-            cam = s.get(Camera, int(det.camera_id))
-
-        if not cam:
-            cam = s.exec(select(Camera).where(Camera.snapshot_url == det.camera_snapshot_url)).first()
-
-        if not cam:
-            # Fallback: match by hostname/IP and, when possible, channel.
-            try:
-                host = urlparse(det.camera_snapshot_url).hostname
-            except Exception:
-                host = None
-            if host:
-                channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
-                if channel_hint is not None:
-                    cam = s.exec(
-                        select(Camera)
-                        .where(Camera.ip == host)
-                        .where(Camera.channel == channel_hint)
-                    ).first()
-                if not cam:
-                    cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+        cam = _resolve_camera(s, det)
 
         if not cam:
             return {"ok": True, "triggered": []}
 
-        rules = s.exec(select(Rule).where(Rule.camera_id == cam.id).where(Rule.enabled == True)).all()  # noqa: E712
-        triggered: List[Alert] = []
-        for r in rules:
-            if r.label != det.label:
-                continue
-            if det.conf < r.min_conf:
-                continue
-            if _cooldown_hit(s, r, now):
-                continue
-            a = Alert(
-                created_at=now,
-                camera_id=cam.id,
-                rule_id=r.id,
-                label=det.label,
-                conf=float(det.conf),
-                snapshot_b64=det.snapshot_b64,
-                acked=False,
-            )
-            s.add(a)
+        triggered = _evaluate_rules(s, cam, det, now)
+
+        if triggered:
             s.commit()
-            s.refresh(a)
-            triggered.append(a)
+            for a in triggered:
+                s.refresh(a)
 
         return {"ok": True, "triggered": triggered}
 
 
-@app.put("/alerts/{alert_id}/clip")
+@app.put("/alerts/{alert_id}/clip", dependencies=[Depends(verify_worker_token)])
 def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)
@@ -940,3 +1325,51 @@ def ack_alert(alert_id: int, request: Request, poll: int = 0):
         sep = "&" if "?" in ref else "?"
         ref = f"{ref}{sep}poll=1"
     return RedirectResponse(url=ref, status_code=303)
+
+@app.get("/api/ai/summary")
+def get_ai_summary():
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        active_cams = [c for c in cams if c.enabled]
+        offline_cams = [c for c in active_cams if c.last_error]
+
+        # Recent alerts (last 1h)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_alerts = s.exec(select(Alert).where(Alert.created_at >= cutoff)).all()
+
+    status = "nominal"
+    if offline_cams:
+        status = "degraded"
+    if len(recent_alerts) > 10:
+        status = "active"
+
+    summary = f"Site status is {status}. "
+    summary += f"I am currently monitoring {len(active_cams)} cameras. "
+
+    if offline_cams:
+        summary += f"Warning: {len(offline_cams)} cameras are reporting errors, including {offline_cams[0].name}. "
+    else:
+        summary += "All enabled feeds are healthy. "
+
+    if recent_alerts:
+        summary += f"There have been {len(recent_alerts)} alerts in the last hour. "
+    else:
+        summary += "No recent incidents detected."
+
+    return {"ok": True, "summary": summary, "status": status}
+
+@app.get("/mobile", response_class=HTMLResponse)
+def mobile_view(request: Request):
+    return templates.TemplateResponse(request, "mobile_view.html", _dashboard_context(poll=1))
+
+@app.post("/api/system/report")
+async def report_error(log: ErrorLog):
+    with Session(engine) as s:
+        s.add(log)
+        s.commit()
+    return {"ok": True}
+
+@app.get("/api/system/errors")
+def get_errors(limit: int = 50):
+    with Session(engine) as s:
+        return s.exec(select(ErrorLog).order_by(ErrorLog.created_at.desc()).limit(limit)).all()

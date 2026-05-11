@@ -6,13 +6,15 @@ import json
 import os
 import random
 import subprocess
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
-from urllib.parse import quote
 
 import httpx
+from crypto import decrypt_password
 from pydantic_settings import BaseSettings
 
 
@@ -24,11 +26,14 @@ class Settings(BaseSettings):
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: str | None = None
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
 
 
 S = Settings()
+# Global executor for background tasks like clip capture
+executor = ThreadPoolExecutor(max_workers=4)
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -36,7 +41,7 @@ def parse_urls(raw: str) -> List[str]:
     return [u for u in urls if u]
 
 
-def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = False) -> bytes | None:
+def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = True) -> bytes | None:
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True, verify=verify) as c:
             r = c.get(url, auth=auth)
@@ -51,17 +56,26 @@ def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool 
 
 def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """Grab one frame via ffmpeg.
-
-    This is intentionally dumb + robust for MVP: spawn ffmpeg, write /tmp frame, read bytes.
+    Windows-native: calls ffmpeg directly.
     """
-    out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
+    temp_dir = Path(os.environ.get("TEMP", "/tmp"))
+    out = temp_dir / f"techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
+
+    cmd = [
+        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+        "-rtsp_transport", "tcp",
+        "-i", rtsp_url,
+        "-frames:v", "1", "-q:v", "3",
+        "-update", "1", str(out)
+    ]
+
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        with open(out, "rb") as f:
-            b = f.read()
-        if not b.startswith(b"\xff\xd8"):
-            return None
-        return b
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20.0)
+        if out.exists():
+            b = out.read_bytes()
+            if b.startswith(b"\xff\xd8"):
+                return b
+        return None
     except Exception:
         return None
 
@@ -115,6 +129,13 @@ def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str,
     return "motion", conf
 
 
+def _worker_headers() -> dict:
+    headers = {}
+    if S.SECRET_KEY:
+        headers["Authorization"] = f"Bearer {S.SECRET_KEY}"
+    return headers
+
+
 def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None, camera_id: int | None = None):
     payload = {
         "camera_snapshot_url": snapshot_url,
@@ -124,7 +145,7 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -136,9 +157,23 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
+
+
+def update_camera_status(camera_id: int, last_seen: datetime | None = None, last_error: str | None = None):
+    payload = {}
+    if last_seen:
+        payload["last_seen"] = last_seen.isoformat()
+    if last_error is not None:
+        payload["last_error"] = last_error
+    try:
+        with httpx.Client(timeout=5.0) as c:
+            r = c.put(f"{S.API_BASE_URL}/cameras/{camera_id}/status", json=payload)
+            r.raise_for_status()
+    except Exception as e:
+        print(f"[worker] Could not update camera {camera_id} status: {e}")
 
 
 def _alert_clip_relpath(cam: dict, alert_id: int, created_at: str | None = None) -> str:
@@ -161,31 +196,40 @@ def capture_alert_clip(cam: dict, alert: dict):
     if not alert_id:
         return
 
-    rel_path = _alert_clip_relpath(cam, int(alert_id), alert.get("created_at"))
-    out_path = Path(S.CLIPS_DIR) / rel_path
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    rtsp_url = _camera_rtsp_url(cam)
-    try:
-        subprocess.run(
-            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if not out_path.exists() or out_path.stat().st_size == 0:
-            raise RuntimeError("clip file missing or empty")
-        update_alert_clip(int(alert_id), "ready", rel_path, None)
-        print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
-    except Exception as e:
+    def _do_capture():
+        rel_path = _alert_clip_relpath(cam, int(alert_id), alert.get("created_at"))
+        out_path = Path(S.CLIPS_DIR) / rel_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        rtsp_url = _camera_rtsp_url(cam)
         try:
-            if out_path.exists():
-                out_path.unlink()
-        except Exception:
-            pass
-        err = str(e)[:300]
-        update_alert_clip(int(alert_id), "failed", None, err)
-        print(f"[worker] Clip failed for alert {alert_id}: {err}")
+            duration = str(max(1, int(S.CLIP_DURATION_SEC)))
+            cmd = [
+                "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-rtsp_transport", "tcp",
+                "-i", rtsp_url,
+                "-t", duration,
+                "-an",
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                str(out_path)
+            ]
+            capture_timeout = float(S.CLIP_DURATION_SEC) + 15.0
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=capture_timeout)
+            if not out_path.exists() or out_path.stat().st_size == 0:
+                raise RuntimeError("clip file missing or empty")
+            update_alert_clip(int(alert_id), "ready", rel_path, None)
+            print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
+        except Exception as e:
+            try:
+                if out_path.exists():
+                    out_path.unlink()
+            except Exception:
+                pass
+            err = str(e)[:300]
+            update_alert_clip(int(alert_id), "failed", None, err)
+            print(f"[worker] Clip failed for alert {alert_id}: {err}")
+
+    executor.submit(_do_capture)
 
 
 def _camera_snapshot_url(cam: dict) -> str:
@@ -204,13 +248,13 @@ def _camera_rtsp_url(cam: dict) -> str:
     if ch < 100:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    pw = decrypt_password(cam.get("password")) or ""
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
     user = cam.get("username")
-    pw = cam.get("password")
+    pw = decrypt_password(cam.get("password"))
     if not user or not pw:
         return None
     auth = (cam.get("auth") or "digest").lower()
@@ -231,15 +275,72 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
+
+
+def _process_camera(cam: dict, prev_by_url: dict[str, bytes], lock: threading.Lock):
+    if int(S.PREFER_RTSP) == 1:
+        rtsp = _camera_rtsp_url(cam)
+        cur = fetch_rtsp_frame(rtsp)
+        key = rtsp
+    else:
+        url = _camera_snapshot_url(cam)
+        auth = _camera_auth(cam)
+        cur = fetch_snapshot_bytes(url, auth=auth, verify=cam.get("verify_ssl", True))
+        key = url
+
+    with lock:
+        prev = prev_by_url.get(key)
+    label, conf = motion_detect(prev, cur)
+    with lock:
+        prev_by_url[key] = cur or prev_by_url.get(key) or b""
+
+    if conf <= 0.01:
+        return
+
+    snap_b64 = jpeg_b64(cur)
+    try:
+        res = post_detection(key, label, conf, snap_b64, cam.get("id"))
+        trig = res.get("triggered", [])
+        if trig:
+            cam_desc = cam.get("ip") or key
+            print(f"[worker] Triggered {len(trig)} alert(s) for {cam_desc} label={label} conf={conf:.2f}")
+            if cam.get("id"):
+                for alert in trig:
+                    capture_alert_clip(cam, alert)
+    except Exception as e:
+        cam_desc = cam.get("ip") or key
+        print(f"[worker] Error posting detection for {cam_desc}: {e}")
+
+
+def _process_legacy_url(u: str, prev_by_url: dict[str, bytes], lock: threading.Lock):
+    cur = fetch_snapshot_bytes(u)
+    with lock:
+        prev = prev_by_url.get(u)
+    label, conf = motion_detect(prev, cur)
+    with lock:
+        prev_by_url[u] = cur or prev_by_url.get(u) or b""
+
+    if conf <= 0.01:
+        return
+
+    snap_b64 = jpeg_b64(cur)
+    try:
+        res = post_detection(u, label, conf, snap_b64)
+        trig = res.get("triggered", [])
+        if trig:
+            print(f"[worker] Triggered {len(trig)} alert(s) for {u} label={label} conf={conf:.2f}")
+    except Exception as e:
+        print(f"[worker] Error posting detection for {u}: {e}")
 
 
 def main():
     print(f"[worker] Starting — API={S.API_BASE_URL} poll={S.POLL_INTERVAL_SEC}s clip_capture={bool(S.CLIP_CAPTURE_ENABLED)} clip_dur={S.CLIP_DURATION_SEC}s prefer_rtsp={bool(S.PREFER_RTSP)}")
     prev_by_url: dict[str, bytes] = {}
     _api_reachable = True
+    lock = threading.Lock()
 
     while True:
         try:
@@ -255,61 +356,17 @@ def main():
 
         # legacy env fallback
         urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
-        legacy = [{"ip": None, "snapshot_url": u} for u in urls]
 
-        if not cams and not legacy and _api_reachable:
+        if not cams and not urls and _api_reachable:
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
 
-        for cam in cams:
-            # Prefer RTSP for broad camera compatibility.
-            if int(S.PREFER_RTSP) == 1:
-                rtsp = _camera_rtsp_url(cam)
-                cur = fetch_rtsp_frame(rtsp)
-                key = rtsp
-            else:
-                url = _camera_snapshot_url(cam)
-                auth = _camera_auth(cam)
-                cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
-                key = url
-
-            prev = prev_by_url.get(key)
-            label, conf = motion_detect(prev, cur)
-            prev_by_url[key] = cur or prev_by_url.get(key) or b""
-
-            if conf <= 0.01:
-                continue
-
-            snap_b64 = jpeg_b64(cur)
-            try:
-                res = post_detection(key, label, conf, snap_b64, cam.get("id"))
-                trig = res.get("triggered", [])
-                if trig:
-                    print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
-                    for alert in trig:
-                        capture_alert_clip(cam, alert)
-            except Exception as e:
-                print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
-
-        # legacy URLs (no auth)
-        for l in legacy:
-            u = l["snapshot_url"]
-
-            cur = fetch_snapshot_bytes(u)
-            prev = prev_by_url.get(u)
-            label, conf = motion_detect(prev, cur)
-            prev_by_url[u] = cur or prev_by_url.get(u) or b""
-
-            if conf <= 0.01:
-                continue
-
-            snap_b64 = jpeg_b64(cur)
-            try:
-                res = post_detection(u, label, conf, snap_b64)
-                trig = res.get("triggered", [])
-                if trig:
-                    print(f"[worker] Triggered {len(trig)} alert(s) for {u} label={label} conf={conf:.2f}")
-            except Exception as e:
-                print(f"[worker] Error posting detection for {u}: {e}")
+        total_jobs = len(cams) + len(urls)
+        if total_jobs > 0:
+            with ThreadPoolExecutor(max_workers=total_jobs) as poll_executor:
+                for cam in cams:
+                    poll_executor.submit(_process_camera, cam, prev_by_url, lock)
+                for u in urls:
+                    poll_executor.submit(_process_legacy_url, u, prev_by_url, lock)
 
         _write_heartbeat()
         time.sleep(max(1, int(S.POLL_INTERVAL_SEC)))
