@@ -60,6 +60,16 @@
           <strong>Direct HDD Playback:</strong> If this unit is connected via SATA/USB to this computer, enter the local drive path (e.g., <code>D:\Recordings</code>) in the <strong>Storage Path</strong> field to enable instant AI playback.
         </div>
 
+        <div id="nvr-bulk-fields" class="surface" style="display:none">
+          <div class="eyebrow">Quick add recorder channels</div>
+          <div class="sub" style="margin:8px 0 10px;">Use the same recorder credentials and create one saved camera per channel.</div>
+          <div class="camera-admin-form-grid">
+            <div><div class="sub">Name prefix</div><input name="name_prefix" value="NVR {{ ip or 'unit' }}" /></div>
+            <div><div class="sub">First channel</div><input name="channel_start" value="1" /></div>
+            <div><div class="sub">Last channel</div><input name="channel_end" value="8" /></div>
+          </div>
+        </div>
+
         <div>
           <div class="sub">Storage Path (Optional)</div>
           <input name="local_path" placeholder="e.g. D:\CCTV_Data" />
@@ -70,6 +80,7 @@
           <div class="row">
             <button class="btn primary" name="action" value="test" type="submit">Test Connection</button>
             <button class="btn" name="action" value="save" type="submit">Save to Inventory</button>
+            <button class="btn" id="bulk-save-button" name="action" value="bulk_save" type="submit" style="display:none">Quick Add NVR Channels</button>
           </div>
         </div>
       </form>
@@ -80,6 +91,7 @@
             <span class="pill ok">OK</span>
             {% if result.url %}<div class="sub" style="margin-top:8px">Connected via: <span class="mono">{{ result.url }}</span></div>{% endif %}
             {% if result.saved %}<div class="sub" style="margin-top:8px">System integrated successfully. Open the <strong>Live Wall</strong> to view.</div>{% endif %}
+            {% if result.bulk_saved %}<div class="sub" style="margin-top:8px">{{ result.count }} recorder channels saved. Open camera inventory to name the key views.</div>{% endif %}
           {% else %}
             <span class="pill bad">FAILED</span>
             <div class="sub" style="margin-top:8px">{{ result.error }}</div>
@@ -115,11 +127,15 @@
       document.getElementById('form-title').textContent = 'Single Camera Credentials';
       document.getElementById('ch-label').textContent = 'Channel';
       document.getElementById('nvr-help').style.display = 'none';
+      document.getElementById('nvr-bulk-fields').style.display = 'none';
+      document.getElementById('bulk-save-button').style.display = 'none';
     } else {
       tabs[1].classList.add('active');
       document.getElementById('form-title').textContent = 'NVR / DVR System Credentials';
       document.getElementById('ch-label').textContent = 'Master Channel';
       document.getElementById('nvr-help').style.display = 'block';
+      document.getElementById('nvr-bulk-fields').style.display = 'block';
+      document.getElementById('bulk-save-button').style.display = 'inline-flex';
     }
   }
 </script>

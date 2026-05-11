@@ -1,48 +1,144 @@
-{#
-  AI ASSIST RAIL — structural placeholder for the AI sidebar.
-  This is the reserved home for:
-    • Natural-language alert query
-    • Voice control entry point
-    • Per-camera scene summaries
-    • Smart triage / cluster view
-
-  No fake data or mock responses rendered here.
-  Real widgets connect once the inference pipeline is wired (post-MVP).
-  Operator-facing copy is honest: "planned", not "beta" or fake status.
-#}
-<section class="card v2-rail-panel v2-ai-rail" aria-label="AI assist — Active">
+<section class="card v2-rail-panel v2-ai-rail" aria-label="AI assistant">
   <div class="row" style="justify-content:space-between; align-items:flex-start">
     <div>
-      <div class="eyebrow" style="color:var(--accent3)">AI assist · Online</div>
-      <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Smart Assistant</h3>
-      <div class="sub">Voice queries, scene summaries, and smart triage are active. Use ⌘K to start a conversation.</div>
+      <div class="eyebrow" style="color:var(--accent3)">AI assistant · local index</div>
+      <h3 style="margin:6px 0 4px; font-size:18px; text-transform:none; letter-spacing:-.02em; color:var(--text)">Ask your recordings</h3>
+      <div class="sub">Searches saved alerts, cameras, and playable clips. Browser speech input/output is enabled when supported.</div>
     </div>
   </div>
 
-  {# Command input slot #}
-  <div class="v2-ai-cmd-slot" title="Press ⌘K to talk to AI" onclick="window.techcamaiAssistant && window.techcamaiAssistant.handleCommand(prompt('Ask TECHCAMAI Assistant:'))" style="cursor: pointer;">
-    <span class="v2-ai-cmd-placeholder">Ask about your cameras…</span>
-    <span class="v2-kbd">⌘K</span>
-  </div>
+  <form class="v2-ai-form" id="assistantForm">
+    <div class="v2-ai-query-row">
+      <input id="assistantQuery" name="query" value="Search recordings between 2am and 3am for a red car" aria-label="Ask the AI assistant" />
+      <button class="btn v2-ai-mic" id="assistantMic" type="button" title="Start voice input">Mic</button>
+    </div>
+    <div class="row">
+      <button class="btn primary" type="submit">Ask assistant</button>
+      <button class="btn ghost" id="assistantStopSpeech" type="button">Stop voice</button>
+    </div>
+    <div class="v2-ai-status" id="assistantStatus">Ready. Try: "show vehicle recordings from 2am to 3am".</div>
+  </form>
 
-  {# AI Insight slots #}
-  <div class="v2-ai-slot-list">
-    {% for insight in ai_insights %}
+  <div class="v2-ai-answer" id="assistantAnswer" aria-live="polite"></div>
+
+  <div class="v2-ai-slot-list" aria-label="Assistant capabilities">
     <div class="v2-ai-slot">
-      <span class="v2-ai-slot-icon" aria-hidden="true">{{ insight.icon }}</span>
+      <span class="v2-ai-slot-icon" aria-hidden="true">AI</span>
       <div>
-        <div class="v2-pulse-label">{{ insight.label }}</div>
-        <div class="sub">{{ insight.text }}</div>
+        <div class="v2-pulse-label">Recording search</div>
+        <div class="sub">Natural language time windows and object synonyms query the alert DB.</div>
       </div>
     </div>
-    {% else %}
     <div class="v2-ai-slot">
-      <span class="v2-ai-slot-icon" aria-hidden="true">⬡</span>
+      <span class="v2-ai-slot-icon" aria-hidden="true">VO</span>
       <div>
-        <div class="v2-pulse-label">System Listening</div>
-        <div class="sub">Analyzing live feeds for noteworthy incidents. No major events in the last hour.</div>
+        <div class="v2-pulse-label">Two-way audio</div>
+        <div class="sub">Speech recognition listens; speech synthesis reads the answer back.</div>
       </div>
     </div>
-    {% endfor %}
   </div>
 </section>
+
+<script>
+(() => {
+  const form = document.getElementById("assistantForm");
+  const input = document.getElementById("assistantQuery");
+  const mic = document.getElementById("assistantMic");
+  const stopSpeech = document.getElementById("assistantStopSpeech");
+  const status = document.getElementById("assistantStatus");
+  const answer = document.getElementById("assistantAnswer");
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[char]));
+  }
+
+  function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function renderResults(data) {
+    const resultItems = data.results.map((item) => {
+      const clip = item.clip_url
+        ? `<a class="btn small" href="${escapeHtml(item.clip_url)}" target="_blank" rel="noreferrer">Play clip</a>`
+        : `<span class="pill warn">${escapeHtml(item.clip_status || "no clip")}</span>`;
+      return `
+        <div class="v2-ai-result">
+          <div class="v2-ai-result-title">
+            <strong>${escapeHtml(item.camera.name)} · ${escapeHtml(item.label)}</strong>
+            ${clip}
+          </div>
+          <div class="sub">${escapeHtml(item.created_at || "Unknown time")} · confidence ${Math.round((item.confidence || 0) * 100)}% · ch ${escapeHtml(item.camera.channel || "?")}</div>
+        </div>
+      `;
+    }).join("");
+    const limits = data.limitations.map((item) => `<div class="v2-ai-limit">${escapeHtml(item)}</div>`).join("");
+    answer.innerHTML = `
+      <div class="v2-side-copy">${escapeHtml(data.answer)}</div>
+      ${resultItems ? `<div class="v2-ai-result-list">${resultItems}</div>` : ""}
+      ${limits}
+    `;
+    answer.classList.add("is-visible");
+    speak(data.answer);
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) return;
+    status.textContent = "Searching local alert and clip index...";
+    answer.classList.remove("is-visible");
+    try {
+      const response = await fetch("/api/assistant/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, limit: 6 }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.detail || "Assistant query failed");
+      status.textContent = `Searched ${data.searched_alerts} indexed alerts.`;
+      renderResults(data);
+    } catch (error) {
+      status.textContent = error.message;
+      speak("I could not complete that search.");
+    }
+  });
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-GB";
+    recognition.interimResults = false;
+    recognition.onstart = () => {
+      mic.classList.add("listening");
+      status.textContent = "Listening...";
+    };
+    recognition.onend = () => mic.classList.remove("listening");
+    recognition.onerror = () => {
+      status.textContent = "Voice input stopped. You can still type the query.";
+    };
+    recognition.onresult = (event) => {
+      input.value = event.results[0][0].transcript;
+      form.requestSubmit();
+    };
+    mic.addEventListener("click", () => recognition.start());
+  } else {
+    mic.disabled = true;
+    mic.title = "Voice input is not supported in this browser";
+  }
+
+  stopSpeech.addEventListener("click", () => {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  });
+})();
+</script>
