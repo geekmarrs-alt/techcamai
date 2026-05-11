@@ -53,13 +53,13 @@
   <body>
     <main>
       <p>TECHCAMAI for Windows</p>
-      <h1>Download, install, and launch from your desktop.</h1>
-      <p>The Windows installer downloads TECHCAMAI, creates a desktop quick-launch shortcut, starts the local CCTV command center, and opens the dashboard in your browser.</p>
+      <h1>Download the Windows app and launch from your desktop.</h1>
+      <p>TECHCAMAI runs as a local Windows desktop app. Download the release build, double-click it, allow Windows Firewall when prompted, and the dashboard opens in your browser.</p>
       <div class="actions">
-        <a class="button" href="https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/windows/install.ps1" download>Download Windows installer</a>
+        <a class="button" href="https://github.com/geekmarrs-alt/techcamai/releases/latest/download/TECHCAMAI.exe">Download TECHCAMAI.exe</a>
+        <a class="button" href="https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/TECHCAMAI_Quick_Install.bat" download>Download helper installer</a>
       </div>
-      <code>powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/windows/install.ps1 -OutFile $env:TEMP\install-techcamai.ps1; & $env:TEMP\install-techcamai.ps1"</code>
-      <p class="note">Requires Windows 10/11 and Docker Desktop for the local camera stack.</p>
+      <p class="note">Requires Windows 10/11 and IP cameras on the same LAN. No Python, Docker Desktop, or terminal setup is required for users.</p>
     </main>
   </body>
 </html>

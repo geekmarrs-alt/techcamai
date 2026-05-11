@@ -11,7 +11,7 @@ Under the hood it is a FastAPI app bundled via PyInstaller into a single `.exe`.
 ### Architecture
 
 - **API** (`api/`): FastAPI backend + Jinja2 operator dashboard. SQLite DB at `data/techcamai.db`, clips at `data/clips/`.
-- **Worker** (`worker/`): Polling daemon for camera snapshots + motion detection + RTSP clip capture. Runs separately in Docker on Pi deployments; not bundled in the desktop `.exe`.
+- **Worker** (`worker/`): Polling daemon source for camera snapshots, motion detection, and clip capture.
 - **Desktop entry point** (`techcamai_app.py`): Tkinter GUI that starts uvicorn, opens the browser, and shows a status window. This is the PyInstaller entry point.
 - **Build spec** (`techcamai.spec`): PyInstaller config producing `dist/TECHCAMAI.exe`.
 
@@ -45,9 +45,9 @@ DB_PATH=/data/techcamai.db CLIPS_DIR=/data/clips python3 -m uvicorn app.main:app
 
 ### Key caveats
 
-- Dependencies are listed in `requirements.txt` and inline in the Dockerfiles. There is no `pyproject.toml`.
+- Dependencies are listed in `requirements.txt` for the Windows build workflow. There is no `pyproject.toml`.
 - Use `python3 -m pytest` (not bare `pytest`) — pytest is installed as a user package.
-- LAN scanning uses `psutil` for cross-platform network detection, with a Linux `ip -j addr` fallback for Docker/Pi.
+- LAN scanning uses `psutil` for Windows-friendly network detection.
 - The `web/` directory is an empty placeholder.
 - No auth/login exists — the operator console is fully open.
 - AI assist and voice control panels in the dashboard are UI placeholders marked "planned" — no backend ML or speech code exists yet.

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import json
 import socket
-import subprocess
 from dataclasses import dataclass, asdict
 from typing import List, Optional
 
@@ -57,17 +55,6 @@ def _local_ipv4_networks_psutil() -> List[ipaddress.IPv4Network]:
     return uniq
 
 
-def _local_ipv4_networks_linux() -> List[ipaddress.IPv4Network]:
-    """Linux-only fallback using `ip -j addr` (for Docker/Pi where psutil may be absent)."""
-    try:
-        out = subprocess.check_output(["ip", "-j", "addr"], text=True)
-        data = json.loads(out)
-    except Exception:
-        return []
-
-    return _parse_ip_addr_output(data)
-
-
 def _parse_ip_addr_output(data: List[dict]) -> List[ipaddress.IPv4Network]:
     """Parse the JSON output of `ip -j addr` into a list of IPv4 networks."""
     nets: List[ipaddress.IPv4Network] = []
@@ -97,11 +84,8 @@ def _parse_ip_addr_output(data: List[dict]) -> List[ipaddress.IPv4Network]:
 
 
 def _local_ipv4_networks() -> List[ipaddress.IPv4Network]:
-    """Detect local IPv4 networks. Uses psutil (cross-platform) first, falls back to Linux ip command."""
-    nets = _local_ipv4_networks_psutil()
-    if nets:
-        return nets
-    return _local_ipv4_networks_linux()
+    """Detect local IPv4 networks using psutil for the Windows desktop build."""
+    return _local_ipv4_networks_psutil()
 
 
 async def _tcp_connect(ip: str, port: int, timeout: float) -> bool:

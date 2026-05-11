@@ -49,7 +49,7 @@ class Camera(SQLModel, table=True):
     scheme: str = "https"  # http|https
     auth: str = "digest"   # digest|basic
     username: Optional[str] = None
-    password: Optional[str] = None  # MVP: stored local plaintext on Pi
+    password: Optional[str] = None  # Encrypted at rest before persistence.
 
     # legacy (kept for now)
     snapshot_url: str = ""

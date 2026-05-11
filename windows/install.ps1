@@ -1,6 +1,6 @@
 param(
     [string]$InstallDir = "$env:USERPROFILE\TechCamAI",
-    [string]$RepoZipUrl = "https://github.com/geekmarrs-alt/techcamai/archive/refs/heads/master.zip",
+    [string]$ExeUrl = "https://github.com/geekmarrs-alt/techcamai/releases/latest/download/TECHCAMAI.exe",
     [switch]$SkipLaunch
 )
 
@@ -12,52 +12,26 @@ function Write-Step {
 }
 
 $desktop = [Environment]::GetFolderPath("Desktop")
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("techcamai-" + [Guid]::NewGuid().ToString("N"))
-$zipPath = Join-Path $tempRoot "techcamai.zip"
-$extractDir = Join-Path $tempRoot "extract"
+$exePath = Join-Path $InstallDir "TECHCAMAI.exe"
 
 Write-Step "Preparing Windows install at $InstallDir"
-New-Item -ItemType Directory -Force -Path $tempRoot, $InstallDir | Out-Null
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-Write-Step "Downloading TECHCAMAI Windows package"
-Invoke-WebRequest -Uri $RepoZipUrl -OutFile $zipPath
-Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-
-$sourceRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-if (-not $sourceRoot) {
-    throw "Downloaded package did not contain a source directory."
-}
-
-Write-Step "Copying application files"
-Copy-Item -Path (Join-Path $sourceRoot.FullName "*") -Destination $InstallDir -Recurse -Force
-
-$launchScript = Join-Path $InstallDir "windows\launch-techcamai.ps1"
-if (-not (Test-Path $launchScript)) {
-    throw "Launch script was not found at $launchScript"
-}
+Write-Step "Downloading TECHCAMAI.exe"
+Invoke-WebRequest -UseBasicParsing -Uri $ExeUrl -OutFile $exePath
 
 Write-Step "Creating desktop quick launch shortcut"
-$shortcutPath = Join-Path $desktop "TECHCAMAI Command Center.lnk"
+$shortcutPath = Join-Path $desktop "TechCamAI.lnk"
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = "powershell.exe"
-$shortcut.Arguments = "-ExecutionPolicy Bypass -File `"$launchScript`""
+$shortcut.TargetPath = $exePath
 $shortcut.WorkingDirectory = $InstallDir
-$shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,220"
+$shortcut.IconLocation = $exePath
 $shortcut.Save()
 
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Write-Warning "Docker Desktop was not found. Install it from https://www.docker.com/products/docker-desktop/ and then use the desktop shortcut."
-    Start-Process "https://www.docker.com/products/docker-desktop/"
-} elseif (-not $SkipLaunch) {
-    Write-Step "Starting TECHCAMAI with Docker Compose"
-    Push-Location $InstallDir
-    try {
-        docker compose up -d --build
-    } finally {
-        Pop-Location
-    }
-    Start-Process "http://localhost:8000/"
+if (-not $SkipLaunch) {
+    Write-Step "Launching TECHCAMAI"
+    Start-Process $exePath
 }
 
-Write-Step "Done. Use the TECHCAMAI Command Center shortcut on your desktop to launch the app."
+Write-Step "Done. Use the TechCamAI shortcut on your desktop to launch the app."

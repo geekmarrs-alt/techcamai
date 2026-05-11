@@ -1,26 +1,23 @@
 # TECHCAMAI Windows desktop install
 
-Windows is the primary desktop packaging target for this operator build.
+Windows is the only supported customer packaging target for this operator build.
 
 ## Quick download / install
 
-Open PowerShell and run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/geekmarrs-alt/techcamai/master/windows/install.ps1 -OutFile $env:TEMP\install-techcamai.ps1; & $env:TEMP\install-techcamai.ps1"
-```
+Download `TECHCAMAI.exe` from the latest GitHub release and double-click it.
+For a helper installer, download `TECHCAMAI_Quick_Install.bat` and double-click it.
 
 The installer:
 
-1. Downloads the current TECHCAMAI package.
+1. Downloads the current `TECHCAMAI.exe`.
 2. Installs it to `%USERPROFILE%\TechCamAI`.
-3. Creates a `TECHCAMAI Command Center` shortcut on the Windows desktop.
-4. Starts Docker Compose and opens `http://localhost:8000/` when Docker Desktop is available.
+3. Creates a `TechCamAI` shortcut on the Windows desktop.
+4. Launches the Windows app.
 
 ## Desktop quick launch
 
 The desktop shortcut runs `windows\launch-techcamai.ps1`.
-That script starts the local stack and opens the command dashboard in the default browser.
+That script starts `TECHCAMAI.exe`, which opens the command dashboard in the default browser.
 
 ## File structure
 

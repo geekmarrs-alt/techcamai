@@ -4,7 +4,7 @@ Following the full system assessment and rebuild, the core infrastructure is now
 
 ## 1. Edge AI Inference (YOLO/TensorRT)
 *   **Goal:** Replace the current motion-digest fallback with real-time object detection.
-*   **Details:** Integrate `ultralytics` YOLOv8 or YOLOv11. For the Raspberry Pi 5 / Windows target, use TensorRT or OpenVINO to ensure 15+ FPS detection without high CPU latency.
+*   **Details:** Integrate `ultralytics` YOLOv8 or YOLOv11. For the Windows mini-PC target, use DirectML or OpenVINO to improve detection throughput without high CPU latency.
 *   **Impact:** Eliminate false positives from wind, shadows, or light changes.
 
 ## 2. Face Recognition & LPR (License Plate Recognition)
@@ -29,5 +29,5 @@ Following the full system assessment and rebuild, the core infrastructure is now
 
 ## 6. Advanced Wi-Fi Triangulation
 *   **Goal:** Improve "Blind Spot" monitoring.
-*   **Details:** Use the current Wi-Fi tracking foundation to correlate signal strength (RSSI) from multiple ESP32/Pi nodes to plot XY coordinates of devices on a floor plan.
+*   **Details:** Use the current Wi-Fi tracking foundation to correlate signal strength (RSSI) from supported Windows-visible access points or sensors to plot XY coordinates of devices on a floor plan.
 *   **Impact:** Track movement even where cameras can't see.

@@ -16,7 +16,7 @@ def _get_key() -> bytes:
 
     # Generate new key if not found.
     # Note: In a multi-replica setup, this would need a shared secret manager.
-    # For TECHCAMAI on a Pi/Edge box, /data is persistent and shared.
+    # For TECHCAMAI on Windows, the data directory is persistent beside the app.
     new_key = Fernet.generate_key()
     try:
         KEY_FILE.parent.mkdir(parents=True, exist_ok=True)

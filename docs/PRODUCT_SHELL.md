@@ -17,7 +17,7 @@ and surfaces real-time alerts with clip evidence in a premium operator console.
 - **Edge-native** — AI inference and clip capture happen on-site. No cloud dependency for the core loop.
 - **Operator-focused** — The console is built for security operators, not IT admins or end customers.
 - **Evidence-forward** — Every alert carries a clip. Operators see what triggered the alert.
-- **Lightweight deployment** — Docker Compose behind a Windows desktop launcher. No Kubernetes, no cloud agents.
+- **Lightweight deployment** — single Windows app launched by double-click. No Kubernetes, no cloud agents.
 
 **Audience (priority order):**
 1. Security-conscious SMBs deploying IP cameras on-prem
@@ -55,7 +55,7 @@ and surfaces real-time alerts with clip evidence in a premium operator console.
 
 ### Enterprise (future)
 
-- Multi-site / multi-Pi fleet dashboard
+- Multi-site Windows mini-PC fleet dashboard
 - Multi-tenant support (segregated operator workspaces)
 - Fleet OTA management UI
 - Machine-to-machine API access
@@ -109,7 +109,7 @@ techcamai.com/
 
 3. **Default credentials on first boot**
    - Username: `admin`
-   - Password: generated on first start, printed to container logs once
+   - Password: generated on first start and shown in the Windows app status window
    - Forced password change on first login
 
 4. **License key check**
@@ -165,10 +165,6 @@ Where the product shell hooks into the existing operator MVP:
 ### `api/app/shell.py` ← scaffold exists
 
 Central module for edition detection and feature gating.
-
-```python
-from app.shell import current_edition, feature_allowed, camera_limit
-```
 
 - `current_edition()` → `Edition.COMMUNITY | PRO | ENTERPRISE`
 - `feature_allowed("email_alerts")` → `True / False`

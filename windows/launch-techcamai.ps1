@@ -9,19 +9,10 @@ function Write-Step {
     Write-Host "[TECHCAMAI] $Message" -ForegroundColor Cyan
 }
 
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Write-Warning "Docker Desktop is required before TECHCAMAI can start."
-    Start-Process "https://www.docker.com/products/docker-desktop/"
-    exit 1
+$exePath = Join-Path $AppDir "TECHCAMAI.exe"
+if (-not (Test-Path $exePath)) {
+    throw "TECHCAMAI.exe was not found at $exePath. Run windows\install.ps1 first."
 }
 
-Write-Step "Starting local command center"
-Push-Location $AppDir
-try {
-    docker compose up -d
-} finally {
-    Pop-Location
-}
-
-Start-Process "http://localhost:8000/"
-Write-Step "TECHCAMAI is opening at http://localhost:8000/"
+Write-Step "Launching TECHCAMAI"
+Start-Process $exePath

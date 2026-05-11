@@ -1,7 +1,8 @@
 import pytest
 import ipaddress
+import json
 from unittest.mock import patch, AsyncMock
-from app.discover import discover, _local_ipv4_networks
+from app.discover import discover, _parse_ip_addr_output
 
 @pytest.mark.asyncio
 async def test_discover_basic():
@@ -45,7 +46,6 @@ async def test_discover_basic():
         assert results[1].hikvision_isapi is False
 
 def test_local_ipv4_networks_parsing():
-    # Test parsing logic by mocking subprocess.check_output
     mock_json_out = """
     [
         {
@@ -75,8 +75,6 @@ def test_local_ipv4_networks_parsing():
         }
     ]
     """
-    with patch("subprocess.check_output") as mock_run:
-        mock_run.return_value = mock_json_out
-        nets = _local_ipv4_networks()
-        assert len(nets) == 1
-        assert str(nets[0]) == "192.168.1.0/24"
+    nets = _parse_ip_addr_output(json.loads(mock_json_out))
+    assert len(nets) == 1
+    assert str(nets[0]) == "192.168.1.0/24"

@@ -1,29 +1,29 @@
 # Windows desktop product structure
 
-TECHCAMAI is now documented as a Windows-first desktop install path for operators who want a local CCTV command center on a workstation.
+TECHCAMAI is documented as a Windows-only desktop install path for operators who want a local CCTV command center on a mini PC.
 
 ## Top-level structure
 
 ```text
+techcamai_app.py        # Windows desktop entry point bundled into TECHCAMAI.exe
+techcamai.spec          # PyInstaller Windows build definition
 api/                    # Local FastAPI command center and CCTV dashboard
 api/app/main.py         # Camera, alert, playback, and assistant search APIs
-api/app/templates/      # Operator UI rendered by the local desktop stack
-worker/                 # Snapshot polling and clip capture worker
+api/app/templates/      # Operator UI rendered inside the local app
+worker/                 # Snapshot polling and clip capture source used by the product
 windows/                # Windows installer and desktop quick-launch scripts
-web/download.html       # Public quick-download page for the Windows installer
-docker-compose.yml      # Local runtime used by the Windows launcher
+web/download.html       # Public quick-download page for the Windows release
 ```
 
-The Raspberry Pi files are retained as legacy edge deployment references, but the customer-facing install path should point Windows users to `web/download.html` and `windows/install.ps1`.
+Raspberry Pi and Docker publishing paths are retired. Customer-facing setup points to the latest `TECHCAMAI.exe` release.
 
 ## Windows desktop install flow
 
-1. User opens the download page.
-2. User downloads/runs `windows/install.ps1`.
-3. Installer places the app in `%USERPROFILE%\TechCamAI`.
-4. Installer creates `TECHCAMAI Command Center.lnk` on the desktop.
-5. The shortcut runs `windows\launch-techcamai.ps1`.
-6. Launcher starts Docker Compose and opens `http://localhost:8000/`.
+1. User opens the download page or latest GitHub release.
+2. User downloads `TECHCAMAI.exe`.
+3. User double-clicks the app.
+4. App starts the local dashboard and opens `http://localhost:8000/`.
+5. Optional helper installer places the app in `%USERPROFILE%\TechCamAI` and creates a desktop shortcut.
 
 ## AI assistant wiring
 

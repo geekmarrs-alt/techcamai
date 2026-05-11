@@ -6,7 +6,7 @@ This project is structured as one application in one repository.
 
 - `api/` - backend service and operator dashboard UI
 - `worker/` - camera polling and detection loop
-- `pi/` - Raspberry Pi packaging and deployment scripts
+- `windows/` - Windows installer and launch helpers
 - `docs/` - setup, architecture, and operations documentation
 - `tests/` - repository-level tests
 - `web/` - future marketing site placeholder (not part of runtime stack)
@@ -20,22 +20,9 @@ Use a simple branch model:
 3. Merge to `master` quickly.
 4. Delete merged branches.
 
-### Local cleanup
+### Cleanup
 
-```bash
-git checkout master
-git pull origin master
-git fetch --prune
-git branch --merged | rg -v "^\*|master$" | xargs -r git branch -d
-```
-
-### Remote cleanup (GitHub)
-
-Use the GitHub "Branches" page to delete merged branches, or run:
-
-```bash
-git push origin --delete <branch-name>
-```
+Use the GitHub branches page to delete merged branches after the consolidation branch lands.
 
 ## Keeping one active line of work
 
