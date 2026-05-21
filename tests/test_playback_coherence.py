@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
