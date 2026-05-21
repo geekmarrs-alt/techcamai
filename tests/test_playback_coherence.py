@@ -21,6 +21,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
         cls.tempdir = Path(tempfile.mkdtemp(prefix='techcamai-test-'))
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
+        sys.modules.pop('app.main', None)
         cls.main = importlib.import_module('app.main')
 
     @classmethod
