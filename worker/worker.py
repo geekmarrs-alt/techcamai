@@ -205,7 +205,7 @@ def _camera_rtsp_url(cam: dict) -> str:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
     pw = cam.get("password") or ""
-    return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
+    return f"rtsp://{quote(user, safe='')}:{quote(pw, safe='')}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
