@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     API_BASE_URL: str = "http://127.0.0.1:8000"
     POLL_INTERVAL_SEC: int = 30
     CAMERA_SNAPSHOT_URLS: str = ""  # legacy comma-separated
+    SECRET_KEY: str = ""
+    WORKER_API_TOKEN: str = ""
 
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
@@ -228,10 +230,17 @@ def _write_heartbeat() -> None:
         print(f"[worker] Could not write heartbeat: {e}")
 
 
+def _worker_auth_headers() -> dict[str, str]:
+    token = (S.WORKER_API_TOKEN or S.SECRET_KEY or "").strip()
+    if not token:
+        return {}
+    return {"Authorization": f"Bearer {token}"}
+
+
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_auth_headers())
         r.raise_for_status()
         return r.json()
 

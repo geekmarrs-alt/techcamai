@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import hmac
+from ipaddress import ip_address
 import json
 import re
 import sqlite3
@@ -24,6 +26,8 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: str = ""
+    WORKER_API_TOKEN: str = ""
 
 
 settings = Settings()
@@ -187,6 +191,7 @@ templates.env.filters["clip_tone"] = _clip_status_tone
 _ALLOWED_CLIP_STATUSES = {"pending", "ready", "failed"}
 _RTSP_CHANNEL_RE = re.compile(r"/Streaming/Channels/(\d+)", re.IGNORECASE)
 _HTTP_CHANNEL_RE = re.compile(r"/channels/(\d+)(?:/|$)", re.IGNORECASE)
+_LOOPBACK_HOSTNAMES = {"localhost", "testclient"}
 
 
 def _normalize_clip_status(status: Optional[str]) -> str:
@@ -209,6 +214,57 @@ def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
     if not normalized or normalized.startswith("../"):
         raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
     return normalized
+
+
+def _is_loopback_host(value: Optional[str]) -> bool:
+    host = (value or "").strip().strip("[]").lower()
+    if not host:
+        return False
+    if host in _LOOPBACK_HOSTNAMES:
+        return True
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _worker_token() -> str:
+    return (settings.WORKER_API_TOKEN or settings.SECRET_KEY or "").strip()
+
+
+def _request_is_direct_loopback(request: Request) -> bool:
+    client_host = request.client.host if request.client else None
+    if not _is_loopback_host(client_host):
+        return False
+
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        forwarded_hosts = [part.strip().split(":", 1)[0] for part in forwarded_for.split(",")]
+        return bool(forwarded_hosts) and all(_is_loopback_host(host) for host in forwarded_hosts)
+
+    # A proxied browser request can arrive from a local proxy socket. Without a
+    # token, reject proxy-marked requests unless X-Forwarded-For proved loopback.
+    proxy_headers = ("forwarded", "x-forwarded-host", "x-forwarded-proto")
+    return not any(request.headers.get(header) for header in proxy_headers)
+
+
+def _require_worker_access(request: Request) -> None:
+    token = _worker_token()
+    if token:
+        auth = request.headers.get("authorization", "")
+        supplied = ""
+        if auth.lower().startswith("bearer "):
+            supplied = auth[7:].strip()
+        else:
+            supplied = request.headers.get("x-worker-token", "").strip()
+        if hmac.compare_digest(supplied, token):
+            return
+        raise HTTPException(status_code=401, detail="worker token required")
+
+    if _request_is_direct_loopback(request):
+        return
+
+    raise HTTPException(status_code=403, detail="worker endpoint requires local access or WORKER_API_TOKEN")
 
 
 def _channel_hint_from_source_url(value: str) -> Optional[int]:
@@ -707,8 +763,9 @@ def list_cameras():
 
 
 @app.get("/worker/cameras")
-def worker_cameras():
+def worker_cameras(request: Request):
     # MVP: worker runs on same box, so we return creds.
+    _require_worker_access(request)
     # Filter out auto-created junk rows.
     with Session(engine) as s:
         cams = s.exec(
