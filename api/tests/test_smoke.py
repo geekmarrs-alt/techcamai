@@ -137,6 +137,16 @@ def test_list_cameras_no_passwords(client):
         assert "password" not in cam
 
 
+def test_worker_cameras_rejects_proxied_public_requests(client):
+    """Worker credential endpoint must not be reachable through the public proxy."""
+    client.post("/cameras", json={"name": "Secret Cam", "ip": "10.0.0.9", "username": "admin", "password": "secret"})
+    r = client.get(
+        "/worker/cameras",
+        headers={"x-forwarded-for": "203.0.113.10", "x-forwarded-proto": "https"},
+    )
+    assert r.status_code == 403
+
+
 def test_update_camera(client):
     r = client.post("/cameras", json={"name": "ToUpdate", "ip": "10.0.0.2", "username": "u", "password": "p"})
     cam_id = r.json()["id"]
