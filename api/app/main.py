@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import hmac
+import ipaddress
 import json
 import re
 import sqlite3
@@ -24,6 +26,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    WORKER_TOKEN: str = ""
 
 
 settings = Settings()
@@ -187,6 +190,7 @@ templates.env.filters["clip_tone"] = _clip_status_tone
 _ALLOWED_CLIP_STATUSES = {"pending", "ready", "failed"}
 _RTSP_CHANNEL_RE = re.compile(r"/Streaming/Channels/(\d+)", re.IGNORECASE)
 _HTTP_CHANNEL_RE = re.compile(r"/channels/(\d+)(?:/|$)", re.IGNORECASE)
+_WORKER_TOKEN_HEADERS = ("x-worker-token", "x-techcamai-worker-token")
 
 
 def _normalize_clip_status(status: Optional[str]) -> str:
@@ -194,6 +198,41 @@ def _normalize_clip_status(status: Optional[str]) -> str:
     if value not in _ALLOWED_CLIP_STATUSES:
         raise HTTPException(status_code=400, detail=f"invalid clip_status: {status}")
     return value
+
+
+def _request_is_loopback(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    if host == "testclient":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
+
+def _worker_token_matches(request: Request) -> bool:
+    expected = (settings.WORKER_TOKEN or "").strip()
+    if not expected:
+        return False
+
+    supplied = ""
+    for header in _WORKER_TOKEN_HEADERS:
+        supplied = request.headers.get(header, "").strip()
+        if supplied:
+            break
+
+    if not supplied:
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            supplied = auth[7:].strip()
+
+    return bool(supplied) and hmac.compare_digest(supplied, expected)
+
+
+def _require_worker_access(request: Request) -> None:
+    if _request_is_loopback(request) or _worker_token_matches(request):
+        return
+    raise HTTPException(status_code=403, detail="worker endpoint requires loopback access or worker token")
 
 
 def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
@@ -707,7 +746,8 @@ def list_cameras():
 
 
 @app.get("/worker/cameras")
-def worker_cameras():
+def worker_cameras(request: Request):
+    _require_worker_access(request)
     # MVP: worker runs on same box, so we return creds.
     # Filter out auto-created junk rows.
     with Session(engine) as s:
@@ -841,7 +881,8 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
 
 
 @app.post("/ingest/detection")
-def ingest_detection(det: DetectionIn):
+def ingest_detection(det: DetectionIn, request: Request):
+    _require_worker_access(request)
     now = datetime.now(timezone.utc)
 
     with Session(engine) as s:
@@ -900,7 +941,8 @@ def ingest_detection(det: DetectionIn):
 
 
 @app.put("/alerts/{alert_id}/clip")
-def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
+def update_alert_clip(alert_id: int, patch: AlertClipUpdate, request: Request):
+    _require_worker_access(request)
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)
     clip_error = (patch.clip_error or None)

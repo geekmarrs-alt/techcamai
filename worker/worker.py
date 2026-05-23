@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import random
 import subprocess
 import time
@@ -26,6 +25,7 @@ class Settings(BaseSettings):
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    WORKER_TOKEN: str = ""
 
 
 S = Settings()
@@ -115,6 +115,13 @@ def motion_detect(prev_jpeg: bytes | None, cur_jpeg: bytes | None) -> tuple[str,
     return "motion", conf
 
 
+def _worker_headers() -> dict[str, str]:
+    token = (S.WORKER_TOKEN or "").strip()
+    if not token:
+        return {}
+    return {"X-Worker-Token": token}
+
+
 def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str | None, camera_id: int | None = None):
     payload = {
         "camera_snapshot_url": snapshot_url,
@@ -124,7 +131,7 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -136,7 +143,7 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -203,8 +210,8 @@ def _camera_rtsp_url(cam: dict) -> str:
     ch = channel
     if ch < 100:
         ch = ch * 100 + 1
-    user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    user = quote(cam.get("username") or "", safe="")
+    pw = quote(cam.get("password") or "", safe="")
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
@@ -231,7 +238,7 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
