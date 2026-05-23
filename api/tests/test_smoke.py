@@ -24,7 +24,9 @@ os.makedirs(_tmp_clips, exist_ok=True)
 os.environ["DB_PATH"] = _tmp_db
 os.environ["CLIPS_DIR"] = _tmp_clips
 
-from app.main import app  # noqa: E402 — must be after env setup
+from app import main as app_main  # noqa: E402 — must be after env setup
+
+app = app_main.app
 
 
 @pytest.fixture(scope="module")
@@ -135,6 +137,43 @@ def test_list_cameras_no_passwords(client):
     assert r.status_code == 200
     for cam in r.json():
         assert "password" not in cam
+
+
+def test_worker_cameras_rejects_remote_client_without_token(client):
+    client.post("/cameras", json={
+        "name": "Secret Cam",
+        "ip": "192.168.1.101",
+        "username": "admin",
+        "password": "super-secret",
+    })
+
+    with TestClient(app, client=("203.0.113.10", 50000)) as remote_client:
+        r = remote_client.get("/worker/cameras")
+
+    assert r.status_code == 403
+    assert "super-secret" not in r.text
+
+
+def test_worker_cameras_allows_remote_client_with_token(client):
+    old_token = app_main.settings.WORKER_TOKEN
+    app_main.settings.WORKER_TOKEN = "worker-secret"
+    try:
+        created = client.post("/cameras", json={
+            "name": "Token Cam",
+            "ip": "192.168.1.102",
+            "username": "admin",
+            "password": "token-pass",
+        })
+        cam_id = created.json()["id"]
+
+        with TestClient(app, client=("203.0.113.10", 50000)) as remote_client:
+            r = remote_client.get("/worker/cameras", headers={"X-Worker-Token": "worker-secret"})
+    finally:
+        app_main.settings.WORKER_TOKEN = old_token
+
+    assert r.status_code == 200
+    cams = r.json()
+    assert any(cam["id"] == cam_id and cam["password"] == "token-pass" for cam in cams)
 
 
 def test_update_camera(client):
