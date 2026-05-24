@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     PREFER_RTSP: int = 1
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
+    CLIP_CAPTURE_TIMEOUT_SEC: int = 30
     CLIP_CAPTURE_ENABLED: int = 1
 
 
@@ -153,6 +154,12 @@ def _alert_clip_relpath(cam: dict, alert_id: int, created_at: str | None = None)
     return f"{cam_id}/{stamp}-alert-{alert_id}.mp4"
 
 
+def _clip_capture_timeout() -> int:
+    duration = max(1, int(S.CLIP_DURATION_SEC))
+    configured_timeout = max(1, int(S.CLIP_CAPTURE_TIMEOUT_SEC))
+    return max(configured_timeout, duration + 15)
+
+
 def capture_alert_clip(cam: dict, alert: dict):
     if int(S.CLIP_CAPTURE_ENABLED) != 1:
         return
@@ -172,6 +179,7 @@ def capture_alert_clip(cam: dict, alert: dict):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=_clip_capture_timeout(),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
