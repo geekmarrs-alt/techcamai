@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import ipaddress
 import json
 import re
+import secrets
 import sqlite3
 from pathlib import Path, PurePosixPath
 from typing import Optional, List
@@ -24,6 +26,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    WORKER_TOKEN: str = ""
 
 
 settings = Settings()
@@ -221,6 +224,45 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
             return raw // 100
         return raw
     return None
+
+
+def _is_loopback_host(host: Optional[str]) -> bool:
+    if not host:
+        return False
+    if host in {"localhost", "testclient"}:
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if addr.is_loopback:
+        return True
+    if addr.version == 6 and addr.ipv4_mapped:
+        return addr.ipv4_mapped.is_loopback
+    return False
+
+
+def _request_from_direct_loopback(request: Request) -> bool:
+    # A reverse proxy may connect locally for a remote user; forwarded headers
+    # mean this is not a direct worker-to-API loopback request.
+    forwarded_headers = ("forwarded", "x-forwarded-for", "x-real-ip")
+    if any(request.headers.get(header) for header in forwarded_headers):
+        return False
+    return _is_loopback_host(request.client.host if request.client else None)
+
+
+def _worker_token_valid(request: Request) -> bool:
+    expected = (settings.WORKER_TOKEN or "").strip()
+    supplied = (request.headers.get("x-worker-token") or "").strip()
+    return bool(expected and supplied) and secrets.compare_digest(supplied, expected)
+
+
+def _require_worker_access(request: Request) -> None:
+    if _worker_token_valid(request):
+        return
+    if not (settings.WORKER_TOKEN or "").strip() and _request_from_direct_loopback(request):
+        return
+    raise HTTPException(status_code=403, detail="worker access required")
 
 
 class DiscoverRequest(BaseModel):
@@ -707,8 +749,8 @@ def list_cameras():
 
 
 @app.get("/worker/cameras")
-def worker_cameras():
-    # MVP: worker runs on same box, so we return creds.
+def worker_cameras(request: Request):
+    _require_worker_access(request)
     # Filter out auto-created junk rows.
     with Session(engine) as s:
         cams = s.exec(
@@ -900,7 +942,8 @@ def ingest_detection(det: DetectionIn):
 
 
 @app.put("/alerts/{alert_id}/clip")
-def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
+def update_alert_clip(alert_id: int, patch: AlertClipUpdate, request: Request):
+    _require_worker_access(request)
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)
     clip_error = (patch.clip_error or None)

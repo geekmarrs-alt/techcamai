@@ -137,6 +137,23 @@ def test_list_cameras_no_passwords(client):
         assert "password" not in cam
 
 
+def test_worker_cameras_rejects_remote_without_token(client):
+    """Worker credential endpoint must not be public on exposed deployments."""
+    client.post("/cameras", json={"name": "SecretCam", "ip": "10.9.0.1", "username": "admin", "password": "secret"})
+    with TestClient(app, client=("203.0.113.10", 50000), raise_server_exceptions=True) as remote:
+        r = remote.get("/worker/cameras")
+    assert r.status_code == 403
+
+
+def test_worker_cameras_accepts_worker_token(client, monkeypatch):
+    client.post("/cameras", json={"name": "TokenCam", "ip": "10.9.0.2", "username": "admin", "password": "secret"})
+    monkeypatch.setattr("app.main.settings.WORKER_TOKEN", "test-worker-token")
+    with TestClient(app, client=("203.0.113.11", 50000), raise_server_exceptions=True) as remote:
+        r = remote.get("/worker/cameras", headers={"X-Worker-Token": "test-worker-token"})
+    assert r.status_code == 200
+    assert any(cam["password"] == "secret" for cam in r.json())
+
+
 def test_update_camera(client):
     r = client.post("/cameras", json={"name": "ToUpdate", "ip": "10.0.0.2", "username": "u", "password": "p"})
     cam_id = r.json()["id"]
@@ -252,3 +269,9 @@ def test_clip_ready_requires_path(client):
 def test_clip_path_traversal_rejected(client):
     r = client.put("/alerts/1/clip", json={"clip_status": "ready", "clip_path": "../../etc/passwd"})
     assert r.status_code == 400
+
+
+def test_clip_update_rejects_remote_without_token(client):
+    with TestClient(app, client=("203.0.113.12", 50000), raise_server_exceptions=True) as remote:
+        r = remote.put("/alerts/1/clip", json={"clip_status": "failed", "clip_error": "tamper"})
+    assert r.status_code == 403
