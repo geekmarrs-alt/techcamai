@@ -18,6 +18,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     API_BASE_URL: str = "http://127.0.0.1:8000"
+    WORKER_TOKEN: str = ""
     POLL_INTERVAL_SEC: int = 30
     CAMERA_SNAPSHOT_URLS: str = ""  # legacy comma-separated
 
@@ -124,9 +125,16 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
+
+
+def _worker_headers() -> dict[str, str]:
+    token = (S.WORKER_TOKEN or "").strip()
+    if not token:
+        return {}
+    return {"X-Worker-Token": token}
 
 
 def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = None, clip_error: str | None = None):
@@ -136,7 +144,7 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -231,7 +239,7 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
