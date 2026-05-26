@@ -8,11 +8,14 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
+
+WORKER_TOKEN = 'test-worker-token'
 
 
 class PlaybackCoherenceTests(unittest.TestCase):
@@ -21,7 +24,11 @@ class PlaybackCoherenceTests(unittest.TestCase):
         cls.tempdir = Path(tempfile.mkdtemp(prefix='techcamai-test-'))
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
+        os.environ['WORKER_TOKEN'] = WORKER_TOKEN
+        sys.modules.pop('app.main', None)
+        SQLModel.metadata.clear()
         cls.main = importlib.import_module('app.main')
+        cls.worker_headers = {'X-Worker-Token': WORKER_TOKEN}
 
     @classmethod
     def tearDownClass(cls):
@@ -87,6 +94,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
                 'conf': 0.91,
                 'snapshot_b64': None,
             },
+            headers=self.worker_headers,
         )
         self.assertEqual(res.status_code, 200, res.text)
         body = res.json()
@@ -107,6 +115,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
                 'conf': 0.88,
                 'snapshot_b64': None,
             },
+            headers=self.worker_headers,
         )
         self.assertEqual(res.status_code, 200, res.text)
         body = res.json()
@@ -125,18 +134,21 @@ class PlaybackCoherenceTests(unittest.TestCase):
                 'conf': 0.77,
                 'snapshot_b64': None,
             },
+            headers=self.worker_headers,
         ).json()['triggered'][0]
         alert_id = created['id']
 
         bad = self.client.put(
             f'/alerts/{alert_id}/clip',
             json={'clip_status': 'ready', 'clip_path': '../escape.mp4', 'clip_error': None},
+            headers=self.worker_headers,
         )
         self.assertEqual(bad.status_code, 400)
 
         ok = self.client.put(
             f'/alerts/{alert_id}/clip',
             json={'clip_status': 'ready', 'clip_path': '1/test-alert.mp4', 'clip_error': None},
+            headers=self.worker_headers,
         )
         self.assertEqual(ok.status_code, 200, ok.text)
         self.assertEqual(ok.json()['clip_path'], '1/test-alert.mp4')
@@ -148,6 +160,7 @@ class PlaybackCoherenceTests(unittest.TestCase):
         failed = self.client.put(
             f'/alerts/{alert_id}/clip',
             json={'clip_status': 'failed', 'clip_path': '1/should-clear.mp4', 'clip_error': 'rtsp failed'},
+            headers=self.worker_headers,
         )
         self.assertEqual(failed.status_code, 200, failed.text)
         self.assertIsNone(failed.json()['clip_path'])

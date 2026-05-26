@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
+import secrets
 from datetime import datetime, timezone, timedelta
 import json
 import re
@@ -24,6 +26,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    WORKER_TOKEN: str = ""
 
 
 settings = Settings()
@@ -221,6 +224,31 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
             return raw // 100
         return raw
     return None
+
+
+def _is_loopback_client(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _require_worker_access(request: Request) -> None:
+    expected = (settings.WORKER_TOKEN or "").strip()
+    if expected:
+        header_token = (request.headers.get("x-worker-token") or "").strip()
+        auth_header = (request.headers.get("authorization") or "").strip()
+        bearer_token = ""
+        if auth_header.lower().startswith("bearer "):
+            bearer_token = auth_header[7:].strip()
+        if secrets.compare_digest(header_token, expected) or secrets.compare_digest(bearer_token, expected):
+            return
+        raise HTTPException(status_code=403, detail="worker token required")
+
+    if _is_loopback_client(request):
+        return
+    raise HTTPException(status_code=403, detail="worker token required")
 
 
 class DiscoverRequest(BaseModel):
@@ -707,7 +735,8 @@ def list_cameras():
 
 
 @app.get("/worker/cameras")
-def worker_cameras():
+def worker_cameras(request: Request):
+    _require_worker_access(request)
     # MVP: worker runs on same box, so we return creds.
     # Filter out auto-created junk rows.
     with Session(engine) as s:
@@ -841,7 +870,8 @@ def _cooldown_hit(s: Session, rule: Rule, now: datetime) -> bool:
 
 
 @app.post("/ingest/detection")
-def ingest_detection(det: DetectionIn):
+def ingest_detection(det: DetectionIn, request: Request):
+    _require_worker_access(request)
     now = datetime.now(timezone.utc)
 
     with Session(engine) as s:
@@ -900,7 +930,8 @@ def ingest_detection(det: DetectionIn):
 
 
 @app.put("/alerts/{alert_id}/clip")
-def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
+def update_alert_clip(alert_id: int, patch: AlertClipUpdate, request: Request):
+    _require_worker_access(request)
     clip_status = _normalize_clip_status(patch.clip_status)
     clip_path = _normalize_clip_relpath(patch.clip_path)
     clip_error = (patch.clip_error or None)

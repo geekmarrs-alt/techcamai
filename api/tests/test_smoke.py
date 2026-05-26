@@ -23,8 +23,12 @@ _tmp_clips = os.path.join(_tmp_dir, "clips")
 os.makedirs(_tmp_clips, exist_ok=True)
 os.environ["DB_PATH"] = _tmp_db
 os.environ["CLIPS_DIR"] = _tmp_clips
+os.environ["WORKER_TOKEN"] = "test-worker-token"
 
 from app.main import app  # noqa: E402 — must be after env setup
+
+
+WORKER_HEADERS = {"X-Worker-Token": os.environ["WORKER_TOKEN"]}
 
 
 @pytest.fixture(scope="module")
@@ -137,6 +141,21 @@ def test_list_cameras_no_passwords(client):
         assert "password" not in cam
 
 
+def test_worker_cameras_require_token(client):
+    """Worker camera feed includes credentials, so it must require worker auth."""
+    cam_r = client.post("/cameras", json={"name": "WorkerCam", "ip": "10.0.0.20", "username": "u", "password": "secret"})
+    cam_id = cam_r.json()["id"]
+
+    unauth = client.get("/worker/cameras")
+    assert unauth.status_code == 403
+
+    auth = client.get("/worker/cameras", headers=WORKER_HEADERS)
+    assert auth.status_code == 200
+    cams = auth.json()
+    worker_cam = next(c for c in cams if c["id"] == cam_id)
+    assert worker_cam["password"] == "secret"
+
+
 def test_update_camera(client):
     r = client.post("/cameras", json={"name": "ToUpdate", "ip": "10.0.0.2", "username": "u", "password": "p"})
     cam_id = r.json()["id"]
@@ -168,13 +187,22 @@ def test_create_rule_missing_camera(client):
 
 # ── Ingest / detection ────────────────────────────────────────────────────────
 
+def test_ingest_requires_worker_token(client):
+    r = client.post("/ingest/detection", json={
+        "camera_snapshot_url": "http://192.0.2.1/snapshot.jpg",
+        "label": "motion",
+        "conf": 0.9,
+    })
+    assert r.status_code == 403
+
+
 def test_ingest_unknown_camera(client):
     """Detection for an unknown camera should return ok with empty triggered list."""
     r = client.post("/ingest/detection", json={
         "camera_snapshot_url": "http://999.999.999.999/snapshot.jpg",
         "label": "motion",
         "conf": 0.9,
-    })
+    }, headers=WORKER_HEADERS)
     assert r.status_code == 200
     assert r.json()["triggered"] == []
 
@@ -190,7 +218,7 @@ def test_ingest_triggers_alert(client):
         "camera_id": cam_id,
         "label": "motion",
         "conf": 0.8,
-    })
+    }, headers=WORKER_HEADERS)
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
@@ -208,13 +236,13 @@ def test_clip_update_ready(client):
         "camera_snapshot_url": "http://10.1.1.1/snap",
         "label": "motion",
         "conf": 0.9,
-    })
+    }, headers=WORKER_HEADERS)
     alert_id = det_r.json()["triggered"][0]["id"]
 
     r = client.put(f"/alerts/{alert_id}/clip", json={
         "clip_status": "ready",
         "clip_path": f"{cam_id}/20240101T120000Z-alert-{alert_id}.mp4",
-    })
+    }, headers=WORKER_HEADERS)
     assert r.status_code == 200
     assert r.json()["clip_status"] == "ready"
 
@@ -228,27 +256,27 @@ def test_clip_update_failed(client):
         "camera_snapshot_url": "http://10.1.1.2/snap",
         "label": "motion",
         "conf": 0.9,
-    })
+    }, headers=WORKER_HEADERS)
     alert_id = det_r.json()["triggered"][0]["id"]
 
     r = client.put(f"/alerts/{alert_id}/clip", json={
         "clip_status": "failed",
         "clip_error": "ffmpeg returned non-zero exit",
-    })
+    }, headers=WORKER_HEADERS)
     assert r.status_code == 200
     assert r.json()["clip_status"] == "failed"
 
 
 def test_clip_update_bad_status(client):
-    r = client.put("/alerts/1/clip", json={"clip_status": "bogus"})
+    r = client.put("/alerts/1/clip", json={"clip_status": "bogus"}, headers=WORKER_HEADERS)
     assert r.status_code == 400
 
 
 def test_clip_ready_requires_path(client):
-    r = client.put("/alerts/1/clip", json={"clip_status": "ready"})
+    r = client.put("/alerts/1/clip", json={"clip_status": "ready"}, headers=WORKER_HEADERS)
     assert r.status_code == 400
 
 
 def test_clip_path_traversal_rejected(client):
-    r = client.put("/alerts/1/clip", json={"clip_status": "ready", "clip_path": "../../etc/passwd"})
+    r = client.put("/alerts/1/clip", json={"clip_status": "ready", "clip_path": "../../etc/passwd"}, headers=WORKER_HEADERS)
     assert r.status_code == 400
