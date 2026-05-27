@@ -18,11 +18,13 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     API_BASE_URL: str = "http://127.0.0.1:8000"
+    WORKER_TOKEN: str = ""
     POLL_INTERVAL_SEC: int = 30
     CAMERA_SNAPSHOT_URLS: str = ""  # legacy comma-separated
 
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
+    RTSP_CONNECT_TIMEOUT_SEC: int = 5
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
@@ -56,7 +58,13 @@ def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """
     out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["/app/rtsp_grab.sh", rtsp_url, out],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=_rtsp_command_timeout(),
+        )
         with open(out, "rb") as f:
             b = f.read()
         if not b.startswith(b"\xff\xd8"):
@@ -124,9 +132,21 @@ def post_detection(snapshot_url: str, label: str, conf: float, snapshot_b64: str
         "snapshot_b64": snapshot_b64,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload)
+        r = c.post(f"{S.API_BASE_URL}/ingest/detection", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
+
+
+def _worker_headers() -> dict[str, str]:
+    token = (S.WORKER_TOKEN or "").strip()
+    if not token:
+        return {}
+    return {"X-Worker-Token": token}
+
+
+def _rtsp_command_timeout(duration_sec: int = 0) -> int:
+    connect_timeout = max(1, int(S.RTSP_CONNECT_TIMEOUT_SEC))
+    return max(5, int(duration_sec) + connect_timeout + 15)
 
 
 def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = None, clip_error: str | None = None):
@@ -136,7 +156,7 @@ def update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = N
         "clip_error": clip_error,
     }
     with httpx.Client(timeout=10.0) as c:
-        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload)
+        r = c.put(f"{S.API_BASE_URL}/alerts/{alert_id}/clip", json=payload, headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
@@ -172,6 +192,7 @@ def capture_alert_clip(cam: dict, alert: dict):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=_rtsp_command_timeout(max(1, int(S.CLIP_DURATION_SEC))),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
@@ -205,7 +226,7 @@ def _camera_rtsp_url(cam: dict) -> str:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
     pw = cam.get("password") or ""
-    return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
+    return f"rtsp://{quote(user, safe='')}:{quote(pw, safe='')}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
@@ -231,7 +252,7 @@ def _write_heartbeat() -> None:
 def get_cameras() -> list[dict]:
     # MVP: local worker endpoint returns creds
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(f"{S.API_BASE_URL}/worker/cameras")
+        r = c.get(f"{S.API_BASE_URL}/worker/cameras", headers=_worker_headers())
         r.raise_for_status()
         return r.json()
 
