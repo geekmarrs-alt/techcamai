@@ -3,14 +3,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import random
 import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
-from urllib.parse import quote
 
 import httpx
 from pydantic_settings import BaseSettings
