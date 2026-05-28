@@ -18,6 +18,8 @@ from fastapi.templating import Jinja2Templates
 from .discover import discover
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 
@@ -31,6 +33,8 @@ settings = Settings()
 db_path = Path(settings.DB_PATH)
 db_path.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{db_path}", echo=False)
+async_engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
+async_session_maker = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 clips_dir = Path(settings.CLIPS_DIR)
 clips_dir.mkdir(parents=True, exist_ok=True)
 
@@ -415,7 +419,7 @@ async def ui_add_post(request: Request):
             result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "save":
-        with Session(engine) as s:
+        async with async_session_maker() as s:
             c = Camera(
                 name=f"Cam {ip}",
                 ip=ip,
@@ -426,7 +430,7 @@ async def ui_add_post(request: Request):
                 password=password,
             )
             s.add(c)
-            s.commit()
+            await s.commit()
         result = {"ok": True, "saved": True}
 
     return templates.TemplateResponse(request, "add_camera.html", {"active": "add", "ip": ip, "result": result})
@@ -482,8 +486,8 @@ async def _fetch_camera_snapshot(cam: Camera) -> bytes:
 
 @app.get("/cameras/{camera_id}/snapshot.jpg")
 async def camera_snapshot(camera_id: int):
-    with Session(engine) as s:
-        cam = s.get(Camera, camera_id)
+    async with async_session_maker() as s:
+        cam = await s.get(Camera, camera_id)
         if not cam:
             raise HTTPException(status_code=404, detail="camera not found")
         if not cam.enabled:
@@ -603,7 +607,7 @@ async def ui_camera_update(camera_id: int, request: Request):
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
     )
-    update_camera(camera_id, patch)
+    await update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
 
 
@@ -742,9 +746,9 @@ def create_camera(cam: CameraCreate):
 
 
 @app.put("/cameras/{camera_id}")
-def update_camera(camera_id: int, patch: CameraUpdate):
-    with Session(engine) as s:
-        c = s.get(Camera, camera_id)
+async def update_camera(camera_id: int, patch: CameraUpdate):
+    async with async_session_maker() as s:
+        c = await s.get(Camera, camera_id)
         if not c:
             raise HTTPException(status_code=404, detail="camera not found")
 
@@ -757,8 +761,8 @@ def update_camera(camera_id: int, patch: CameraUpdate):
             setattr(c, k, v)
 
         s.add(c)
-        s.commit()
-        s.refresh(c)
+        await s.commit()
+        await s.refresh(c)
         return {"ok": True}
 
 
