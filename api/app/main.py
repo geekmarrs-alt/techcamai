@@ -18,7 +18,8 @@ from fastapi.templating import Jinja2Templates
 from .discover import discover
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-from sqlmodel import SQLModel, Field, Session, create_engine, select
+from sqlalchemy import func
+from sqlmodel import SQLModel, Field, Session, create_engine, select, or_
 
 
 class Settings(BaseSettings):
@@ -291,34 +292,89 @@ def _as_utc(dt: datetime | None) -> datetime | None:
 def _dashboard_context(poll: int = 0) -> dict:
     now = datetime.now(timezone.utc)
     with Session(engine) as s:
-        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(50)).all()
-        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(50)).all()
-        cams = {c.id: c for c in cameras}
-        rules = {r.id: r for r in s.exec(select(Rule)).all()}
+        # 1. Fetch summary stats via aggregation (highly efficient)
+        total_cameras = s.exec(select(func.count(Camera.id))).one()
+        total_alerts = s.exec(select(func.count(Alert.id))).one()
+        enabled_cameras_count = s.exec(select(func.count(Camera.id)).where(Camera.enabled == True)).one()  # noqa: E712
+        unacked_alerts_count = s.exec(select(func.count(Alert.id)).where(Alert.acked == False)).one()  # noqa: E712
 
-    enabled_cameras = [c for c in cameras if c.enabled]
-    unacked_alerts = [a for a in alerts if not a.acked]
-    featured_alert = unacked_alerts[0] if unacked_alerts else (alerts[0] if alerts else None)
-    featured_camera = None
-    if featured_alert:
-        featured_camera = cams.get(featured_alert.camera_id)
-    if not featured_camera and enabled_cameras:
-        featured_camera = enabled_cameras[0]
-    if not featured_camera and cameras:
-        featured_camera = cameras[0]
+        clip_ready_count = s.exec(select(func.count(Alert.id)).where(Alert.clip_status == "ready")).one()
+        clip_failed_count = s.exec(select(func.count(Alert.id)).where(Alert.clip_status == "failed")).one()
+        clip_pending_count = s.exec(select(func.count(Alert.id)).where(Alert.clip_status == "pending")).one()
 
-    supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
-    alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int((_as_utc(a.created_at) or now).timestamp())))
-    recent_playback_alerts = [a for a in alerts if getattr(a, "clip_status", None) in {"ready", "pending", "failed"}][:5]
+        cutoff_24h = now - timedelta(hours=24)
+        alerts_last_24h = s.exec(select(func.count(Alert.id)).where(Alert.created_at >= cutoff_24h)).one()
 
-    cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
-    clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
-    clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
-    clip_pending_count = len([a for a in alerts if getattr(a, "clip_status", None) == "pending"])
-    alerts_last_24h = len([a for a in alerts if _as_utc(a.created_at) and (now - _as_utc(a.created_at)).total_seconds() <= 86400])
-    cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
-    featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
-    featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
+        cameras_with_rules = s.exec(
+            select(func.count(func.distinct(Rule.camera_id))).where(Rule.enabled == True)  # noqa: E712
+        ).one()
+        cameras_without_rules = max(0, enabled_cameras_count - cameras_with_rules)
+
+        # 2. Fetch featured alert and camera
+        featured_alert = s.exec(
+            select(Alert).order_by(Alert.acked.asc(), Alert.created_at.desc()).limit(1)
+        ).first()
+
+        featured_camera = None
+        if featured_alert:
+            featured_camera = s.get(Camera, featured_alert.camera_id)
+
+        if not featured_camera:
+            featured_camera = s.exec(
+                select(Camera).where(Camera.enabled == True).order_by(Camera.id.desc()).limit(1)  # noqa: E712
+            ).first()
+        if not featured_camera:
+            featured_camera = s.exec(select(Camera).order_by(Camera.id.desc()).limit(1)).first()
+
+        featured_camera_unacked_count = 0
+        featured_camera_last_alert = None
+        if featured_camera:
+            featured_camera_unacked_count = s.exec(
+                select(func.count(Alert.id))
+                .where(Alert.camera_id == featured_camera.id)
+                .where(Alert.acked == False)  # noqa: E712
+            ).one()
+            featured_camera_last_alert = s.exec(
+                select(Alert)
+                .where(Alert.camera_id == featured_camera.id)
+                .order_by(Alert.created_at.desc())
+                .limit(1)
+            ).first()
+
+        # 3. Fetch list data for UI panels (limited to display requirements)
+        # supporting_cameras: up to 4 for sidebar
+        supp_q = select(Camera).where(Camera.enabled == True)  # noqa: E712
+        if featured_camera:
+            supp_q = supp_q.where(Camera.id != featured_camera.id)
+        supporting_cameras = s.exec(supp_q.order_by(Camera.id.desc()).limit(4)).all()
+
+        # alert_feed_items: 6 for right rail
+        alert_feed_items = s.exec(
+            select(Alert).order_by(Alert.acked.asc(), Alert.created_at.desc()).limit(6)
+        ).all()
+
+        # recent_playback_alerts: 5 for playback panel
+        recent_playback_alerts = s.exec(
+            select(Alert)
+            .where(Alert.clip_status.in_(["ready", "pending", "failed"]))
+            .order_by(Alert.created_at.desc())
+            .limit(5)
+        ).all()
+
+        # Legacy lists (used in v1 dashboard) - reduced limits for performance
+        alerts = s.exec(select(Alert).order_by(Alert.created_at.desc()).limit(10)).all()
+        cameras = s.exec(select(Camera).order_by(Camera.id.desc()).limit(10)).all()
+
+        # 4. Efficiently populate cams and rules mapping needed by templates
+        needed_cam_ids = {a.camera_id for a in (alert_feed_items + recent_playback_alerts + alerts)}
+        needed_cam_ids.update({c.id for c in (supporting_cameras + cameras)})
+        if featured_camera: needed_cam_ids.add(featured_camera.id)
+
+        cams = {c.id: c for c in s.exec(select(Camera).where(Camera.id.in_(list(needed_cam_ids)))).all()}
+
+        needed_rule_ids = {a.rule_id for a in (alert_feed_items + recent_playback_alerts + alerts)}
+        if featured_alert: needed_rule_ids.add(featured_alert.rule_id)
+        rules = {r.id: r for r in s.exec(select(Rule).where(Rule.id.in_(list(needed_rule_ids)))).all()}
 
     if featured_alert and featured_camera:
         focus_summary = (
@@ -348,14 +404,15 @@ def _dashboard_context(poll: int = 0) -> dict:
         "supporting_cameras": supporting_cameras,
         "alert_feed_items": alert_feed_items,
         "recent_playback_alerts": recent_playback_alerts,
-        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
+        "featured_camera_alert_count": featured_camera_unacked_count,
         "featured_camera_last_alert": featured_camera_last_alert,
         "focus_summary": focus_summary,
         "now_ts": int(now.timestamp()),
         "page_title": "Command dashboard",
-        "total_cameras": len(cameras),
-        "enabled_cameras": len(enabled_cameras),
-        "unacked_alerts": len(unacked_alerts),
+        "total_cameras": total_cameras,
+        "total_alerts": total_alerts,
+        "enabled_cameras": enabled_cameras_count,
+        "unacked_alerts": unacked_alerts_count,
         "clip_ready_count": clip_ready_count,
         "clip_failed_count": clip_failed_count,
         "clip_pending_count": clip_pending_count,

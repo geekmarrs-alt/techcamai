@@ -1,10 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Overview · TECHCAMAI{% endblock %}
 {% block content %}
-{% set total_alerts = alerts|length %}
-{% set total_cameras = cameras|length %}
-{% set enabled_cameras = cameras|selectattr('enabled')|list|length %}
-{% set unacked_alerts = alerts|rejectattr('acked')|list|length %}
+{# total_alerts, total_cameras, enabled_cameras, unacked_alerts provided by context #}
 
 <div class="topbar">
   <div>
