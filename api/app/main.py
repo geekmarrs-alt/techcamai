@@ -51,6 +51,7 @@ class Camera(SQLModel, table=True):
     snapshot_url: str = ""
 
     enabled: bool = True
+    verify_ssl: bool = Field(default=True)
 
 
 class Rule(SQLModel, table=True):
@@ -94,6 +95,7 @@ class CameraCreate(BaseModel):
     channel: int = 1
     scheme: str = "https"
     auth: str = "digest"
+    verify_ssl: bool = True
 
 
 class CameraTestRequest(BaseModel):
@@ -101,6 +103,7 @@ class CameraTestRequest(BaseModel):
     username: str
     password: str
     channel: int = 1
+    verify_ssl: bool = True
 
 
 class RuleCreate(BaseModel):
@@ -120,6 +123,7 @@ class CameraUpdate(BaseModel):
     scheme: Optional[str] = None
     auth: Optional[str] = None
     enabled: Optional[bool] = None
+    verify_ssl: Optional[bool] = None
 
 
 class AlertClipUpdate(BaseModel):
@@ -248,10 +252,26 @@ def _ensure_alert_columns() -> None:
         conn.commit()
 
 
+def _ensure_camera_columns() -> None:
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        exists = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='camera'"
+        ).fetchone()
+        if not exists:
+            return
+
+        cols = {row[1] for row in cur.execute("PRAGMA table_info(camera)").fetchall()}
+        if "verify_ssl" not in cols:
+            cur.execute("ALTER TABLE camera ADD COLUMN verify_ssl INTEGER NOT NULL DEFAULT 1")
+        conn.commit()
+
+
 @app.on_event("startup")
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_alert_columns()
+    _ensure_camera_columns()
 
     # seed minimal defaults if empty
     with Session(engine) as s:
@@ -408,9 +428,11 @@ async def ui_add_post(request: Request):
     channel = int(form.get("channel") or 1)
 
     result = None
+    verify_ssl = form.get("verify_ssl") == "on"
+
     if form.get("action") == "test":
         try:
-            result = await test_camera(CameraTestRequest(ip=ip, username=username, password=password, channel=channel))
+            result = await test_camera(CameraTestRequest(ip=ip, username=username, password=password, channel=channel, verify_ssl=verify_ssl))
         except HTTPException as e:
             result = {"ok": False, "error": str(e.detail)}
 
@@ -424,6 +446,7 @@ async def ui_add_post(request: Request):
                 auth="digest",
                 username=username,
                 password=password,
+                verify_ssl=verify_ssl,
             )
             s.add(c)
             s.commit()
@@ -461,7 +484,7 @@ async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     else:
         auth = httpx.DigestAuth(cam.username or "", cam.password or "")
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=getattr(cam, "verify_ssl", True)) as client:
         last_err = None
         for u in urls:
             try:
@@ -602,6 +625,7 @@ async def ui_camera_update(camera_id: int, request: Request):
         channel=int(form.get("channel") or 1),
         scheme=(form.get("scheme") or "https").strip() or None,
         auth=(form.get("auth") or "digest").strip() or None,
+        verify_ssl=form.get("verify_ssl") == "on",
     )
     update_camera(camera_id, patch)
     return RedirectResponse(url=f"/cameras/manage#cam-{camera_id}", status_code=303)
@@ -782,7 +806,7 @@ async def test_camera(req: CameraTestRequest):
     # Hikvision often uses Digest auth; try digest first.
     digest = httpx.DigestAuth(req.username, req.password)
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=req.verify_ssl) as client:
         last_err = None
         for u in urls:
             try:
