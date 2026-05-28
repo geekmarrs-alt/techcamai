@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import base64
+from concurrent.futures import Future, ThreadPoolExecutor
 import hashlib
 import json
 import os
 import random
 import subprocess
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,9 +28,15 @@ class Settings(BaseSettings):
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    CLIP_CAPTURE_WORKERS: int = 2
+    CLIP_CAPTURE_QUEUE_LIMIT: int = 16
 
 
 S = Settings()
+_CLIP_CAPTURE_WORKERS = max(1, int(S.CLIP_CAPTURE_WORKERS))
+_CLIP_CAPTURE_QUEUE_LIMIT = max(0, int(S.CLIP_CAPTURE_QUEUE_LIMIT))
+_CLIP_EXECUTOR = ThreadPoolExecutor(max_workers=_CLIP_CAPTURE_WORKERS, thread_name_prefix="clip-capture")
+_CLIP_CAPTURE_SLOTS = threading.BoundedSemaphore(_CLIP_CAPTURE_WORKERS + _CLIP_CAPTURE_QUEUE_LIMIT)
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -188,6 +196,57 @@ def capture_alert_clip(cam: dict, alert: dict):
         print(f"[worker] Clip failed for alert {alert_id}: {err}")
 
 
+def _safe_update_alert_clip(alert_id: int, clip_status: str, clip_path: str | None = None, clip_error: str | None = None) -> None:
+    try:
+        update_alert_clip(alert_id, clip_status, clip_path, clip_error)
+    except Exception as e:
+        print(f"[worker] Could not update clip status for alert {alert_id}: {e}")
+
+
+def _release_clip_slot(future: Future) -> None:
+    try:
+        future.result()
+    except Exception as e:
+        print(f"[worker] Unexpected clip capture error: {e}")
+    finally:
+        _CLIP_CAPTURE_SLOTS.release()
+
+
+def schedule_alert_clip(cam: dict, alert: dict) -> bool:
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return False
+
+    alert_id = alert.get("id")
+    if not alert_id:
+        return False
+
+    if not _CLIP_CAPTURE_SLOTS.acquire(blocking=False):
+        err = "clip capture queue full"
+        print(f"[worker] Clip skipped for alert {alert_id}: {err}")
+        threading.Thread(
+            target=_safe_update_alert_clip,
+            args=(int(alert_id), "failed", None, err),
+            daemon=True,
+        ).start()
+        return False
+
+    try:
+        future = _CLIP_EXECUTOR.submit(capture_alert_clip, dict(cam), dict(alert))
+    except Exception as e:
+        _CLIP_CAPTURE_SLOTS.release()
+        err = str(e)[:300]
+        print(f"[worker] Could not schedule clip for alert {alert_id}: {err}")
+        threading.Thread(
+            target=_safe_update_alert_clip,
+            args=(int(alert_id), "failed", None, err),
+            daemon=True,
+        ).start()
+        return False
+
+    future.add_done_callback(_release_clip_slot)
+    return True
+
+
 def _camera_snapshot_url(cam: dict) -> str:
     ip = cam.get("ip")
     scheme = cam.get("scheme") or "https"
@@ -286,7 +345,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        schedule_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
