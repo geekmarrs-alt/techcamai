@@ -7,6 +7,7 @@ import os
 import random
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -241,6 +242,12 @@ def main():
     prev_by_url: dict[str, bytes] = {}
     _api_reachable = True
 
+    # legacy env fallback (parse once)
+    urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
+    legacy = [{"ip": None, "snapshot_url": u} for u in urls]
+
+    executor = ThreadPoolExecutor(max_workers=4)
+
     while True:
         try:
             cams = get_cameras()
@@ -252,10 +259,6 @@ def main():
                 print(f"[worker] API unreachable ({S.API_BASE_URL}): {e} — will retry every {S.POLL_INTERVAL_SEC}s")
                 _api_reachable = False
             cams = []
-
-        # legacy env fallback
-        urls = parse_urls(S.CAMERA_SNAPSHOT_URLS)
-        legacy = [{"ip": None, "snapshot_url": u} for u in urls]
 
         if not cams and not legacy and _api_reachable:
             print("[worker] No cameras configured yet — add cameras at /cameras/manage")
@@ -286,7 +289,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        executor.submit(capture_alert_clip, cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
