@@ -6,7 +6,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir httpx pydantic-settings
+RUN pip install --no-cache-dir httpx pydantic-settings cryptography
 
 COPY . /app
 RUN chmod +x /app/rtsp_grab.sh /app/rtsp_clip.sh

@@ -12,8 +12,11 @@ from pathlib import Path
 from typing import List
 from urllib.parse import quote
 
+import base64
+import hashlib
 import httpx
 from pydantic_settings import BaseSettings
+from cryptography.fernet import Fernet
 
 
 class Settings(BaseSettings):
@@ -26,9 +29,26 @@ class Settings(BaseSettings):
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    SECRET_KEY: str = "techcamai-insecure-dev-key"
 
 
 S = Settings()
+
+
+def _get_fernet() -> Fernet:
+    # Derive a 32-byte key from SECRET_KEY
+    key = hashlib.sha256(S.SECRET_KEY.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def decrypt_password(value: str | None) -> str | None:
+    if not value or not value.startswith("enc:"):
+        return value
+    try:
+        f = _get_fernet()
+        return f.decrypt(value[4:].encode()).decode()
+    except Exception:
+        return value
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -204,13 +224,13 @@ def _camera_rtsp_url(cam: dict) -> str:
     if ch < 100:
         ch = ch * 100 + 1
     user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    pw = decrypt_password(cam.get("password")) or ""
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
 def _camera_auth(cam: dict) -> httpx.Auth | None:
     user = cam.get("username")
-    pw = cam.get("password")
+    pw = decrypt_password(cam.get("password"))
     if not user or not pw:
         return None
     auth = (cam.get("auth") or "digest").lower()

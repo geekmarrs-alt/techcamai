@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone, timedelta
+import hashlib
 import json
 import re
 import sqlite3
@@ -15,6 +16,7 @@ from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from cryptography.fernet import Fernet
 from .discover import discover
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -24,9 +26,34 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 class Settings(BaseSettings):
     DB_PATH: str = "/data/techcamai.db"
     CLIPS_DIR: str = "/data/clips"
+    SECRET_KEY: str = "techcamai-insecure-dev-key"
 
 
 settings = Settings()
+
+
+def _get_fernet() -> Fernet:
+    # Derive a 32-byte key from SECRET_KEY
+    key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def encrypt_password(password: str | None) -> str | None:
+    if not password:
+        return password
+    f = _get_fernet()
+    return "enc:" + f.encrypt(password.encode()).decode()
+
+
+def decrypt_password(value: str | None) -> str | None:
+    if not value or not value.startswith("enc:"):
+        return value
+    try:
+        f = _get_fernet()
+        return f.decrypt(value[4:].encode()).decode()
+    except Exception:
+        # Fallback for bad keys or tampered data during dev/migration
+        return value
 
 db_path = Path(settings.DB_PATH)
 db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -227,6 +254,16 @@ class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
 
+def _ensure_encrypted_passwords() -> None:
+    with Session(engine) as s:
+        cams = s.exec(select(Camera)).all()
+        for c in cams:
+            if c.password and not c.password.startswith("enc:"):
+                c.password = encrypt_password(c.password)
+                s.add(c)
+        s.commit()
+
+
 def _ensure_alert_columns() -> None:
     with sqlite3.connect(db_path) as conn:
         cur = conn.cursor()
@@ -252,6 +289,7 @@ def _ensure_alert_columns() -> None:
 def startup() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_alert_columns()
+    _ensure_encrypted_passwords()
 
     # seed minimal defaults if empty
     with Session(engine) as s:
@@ -423,7 +461,7 @@ async def ui_add_post(request: Request):
                 scheme="https",
                 auth="digest",
                 username=username,
-                password=password,
+                password=encrypt_password(password),
             )
             s.add(c)
             s.commit()
@@ -456,10 +494,11 @@ async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
     auth = None
+    password = decrypt_password(cam.password)
     if (cam.auth or "digest").lower() == "basic":
-        auth = (cam.username or "", cam.password or "")
+        auth = (cam.username or "", password or "")
     else:
-        auth = httpx.DigestAuth(cam.username or "", cam.password or "")
+        auth = httpx.DigestAuth(cam.username or "", password or "")
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
         last_err = None
@@ -733,7 +772,7 @@ def create_camera(cam: CameraCreate):
             scheme=cam.scheme,
             auth=cam.auth,
             username=cam.username,
-            password=cam.password,
+            password=encrypt_password(cam.password),
         )
         s.add(c)
         s.commit()
@@ -752,6 +791,8 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         # SECURITY: empty password means "keep existing".
         if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
             data.pop("password", None)
+        elif "password" in data:
+            data["password"] = encrypt_password(data["password"])
 
         for k, v in data.items():
             setattr(c, k, v)
@@ -780,6 +821,7 @@ async def test_camera(req: CameraTestRequest):
             f"http://{req.ip}/Streaming/channels/{ch}/picture",
         ]
     # Hikvision often uses Digest auth; try digest first.
+    # req.password is from the UI form, it is plaintext.
     digest = httpx.DigestAuth(req.username, req.password)
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, verify=False) as client:
