@@ -199,16 +199,24 @@ def _normalize_clip_status(status: Optional[str]) -> str:
 def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
+    # Normalize backslashes for cross-platform robustness before joining
     raw = str(value).strip().replace("\\", "/")
     if not raw:
         return None
-    rel = PurePosixPath(raw)
-    if rel.is_absolute() or ".." in rel.parts:
+    try:
+        # Use clips_dir.resolve() to ensure we have the absolute base path
+        base = clips_dir.resolve()
+        # Join and resolve the requested path to handle .. and symlinks
+        requested_path = (base / raw).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid clip_path")
+
+    # is_relative_to requires Python 3.9+; we are on 3.12 so it is safe.
+    if not requested_path.is_relative_to(base):
         raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
-    normalized = rel.as_posix().lstrip("/")
-    if not normalized or normalized.startswith("../"):
-        raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
-    return normalized
+
+    # Return as posix-style relative path string
+    return requested_path.relative_to(base).as_posix()
 
 
 def _channel_hint_from_source_url(value: str) -> Optional[int]:
