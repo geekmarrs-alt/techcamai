@@ -307,18 +307,48 @@ def _dashboard_context(poll: int = 0) -> dict:
     if not featured_camera and cameras:
         featured_camera = cameras[0]
 
-    supporting_cameras = [c for c in enabled_cameras if not featured_camera or c.id != featured_camera.id][:4]
+    supporting_cameras = []
+    for c in enabled_cameras:
+        if not featured_camera or c.id != featured_camera.id:
+            supporting_cameras.append(c)
+            if len(supporting_cameras) == 4:
+                break
+
     alert_feed_items = sorted(alerts[:6], key=lambda a: (a.acked, -int((_as_utc(a.created_at) or now).timestamp())))
-    recent_playback_alerts = [a for a in alerts if getattr(a, "clip_status", None) in {"ready", "pending", "failed"}][:5]
+
+    recent_playback_alerts = []
+    clip_ready_count = 0
+    clip_failed_count = 0
+    clip_pending_count = 0
+    alerts_last_24h = 0
+    featured_camera_alerts_unacked_count = 0
+    featured_camera_last_alert = None
+    featured_camera_id = featured_camera.id if featured_camera else None
+
+    for a in alerts:
+        status = getattr(a, "clip_status", None)
+        if status in {"ready", "pending", "failed"}:
+            if len(recent_playback_alerts) < 5:
+                recent_playback_alerts.append(a)
+            if status == "ready":
+                clip_ready_count += 1
+            elif status == "failed":
+                clip_failed_count += 1
+            elif status == "pending":
+                clip_pending_count += 1
+
+        utc_created = _as_utc(a.created_at)
+        if utc_created and (now - utc_created).total_seconds() <= 86400:
+            alerts_last_24h += 1
+
+        if featured_camera_id and a.camera_id == featured_camera_id:
+            if featured_camera_last_alert is None:
+                featured_camera_last_alert = a
+            if not a.acked:
+                featured_camera_alerts_unacked_count += 1
 
     cameras_with_rules = len({r.camera_id for r in rules.values() if r.enabled})
-    clip_ready_count = len([a for a in alerts if getattr(a, "clip_status", None) == "ready"])
-    clip_failed_count = len([a for a in alerts if getattr(a, "clip_status", None) == "failed"])
-    clip_pending_count = len([a for a in alerts if getattr(a, "clip_status", None) == "pending"])
-    alerts_last_24h = len([a for a in alerts if _as_utc(a.created_at) and (now - _as_utc(a.created_at)).total_seconds() <= 86400])
     cameras_without_rules = max(0, len(enabled_cameras) - cameras_with_rules)
-    featured_camera_alerts = [a for a in alerts if featured_camera and a.camera_id == featured_camera.id]
-    featured_camera_last_alert = featured_camera_alerts[0] if featured_camera_alerts else None
 
     if featured_alert and featured_camera:
         focus_summary = (
@@ -348,7 +378,7 @@ def _dashboard_context(poll: int = 0) -> dict:
         "supporting_cameras": supporting_cameras,
         "alert_feed_items": alert_feed_items,
         "recent_playback_alerts": recent_playback_alerts,
-        "featured_camera_alert_count": len([a for a in featured_camera_alerts if not a.acked]),
+        "featured_camera_alert_count": featured_camera_alerts_unacked_count,
         "featured_camera_last_alert": featured_camera_last_alert,
         "focus_summary": focus_summary,
         "now_ts": int(now.timestamp()),
