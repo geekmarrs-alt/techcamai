@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(os.getcwd())
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -22,6 +22,11 @@ class PlaybackCoherenceTests(unittest.TestCase):
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
         cls.main = importlib.import_module('app.main')
+
+        # Ensure database tables are created
+        from sqlmodel import SQLModel
+        from app.main import Camera, Rule, Alert
+        SQLModel.metadata.create_all(cls.main.engine)
 
     @classmethod
     def tearDownClass(cls):
