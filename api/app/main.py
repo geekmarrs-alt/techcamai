@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 from datetime import datetime, timezone, timedelta
 import json
 import re
@@ -187,6 +188,22 @@ templates.env.filters["clip_tone"] = _clip_status_tone
 _ALLOWED_CLIP_STATUSES = {"pending", "ready", "failed"}
 _RTSP_CHANNEL_RE = re.compile(r"/Streaming/Channels/(\d+)", re.IGNORECASE)
 _HTTP_CHANNEL_RE = re.compile(r"/channels/(\d+)(?:/|$)", re.IGNORECASE)
+
+
+def _ensure_safe_ip(ip_str: str) -> None:
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip_str}")
+
+    if ip.is_loopback:
+        raise HTTPException(status_code=400, detail="Loopback IP not allowed")
+    if ip.is_link_local:
+        raise HTTPException(status_code=400, detail="Link-local IP not allowed")
+    if ip.is_unspecified:
+        raise HTTPException(status_code=400, detail="Unspecified IP not allowed")
+    if ip.is_multicast:
+        raise HTTPException(status_code=400, detail="Multicast IP not allowed")
 
 
 def _normalize_clip_status(status: Optional[str]) -> str:
@@ -415,6 +432,7 @@ async def ui_add_post(request: Request):
             result = {"ok": False, "error": str(e.detail)}
 
     if form.get("action") == "save":
+        _ensure_safe_ip(ip)
         with Session(engine) as s:
             c = Camera(
                 name=f"Cam {ip}",
@@ -452,6 +470,7 @@ def _camera_snapshot_urls(ip: str, channel: int, scheme: str) -> list[str]:
 async def _fetch_camera_snapshot(cam: Camera) -> bytes:
     if not cam.ip:
         raise HTTPException(status_code=400, detail="camera has no ip")
+    _ensure_safe_ip(cam.ip)
 
     urls = _camera_snapshot_urls(cam.ip, cam.channel or 1, cam.scheme or "https")
 
@@ -725,6 +744,7 @@ def worker_cameras():
 def create_camera(cam: CameraCreate):
     if not cam.ip:
         raise HTTPException(status_code=400, detail="ip required")
+    _ensure_safe_ip(cam.ip)
     with Session(engine) as s:
         c = Camera(
             name=cam.name,
@@ -748,6 +768,9 @@ def update_camera(camera_id: int, patch: CameraUpdate):
         if not c:
             raise HTTPException(status_code=404, detail="camera not found")
 
+        if patch.ip is not None:
+            _ensure_safe_ip(patch.ip)
+
         data = patch.model_dump(exclude_unset=True)
         # SECURITY: empty password means "keep existing".
         if "password" in data and (data["password"] is None or str(data["password"]).strip() == ""):
@@ -764,6 +787,7 @@ def update_camera(camera_id: int, patch: CameraUpdate):
 
 @app.post("/cameras/test")
 async def test_camera(req: CameraTestRequest):
+    _ensure_safe_ip(req.ip)
     # Hikvision-first: try common snapshot endpoints.
     # Return base64 jpeg so UI can preview.
     # Many Hikvision devices use channel numbering like 101 for channel 1 main stream.
