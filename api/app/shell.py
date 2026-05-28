@@ -11,8 +11,10 @@ All call sites stay the same; only this module changes.
 See docs/PRODUCT_SHELL.md for the full commercial-tier spec.
 """
 
+import hashlib
 import os
 from enum import Enum
+from functools import lru_cache
 
 
 class Edition(str, Enum):
@@ -43,17 +45,45 @@ _EDITION_RANK: dict[Edition, int] = {
 CAMERA_LIMIT_COMMUNITY = 4
 
 
+@lru_cache(maxsize=1)
 def current_edition() -> Edition:
     """Return the active edition based on TECHCAMAI_LICENSE_KEY env var.
 
-    Currently always returns COMMUNITY — license validation not yet implemented.
-    When ready: validate key format and signature here.
-    Key format: TCAM-XXXX-XXXX-XXXX
+    Validation logic:
+    - Demo key 'TCAI-DEMO-2026' -> PRO
+    - Format 'TCAM-XXXX-XXXX-XXXX'
+    - Checksum: segment4 == SHA256('TCAM-' + segment2 + '-' + segment3 + salt)[:4]
+    - Edition: segment2 starts with PRO -> PRO, ENT -> ENTERPRISE
     """
-    key = os.environ.get("TECHCAMAI_LICENSE_KEY", "").strip()
+    key = os.environ.get("TECHCAMAI_LICENSE_KEY", "").strip().upper()
     if not key:
         return Edition.COMMUNITY
-    # TODO: implement key validation — for now any key value still returns COMMUNITY
+
+    if key == "TCAI-DEMO-2026":
+        return Edition.PRO
+
+    parts = key.split("-")
+    if len(parts) != 4 or parts[0] != "TCAM":
+        return Edition.COMMUNITY
+
+    # TCAM-XXXX-XXXX-XXXX
+    # 0    1    2    3
+    segment2 = parts[1]
+    segment3 = parts[2]
+    segment4 = parts[3]
+
+    salt = "TECHCAMAI-LICENSE-SALT-2026"
+    payload = f"TCAM-{segment2}-{segment3}{salt}"
+    expected_checksum = hashlib.sha256(payload.encode()).hexdigest()[:4].upper()
+
+    if segment4 != expected_checksum:
+        return Edition.COMMUNITY
+
+    if segment2.startswith("ENT"):
+        return Edition.ENTERPRISE
+    if segment2.startswith("PRO"):
+        return Edition.PRO
+
     return Edition.COMMUNITY
 
 
