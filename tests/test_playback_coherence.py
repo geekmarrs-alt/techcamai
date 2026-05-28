@@ -9,7 +9,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+# Fix REPO_ROOT for the current environment
+REPO_ROOT = Path("/app")
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -23,6 +24,10 @@ class PlaybackCoherenceTests(unittest.TestCase):
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
         cls.main = importlib.import_module('app.main')
 
+        # Ensure schema is created
+        from sqlmodel import SQLModel
+        SQLModel.metadata.create_all(cls.main.engine)
+
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.tempdir, ignore_errors=True)
@@ -30,13 +35,23 @@ class PlaybackCoherenceTests(unittest.TestCase):
     def setUp(self):
         shutil.rmtree(self.tempdir / 'clips', ignore_errors=True)
 
+        # Re-create schema in case it was deleted or for freshness
+        from sqlmodel import SQLModel
+        SQLModel.metadata.create_all(self.main.engine)
+
         self.client_cm = TestClient(self.main.app)
         self.client = self.client_cm.__enter__()
 
         with sqlite3.connect(self.tempdir / 'techcamai.db') as conn:
-            conn.execute('DELETE FROM alert')
-            conn.execute('DELETE FROM rule')
-            conn.execute('DELETE FROM camera')
+            # Check if tables exist before deleting
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            table_names = [t[0] for t in tables]
+            if 'alert' in table_names:
+                conn.execute('DELETE FROM alert')
+            if 'rule' in table_names:
+                conn.execute('DELETE FROM rule')
+            if 'camera' in table_names:
+                conn.execute('DELETE FROM camera')
             conn.commit()
 
     def tearDown(self):
