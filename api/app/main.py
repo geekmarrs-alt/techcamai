@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from .discover import discover
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-from sqlmodel import SQLModel, Field, Session, create_engine, select
+from sqlmodel import SQLModel, Field, Session, create_engine, select, func, cast, Integer
 
 
 class Settings(BaseSettings):
@@ -527,16 +527,24 @@ def ui_timeline(request: Request, poll: int = 0):
         cams = {c.id: c for c in s.exec(select(Camera)).all()}
         rules = {r.id: r for r in s.exec(select(Rule)).all()}
 
-    # Hourly alert counts for the activity strip: 24 buckets, index 0 = oldest hour, 23 = current hour.
+        # Efficiency: Aggregate hourly buckets directly in SQLite using julianday.
+        # (julianday(now) - julianday(created_at)) * 24 gives the age in hours.
+        # We cast to Integer to get the floor/bucket.
+        stmt = (
+            select(
+                cast((func.julianday(now) - func.julianday(Alert.created_at)) * 24, Integer).label("bucket"),
+                func.count().label("cnt")
+            )
+            .where(Alert.created_at >= now - timedelta(hours=24))
+            .group_by("bucket")
+        )
+        rows = s.exec(stmt).all()
+
+    # Map SQL buckets (0=current hour, 1=1h ago, etc) to template buckets (23=current hour).
     hourly_counts = [0] * 24
-    for a in alerts:
-        ts = a.created_at
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        age_sec = (now - ts).total_seconds()
-        bucket = int(age_sec // 3600)
+    for bucket, cnt in rows:
         if 0 <= bucket < 24:
-            hourly_counts[23 - bucket] += 1
+            hourly_counts[23 - bucket] = cnt
 
     return templates.TemplateResponse(
         request,
