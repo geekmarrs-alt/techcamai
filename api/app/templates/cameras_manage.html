@@ -63,7 +63,14 @@
           <div><div class="sub">Username</div><input name="username" value="{{c.username or ''}}" /></div>
           <div><div class="sub">Scheme</div><select class="select" name="scheme"><option value="https" {% if c.scheme=='https' %}selected{% endif %}>https</option><option value="http" {% if c.scheme=='http' %}selected{% endif %}>http</option></select></div>
           <div><div class="sub">Auth</div><select class="select" name="auth"><option value="digest" {% if c.auth=='digest' %}selected{% endif %}>digest</option><option value="basic" {% if c.auth=='basic' %}selected{% endif %}>basic</option></select></div>
-          <div style="grid-column: span 2;"><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Leave blank to keep existing password" autocomplete="new-password" /></div>
+          <div><div class="sub">Password</div><input name="password" type="password" value="" placeholder="Blank to keep" autocomplete="new-password" /></div>
+          <div>
+            <div class="sub">TLS Verify</div>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:10px; cursor:pointer;">
+              <input type="checkbox" name="verify_ssl" value="1" {% if c.verify_ssl %}checked{% endif %} style="width:auto; margin:0;" />
+              <span style="font-size:13px;">Enable HTTPS verification</span>
+            </label>
+          </div>
         </div>
 
         <div class="camera-admin-actions">

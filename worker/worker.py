@@ -36,7 +36,7 @@ def parse_urls(raw: str) -> List[str]:
     return [u for u in urls if u]
 
 
-def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = False) -> bytes | None:
+def fetch_snapshot_bytes(url: str, auth: httpx.Auth | None = None, verify: bool = True) -> bytes | None:
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True, verify=verify) as c:
             r = c.get(url, auth=auth)
@@ -269,7 +269,8 @@ def main():
             else:
                 url = _camera_snapshot_url(cam)
                 auth = _camera_auth(cam)
-                cur = fetch_snapshot_bytes(url, auth=auth, verify=False)
+                verify_ssl = cam.get("verify_ssl", True)
+                cur = fetch_snapshot_bytes(url, auth=auth, verify=verify_ssl)
                 key = url
 
             prev = prev_by_url.get(key)
