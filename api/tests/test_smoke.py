@@ -210,13 +210,54 @@ def test_clip_update_ready(client):
         "conf": 0.9,
     })
     alert_id = det_r.json()["triggered"][0]["id"]
+    clip_path = f"{cam_id}/20240101T120000Z-alert-{alert_id}.mp4"
+    clip_abs = os.path.join(_tmp_clips, clip_path)
+    os.makedirs(os.path.dirname(clip_abs), exist_ok=True)
+    with open(clip_abs, "wb") as f:
+        f.write(b"fake mp4")
 
     r = client.put(f"/alerts/{alert_id}/clip", json={
         "clip_status": "ready",
-        "clip_path": f"{cam_id}/20240101T120000Z-alert-{alert_id}.mp4",
+        "clip_path": clip_path,
     })
     assert r.status_code == 200
     assert r.json()["clip_status"] == "ready"
+    assert client.get(f"/clips/{clip_path}").status_code == 200
+
+
+def test_clip_update_rejects_wrong_alert_binding(client):
+    cam_r = client.post("/cameras", json={"name": "BoundCam", "ip": "10.1.1.3", "username": "u", "password": "p"})
+    cam_id = cam_r.json()["id"]
+    client.post("/rules", json={"name": "Bound rule", "camera_id": cam_id, "min_conf": 0.1, "cooldown_sec": 0})
+    det_r = client.post("/ingest/detection", json={
+        "camera_id": cam_id,
+        "camera_snapshot_url": "http://10.1.1.3/snap",
+        "label": "motion",
+        "conf": 0.9,
+    })
+    alert_id = det_r.json()["triggered"][0]["id"]
+
+    wrong_camera = client.put(f"/alerts/{alert_id}/clip", json={
+        "clip_status": "ready",
+        "clip_path": f"{cam_id + 1}/20240101T120000Z-alert-{alert_id}.mp4",
+    })
+    assert wrong_camera.status_code == 400
+
+    wrong_alert = client.put(f"/alerts/{alert_id}/clip", json={
+        "clip_status": "ready",
+        "clip_path": f"{cam_id}/20240101T120000Z-alert-{alert_id + 1}.mp4",
+    })
+    assert wrong_alert.status_code == 400
+
+
+def test_unreferenced_clip_file_not_served(client):
+    clip_abs = os.path.join(_tmp_clips, "999", "orphan-alert-999.mp4")
+    os.makedirs(os.path.dirname(clip_abs), exist_ok=True)
+    with open(clip_abs, "wb") as f:
+        f.write(b"fake mp4")
+
+    r = client.get("/clips/999/orphan-alert-999.mp4")
+    assert r.status_code == 404
 
 
 def test_clip_update_failed(client):

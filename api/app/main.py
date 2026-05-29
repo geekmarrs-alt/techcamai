@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -130,7 +130,6 @@ class AlertClipUpdate(BaseModel):
 
 app = FastAPI(title="TECHCAMAI API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
-app.mount("/clips", StaticFiles(directory=str(clips_dir)), name="clips")
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -209,6 +208,45 @@ def _normalize_clip_relpath(value: Optional[str]) -> Optional[str]:
     if not normalized or normalized.startswith("../"):
         raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
     return normalized
+
+
+def _clip_file_path(relpath: str) -> Path:
+    root = clips_dir.resolve()
+    path = (root / relpath).resolve()
+    if root not in path.parents:
+        raise HTTPException(status_code=400, detail="clip_path must stay within /clips")
+    return path
+
+
+def _validate_alert_clip_relpath(alert: Alert, relpath: str) -> None:
+    rel = PurePosixPath(relpath)
+    parts = rel.parts
+    if not parts or parts[0] != str(alert.camera_id):
+        raise HTTPException(status_code=400, detail="clip_path must match alert camera")
+    if rel.suffix.lower() != ".mp4" or f"-alert-{alert.id}" not in rel.name:
+        raise HTTPException(status_code=400, detail="clip_path must match alert id")
+
+
+@app.get("/clips/{clip_path:path}")
+def serve_clip(clip_path: str):
+    relpath = _normalize_clip_relpath(clip_path)
+    if not relpath:
+        raise HTTPException(status_code=404, detail="clip not found")
+
+    with Session(engine) as s:
+        alert = s.exec(
+            select(Alert)
+            .where(Alert.clip_path == relpath)
+            .where(Alert.clip_status == "ready")
+        ).first()
+        if not alert:
+            raise HTTPException(status_code=404, detail="clip not found")
+        _validate_alert_clip_relpath(alert, relpath)
+
+    path = _clip_file_path(relpath)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="clip not found")
+    return FileResponse(path, media_type="video/mp4")
 
 
 def _channel_hint_from_source_url(value: str) -> Optional[int]:
@@ -914,6 +952,10 @@ def update_alert_clip(alert_id: int, patch: AlertClipUpdate):
         a = s.get(Alert, alert_id)
         if not a:
             raise HTTPException(status_code=404, detail="alert not found")
+        if clip_status == "ready":
+            _validate_alert_clip_relpath(a, clip_path)
+            if not _clip_file_path(clip_path).is_file():
+                raise HTTPException(status_code=400, detail="clip file not found")
         a.clip_path = clip_path
         a.clip_status = clip_status
         a.clip_error = clip_error
