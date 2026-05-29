@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
@@ -21,6 +22,8 @@ class PlaybackCoherenceTests(unittest.TestCase):
         cls.tempdir = Path(tempfile.mkdtemp(prefix='techcamai-test-'))
         os.environ['DB_PATH'] = str(cls.tempdir / 'techcamai.db')
         os.environ['CLIPS_DIR'] = str(cls.tempdir / 'clips')
+        sys.modules.pop('app.main', None)
+        SQLModel.metadata.clear()
         cls.main = importlib.import_module('app.main')
 
     @classmethod
