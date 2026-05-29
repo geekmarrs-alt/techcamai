@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -134,16 +134,30 @@ class PlaybackCoherenceTests(unittest.TestCase):
         )
         self.assertEqual(bad.status_code, 400)
 
+        clip_relpath = f"{cam['id']}/20240101T120000Z-alert-{alert_id}.mp4"
+        clip_abspath = self.tempdir / 'clips' / clip_relpath
+        clip_abspath.parent.mkdir(parents=True, exist_ok=True)
+        clip_abspath.write_bytes(b'fake mp4')
+
         ok = self.client.put(
             f'/alerts/{alert_id}/clip',
-            json={'clip_status': 'ready', 'clip_path': '1/test-alert.mp4', 'clip_error': None},
+            json={'clip_status': 'ready', 'clip_path': clip_relpath, 'clip_error': None},
         )
         self.assertEqual(ok.status_code, 200, ok.text)
-        self.assertEqual(ok.json()['clip_path'], '1/test-alert.mp4')
+        self.assertEqual(ok.json()['clip_path'], clip_relpath)
 
         alerts_page = self.client.get('/alerts')
         self.assertEqual(alerts_page.status_code, 200)
-        self.assertIn('/clips/1/test-alert.mp4', alerts_page.text)
+        self.assertIn(f'/clips/{clip_relpath}', alerts_page.text)
+
+        clip_res = self.client.get(f'/clips/{clip_relpath}')
+        self.assertEqual(clip_res.status_code, 200)
+
+        wrong_alert = self.client.put(
+            f'/alerts/{alert_id}/clip',
+            json={'clip_status': 'ready', 'clip_path': f"{cam['id']}/20240101T120000Z-alert-{alert_id + 1}.mp4", 'clip_error': None},
+        )
+        self.assertEqual(wrong_alert.status_code, 400)
 
         failed = self.client.put(
             f'/alerts/{alert_id}/clip',
