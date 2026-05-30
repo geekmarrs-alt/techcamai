@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -23,12 +24,16 @@ class Settings(BaseSettings):
 
     # Prefer RTSP for broad compatibility; HTTP snapshot often 401/403 on Hik/OEM.
     PREFER_RTSP: int = 1
+    RTSP_FRAME_TIMEOUT_SEC: int = 20
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    CLIP_CAPTURE_TIMEOUT_SEC: int = 45
+    CLIP_CAPTURE_WORKERS: int = 2
 
 
 S = Settings()
+_CLIP_EXECUTOR = ThreadPoolExecutor(max_workers=max(1, int(S.CLIP_CAPTURE_WORKERS)))
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -56,7 +61,13 @@ def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """
     out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["/app/rtsp_grab.sh", rtsp_url, out],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=max(1, int(S.RTSP_FRAME_TIMEOUT_SEC)),
+        )
         with open(out, "rb") as f:
             b = f.read()
         if not b.startswith(b"\xff\xd8"):
@@ -172,6 +183,7 @@ def capture_alert_clip(cam: dict, alert: dict):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=max(1, int(S.CLIP_CAPTURE_TIMEOUT_SEC)),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
@@ -186,6 +198,18 @@ def capture_alert_clip(cam: dict, alert: dict):
         err = str(e)[:300]
         update_alert_clip(int(alert_id), "failed", None, err)
         print(f"[worker] Clip failed for alert {alert_id}: {err}")
+
+
+def schedule_alert_clip(cam: dict, alert: dict):
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return None
+    alert_id = alert.get("id")
+    if not alert_id:
+        return None
+
+    # Copy response dictionaries so the polling loop can continue immediately
+    # without sharing mutable camera/alert payloads with the background job.
+    return _CLIP_EXECUTOR.submit(capture_alert_clip, dict(cam), dict(alert))
 
 
 def _camera_snapshot_url(cam: dict) -> str:
@@ -286,7 +310,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        schedule_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 

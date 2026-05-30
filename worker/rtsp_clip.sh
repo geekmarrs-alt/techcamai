@@ -10,7 +10,7 @@ DURATION="${3:-12}"
 
 mkdir -p "$(dirname "$OUT")"
 
-ffmpeg -nostdin -hide_banner -loglevel error -y \
+exec ffmpeg -nostdin -hide_banner -loglevel error -y \
   -rtsp_transport tcp \
   -i "$URL" \
   -t "$DURATION" \
