@@ -5,7 +5,7 @@
 #
 # Usage on Pi:
 #   cp .env.example .env
-#   docker compose -f docker-compose.pi.yml up -d
+#   docker compose -f pi/docker-compose.pi.yml up -d
 #
 # Update cadence:
 #   - Default: daily at 03:15 local time (configurable)
@@ -14,7 +14,7 @@
 services:
   api:
     image: ghcr.io/geekmarrs-alt/techcamai-api:stable
-    env_file: .env
+    env_file: ../.env
     network_mode: host
     restart: unless-stopped
     healthcheck:
@@ -31,7 +31,7 @@ services:
 
   worker:
     image: ghcr.io/geekmarrs-alt/techcamai-worker:stable
-    env_file: .env
+    env_file: ../.env
     network_mode: host
     restart: unless-stopped
     labels:
