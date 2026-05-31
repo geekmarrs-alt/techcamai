@@ -7,6 +7,7 @@ import os
 import random
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
 
 
 S = Settings()
+_CLIP_EXECUTOR = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("CLIP_CAPTURE_WORKERS", "2"))))
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -188,6 +190,12 @@ def capture_alert_clip(cam: dict, alert: dict):
         print(f"[worker] Clip failed for alert {alert_id}: {err}")
 
 
+def schedule_alert_clip(cam: dict, alert: dict):
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return None
+    return _CLIP_EXECUTOR.submit(capture_alert_clip, dict(cam), dict(alert))
+
+
 def _camera_snapshot_url(cam: dict) -> str:
     ip = cam.get("ip")
     scheme = cam.get("scheme") or "https"
@@ -203,8 +211,8 @@ def _camera_rtsp_url(cam: dict) -> str:
     ch = channel
     if ch < 100:
         ch = ch * 100 + 1
-    user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    user = quote(cam.get("username") or "", safe="")
+    pw = quote(cam.get("password") or "", safe="")
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
@@ -286,7 +294,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        schedule_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
