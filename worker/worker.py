@@ -7,6 +7,7 @@ import os
 import random
 import subprocess
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -29,6 +30,9 @@ class Settings(BaseSettings):
 
 
 S = Settings()
+
+_CLIP_EXECUTOR = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("CLIP_CAPTURE_WORKERS", "1"))))
+_PENDING_CLIP_FUTURES: set[Future] = set()
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -153,6 +157,31 @@ def _alert_clip_relpath(cam: dict, alert_id: int, created_at: str | None = None)
     return f"{cam_id}/{stamp}-alert-{alert_id}.mp4"
 
 
+def _clip_capture_timeout_sec() -> int:
+    return max(1, int(S.CLIP_DURATION_SEC)) + 15
+
+
+def _forget_clip_future(future: Future) -> None:
+    _PENDING_CLIP_FUTURES.discard(future)
+    try:
+        future.exception()
+    except Exception as e:
+        print(f"[worker] Background clip task crashed: {e}")
+
+
+def schedule_alert_clip(cam: dict, alert: dict) -> Future | None:
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return None
+    if not alert.get("id"):
+        return None
+
+    # Copy payloads so later loop mutations cannot affect the background task.
+    future = _CLIP_EXECUTOR.submit(capture_alert_clip, dict(cam), dict(alert))
+    _PENDING_CLIP_FUTURES.add(future)
+    future.add_done_callback(_forget_clip_future)
+    return future
+
+
 def capture_alert_clip(cam: dict, alert: dict):
     if int(S.CLIP_CAPTURE_ENABLED) != 1:
         return
@@ -172,6 +201,7 @@ def capture_alert_clip(cam: dict, alert: dict):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=_clip_capture_timeout_sec(),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
@@ -286,7 +316,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        schedule_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
