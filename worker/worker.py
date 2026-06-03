@@ -26,9 +26,15 @@ class Settings(BaseSettings):
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    RTSP_CONNECT_TIMEOUT_SEC: int = 15
 
 
 S = Settings()
+
+
+def _ffmpeg_timeout(duration_sec: int = 0) -> int:
+    connect_timeout = max(1, int(S.RTSP_CONNECT_TIMEOUT_SEC))
+    return max(0, int(duration_sec)) + connect_timeout
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -56,7 +62,13 @@ def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """
     out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["/app/rtsp_grab.sh", rtsp_url, out],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=_ffmpeg_timeout(),
+        )
         with open(out, "rb") as f:
             b = f.read()
         if not b.startswith(b"\xff\xd8"):
@@ -167,11 +179,13 @@ def capture_alert_clip(cam: dict, alert: dict):
 
     rtsp_url = _camera_rtsp_url(cam)
     try:
+        duration_sec = max(1, int(S.CLIP_DURATION_SEC))
         subprocess.run(
-            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
+            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(duration_sec)],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=_ffmpeg_timeout(duration_sec),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
