@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-REPO_ROOT = Path('/data/.openclaw/workspace/recovered/techcamai')
+REPO_ROOT = Path(__file__).resolve().parents[1]
 API_ROOT = REPO_ROOT / 'api'
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
@@ -112,6 +112,25 @@ class PlaybackCoherenceTests(unittest.TestCase):
         body = res.json()
         self.assertEqual(len(body['triggered']), 1)
         self.assertEqual(body['triggered'][0]['camera_id'], cam2['id'])
+
+    def test_ingest_drops_ambiguous_shared_ip_without_channel_hint(self):
+        cam1 = self._create_camera('Ambiguous ch1', '10.0.0.61', 1)
+        cam2 = self._create_camera('Ambiguous ch2', '10.0.0.61', 2)
+        self._create_rule(cam1['id'])
+        self._create_rule(cam2['id'])
+
+        res = self.client.post(
+            '/ingest/detection',
+            json={
+                'camera_snapshot_url': 'http://10.0.0.61/snapshot.jpg',
+                'label': 'motion',
+                'conf': 0.93,
+                'snapshot_b64': None,
+            },
+        )
+        self.assertEqual(res.status_code, 200, res.text)
+        body = res.json()
+        self.assertEqual(body['triggered'], [])
 
     def test_clip_updates_validate_and_render_cleanly(self):
         cam = self._create_camera('Playback cam', '10.0.0.70', 1)
