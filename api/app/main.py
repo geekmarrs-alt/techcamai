@@ -223,6 +223,12 @@ def _channel_hint_from_source_url(value: str) -> Optional[int]:
     return None
 
 
+def _only_camera_for_host(cameras: list[Camera]) -> Optional[Camera]:
+    if len(cameras) == 1:
+        return cameras[0]
+    return None
+
+
 class DiscoverRequest(BaseModel):
     timeout_sec: int = 120
 
@@ -861,14 +867,12 @@ def ingest_detection(det: DetectionIn):
                 host = None
             if host:
                 channel_hint = _channel_hint_from_source_url(det.camera_snapshot_url)
+                host_matches = s.exec(select(Camera).where(Camera.ip == host)).all()
                 if channel_hint is not None:
-                    cam = s.exec(
-                        select(Camera)
-                        .where(Camera.ip == host)
-                        .where(Camera.channel == channel_hint)
-                    ).first()
-                if not cam:
-                    cam = s.exec(select(Camera).where(Camera.ip == host)).first()
+                    matches = [c for c in host_matches if c.channel == channel_hint]
+                    cam = _only_camera_for_host(matches)
+                elif host_matches:
+                    cam = _only_camera_for_host(host_matches)
 
         if not cam:
             return {"ok": True, "triggered": []}
