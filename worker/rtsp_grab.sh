@@ -11,7 +11,7 @@ OUT="$2"
 # -rtsp_transport tcp is more reliable on crappy networks
 # -frames:v 1 writes a single frame
 # -q:v controls jpeg quality
-ffmpeg -nostdin -hide_banner -loglevel error \
+ffmpeg -nostdin -hide_banner -loglevel error -y \
   -rtsp_transport tcp \
   -i "$URL" \
   -frames:v 1 -q:v 3 \

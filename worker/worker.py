@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
     CLIP_CAPTURE_ENABLED: int = 1
+    RTSP_FRAME_TIMEOUT_SEC: int = 15
+    RTSP_CLIP_TIMEOUT_EXTRA_SEC: int = 10
 
 
 S = Settings()
@@ -54,16 +56,33 @@ def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
 
     This is intentionally dumb + robust for MVP: spawn ffmpeg, write /tmp frame, read bytes.
     """
-    out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
+    digest = hashlib.sha256(rtsp_url.encode("utf-8")).hexdigest()
+    out_path = Path(f"/tmp/techcamai_rtsp_{digest}.jpg")
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        with open(out, "rb") as f:
-            b = f.read()
+        try:
+            out_path.unlink()
+        except FileNotFoundError:
+            pass
+        subprocess.run(
+            ["/app/rtsp_grab.sh", rtsp_url, str(out_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=max(1, int(S.RTSP_FRAME_TIMEOUT_SEC)),
+        )
+        b = out_path.read_bytes()
         if not b.startswith(b"\xff\xd8"):
             return None
         return b
     except Exception:
         return None
+    finally:
+        try:
+            out_path.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
 
 
 def jpeg_b64(jpeg: bytes | None) -> str | None:
@@ -167,11 +186,13 @@ def capture_alert_clip(cam: dict, alert: dict):
 
     rtsp_url = _camera_rtsp_url(cam)
     try:
+        duration = max(1, int(S.CLIP_DURATION_SEC))
         subprocess.run(
-            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
+            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(duration)],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=duration + max(1, int(S.RTSP_CLIP_TIMEOUT_EXTRA_SEC)),
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
@@ -203,8 +224,8 @@ def _camera_rtsp_url(cam: dict) -> str:
     ch = channel
     if ch < 100:
         ch = ch * 100 + 1
-    user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    user = quote(str(cam.get("username") or ""), safe="")
+    pw = quote(str(cam.get("password") or ""), safe="")
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
