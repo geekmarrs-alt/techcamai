@@ -30,6 +30,9 @@ class Settings(BaseSettings):
 
 S = Settings()
 
+RTSP_GRAB_TIMEOUT_SEC = 15
+CLIP_CONNECT_TIMEOUT_SEC = 15
+
 
 def parse_urls(raw: str) -> List[str]:
     urls = [u.strip() for u in (raw or "").split(",")]
@@ -56,7 +59,13 @@ def fetch_rtsp_frame(rtsp_url: str) -> bytes | None:
     """
     out = f"/tmp/techcamai_rtsp_{abs(hash(rtsp_url))}.jpg"
     try:
-        subprocess.run(["/app/rtsp_grab.sh", rtsp_url, out], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["/app/rtsp_grab.sh", rtsp_url, out],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=RTSP_GRAB_TIMEOUT_SEC,
+        )
         with open(out, "rb") as f:
             b = f.read()
         if not b.startswith(b"\xff\xd8"):
@@ -172,11 +181,10 @@ def capture_alert_clip(cam: dict, alert: dict):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=max(1, int(S.CLIP_DURATION_SEC)) + CLIP_CONNECT_TIMEOUT_SEC,
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
-        update_alert_clip(int(alert_id), "ready", rel_path, None)
-        print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
     except Exception as e:
         try:
             if out_path.exists():
@@ -186,6 +194,16 @@ def capture_alert_clip(cam: dict, alert: dict):
         err = str(e)[:300]
         update_alert_clip(int(alert_id), "failed", None, err)
         print(f"[worker] Clip failed for alert {alert_id}: {err}")
+        return
+
+    try:
+        update_alert_clip(int(alert_id), "ready", rel_path, None)
+        print(f"[worker] Clip ready for alert {alert_id}: {rel_path}")
+    except Exception as e:
+        # The clip is valid evidence at this point; keep it even if the API is
+        # temporarily unavailable so it can be reconciled instead of destroyed.
+        err = str(e)[:300]
+        print(f"[worker] Clip captured for alert {alert_id} but metadata update failed: {err}")
 
 
 def _camera_snapshot_url(cam: dict) -> str:
@@ -203,8 +221,8 @@ def _camera_rtsp_url(cam: dict) -> str:
     ch = channel
     if ch < 100:
         ch = ch * 100 + 1
-    user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    user = quote(cam.get("username") or "", safe="")
+    pw = quote(cam.get("password") or "", safe="")
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
