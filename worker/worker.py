@@ -7,6 +7,7 @@ import os
 import random
 import subprocess
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -25,10 +26,13 @@ class Settings(BaseSettings):
     PREFER_RTSP: int = 1
     CLIPS_DIR: str = "/data/clips"
     CLIP_DURATION_SEC: int = 12
+    CLIP_CAPTURE_TIMEOUT_SEC: int = 30
+    CLIP_CAPTURE_WORKERS: int = 2
     CLIP_CAPTURE_ENABLED: int = 1
 
 
 S = Settings()
+_clip_executor = ThreadPoolExecutor(max_workers=max(1, int(S.CLIP_CAPTURE_WORKERS)), thread_name_prefix="alert-clip")
 
 
 def parse_urls(raw: str) -> List[str]:
@@ -166,12 +170,15 @@ def capture_alert_clip(cam: dict, alert: dict):
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     rtsp_url = _camera_rtsp_url(cam)
+    duration = max(1, int(S.CLIP_DURATION_SEC))
+    timeout = max(duration + 5, int(S.CLIP_CAPTURE_TIMEOUT_SEC))
     try:
         subprocess.run(
-            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(max(1, int(S.CLIP_DURATION_SEC)))],
+            ["/app/rtsp_clip.sh", rtsp_url, str(out_path), str(duration)],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=timeout,
         )
         if not out_path.exists() or out_path.stat().st_size == 0:
             raise RuntimeError("clip file missing or empty")
@@ -186,6 +193,27 @@ def capture_alert_clip(cam: dict, alert: dict):
         err = str(e)[:300]
         update_alert_clip(int(alert_id), "failed", None, err)
         print(f"[worker] Clip failed for alert {alert_id}: {err}")
+
+
+def _log_clip_task_failure(fut: Future) -> None:
+    try:
+        fut.result()
+    except Exception as e:
+        print(f"[worker] Clip task crashed: {e}")
+
+
+def schedule_alert_clip(cam: dict, alert: dict) -> Future | None:
+    if int(S.CLIP_CAPTURE_ENABLED) != 1:
+        return None
+    if not alert.get("id"):
+        return None
+    try:
+        fut = _clip_executor.submit(capture_alert_clip, dict(cam), dict(alert))
+        fut.add_done_callback(_log_clip_task_failure)
+        return fut
+    except Exception as e:
+        print(f"[worker] Could not schedule clip for alert {alert.get('id')}: {e}")
+        return None
 
 
 def _camera_snapshot_url(cam: dict) -> str:
@@ -203,8 +231,8 @@ def _camera_rtsp_url(cam: dict) -> str:
     ch = channel
     if ch < 100:
         ch = ch * 100 + 1
-    user = cam.get("username") or ""
-    pw = cam.get("password") or ""
+    user = quote(cam.get("username") or "", safe="")
+    pw = quote(cam.get("password") or "", safe="")
     return f"rtsp://{user}:{pw}@{ip}:554/Streaming/Channels/{ch}"
 
 
@@ -286,7 +314,7 @@ def main():
                 if trig:
                     print(f"[worker] Triggered {len(trig)} alert(s) for {cam.get('ip')} label={label} conf={conf:.2f}")
                     for alert in trig:
-                        capture_alert_clip(cam, alert)
+                        schedule_alert_clip(cam, alert)
             except Exception as e:
                 print(f"[worker] Error posting detection for {cam.get('ip')}: {e}")
 
